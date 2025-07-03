@@ -1,26 +1,35 @@
 # myjob
 
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
-
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/startup1/v0-myjob)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/3OgFBbNCooK)
 
 ## Overview
+**myJob** is an AI-powered job search and resume tailoring platform. Users can manage multiple resumes, create tailored versions for specific jobs, and search for job opportunities. The app is built with Next.js, React, Firebase, and Tailwind CSS.
 
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
+## Features
 
-## Deployment
+- User authentication (Firebase)
+- Resume management (upload, edit, delete, set default)
+- Create tailored resumes for specific jobs
+- Job search and filtering
+- Responsive, modern UI
+- Secure: All debug/test endpoints and UI have been removed for production
 
-Your project is live at:
+## Local Development
 
-**[https://vercel.com/startup1/v0-myjob](https://vercel.com/startup1/v0-myjob)**
-
-## Build your app
-
-Continue building your app on:
-
-**[https://v0.dev/chat/projects/3OgFBbNCooK](https://v0.dev/chat/projects/3OgFBbNCooK)**
+1. Clone this repository
+2. Copy `.env.example` to `.env.local` and fill in your Firebase and other required credentials
+3. Install dependencies:
+   ```bash
+   npm install
+   # or
+   pnpm install
+   ```
+4. Run the development server:
+   ```bash
+   npm run dev
+   # or
+   pnpm dev
+   ```
+5. Open [http://localhost:3000](http://localhost:3000) in your browser
 
 ## How It Works
 
@@ -28,3 +37,7 @@ Continue building your app on:
 2. Deploy your chats from the v0 interface
 3. Changes are automatically pushed to this repository
 4. Vercel deploys the latest version from this repository
+
+---
+
+**Note:** All internal debug endpoints (health check, test auth, debug-resumes) and UI buttons have been removed for production security and cleanliness.
