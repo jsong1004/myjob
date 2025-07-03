@@ -10,6 +10,12 @@ export async function POST(req: NextRequest) {
     console.log(`[JobSearch] Resume provided: ${!!resume}`);
     console.log(`[JobSearch] Resume length: ${resume?.length || 0} characters`);
     
+    // Debug environment variables
+    console.log(`[JobSearch] Environment check:`);
+    console.log(`[JobSearch] - SERPAPI_KEY exists: ${!!process.env.SERPAPI_KEY}`);
+    console.log(`[JobSearch] - OPENROUTER_API_KEY exists: ${!!process.env.OPENROUTER_API_KEY}`);
+    console.log(`[JobSearch] - NODE_ENV: ${process.env.NODE_ENV}`);
+    
     if (resume) {
       console.log(`[JobSearch] Resume preview (first 200 chars):`, resume.substring(0, 200) + '...');
     }
@@ -134,8 +140,11 @@ export async function POST(req: NextRequest) {
       
       try {
         const openrouterApiKey = process.env.OPENROUTER_API_KEY;
+        console.log(`[JobSearch] OpenRouter API key check: exists=${!!openrouterApiKey}, length=${openrouterApiKey?.length || 0}`);
+        
         if (!openrouterApiKey) {
           console.error('[JobSearch] Missing OpenRouter API key');
+          console.error('[JobSearch] Available env vars:', Object.keys(process.env).filter(key => key.includes('ROUTER') || key.includes('API')));
           throw new Error("Missing OpenRouter API key");
         }
         
@@ -283,8 +292,8 @@ export async function POST(req: NextRequest) {
     console.log(`\n=== [JobSearch] Filtering Results ===`);
     const originalJobCount = jobs.length;
     
-    // Only keep jobs with matchingScore >= 60 (good matches) if we have resume
-    if (resume) {
+    // Only keep jobs with matchingScore >= 60 (good matches) if we have resume AND successful matching
+    if (resume && jobs.some((job: any) => job.matchingScore > 0)) {
       jobs = jobs.filter((job: any) => job.matchingScore >= 60);
       console.log(`[JobSearch] Filtered jobs by score >= 60: ${originalJobCount} -> ${jobs.length}`);
       
@@ -292,6 +301,15 @@ export async function POST(req: NextRequest) {
         console.warn('[JobSearch] No jobs passed the matchingScore filter (>= 60)');
         console.log('[JobSearch] Original scores:', jobs.map((j: any) => ({ id: j.id, title: j.title, score: j.matchingScore })));
       }
+    } else if (resume) {
+      // If we have resume but no matching scores (API failed), assign default scores and return all jobs
+      console.log(`[JobSearch] OpenRouter matching failed, assigning default scores to all ${jobs.length} jobs`);
+      jobs = jobs.map((job: any) => ({
+        ...job,
+        matchingScore: 50, // Default score
+        matchingSummary: "Matching analysis unavailable - OpenRouter API error"
+      }));
+      console.log(`[JobSearch] Returning all ${jobs.length} jobs with default scores`);
     } else {
       console.log(`[JobSearch] No resume provided, returning all ${jobs.length} jobs without filtering`);
     }

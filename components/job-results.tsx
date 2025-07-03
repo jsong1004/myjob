@@ -123,11 +123,14 @@ export function JobResults({ results }: JobResultsProps) {
                   <TableCell className="font-medium">{job.company}</TableCell>
                   <TableCell>{job.location}</TableCell>
                   <TableCell className="max-w-xs">
-                    <p className="text-sm text-gray-600 line-clamp-2">
+                    <p
+                      className="text-sm text-gray-600 line-clamp-2 cursor-pointer"
+                      title={job.matchingSummary?.length
+                        ? job.matchingSummary
+                        : job.description?.slice(0, 200) || "No summary available."}
+                    >
                       {job.matchingSummary?.length
                         ? job.matchingSummary
-                        : job.summary?.length
-                        ? job.summary
                         : job.description?.slice(0, 200) || "No summary available."}
                     </p>
                   </TableCell>
