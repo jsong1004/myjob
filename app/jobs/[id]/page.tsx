@@ -1,58 +1,13 @@
 "use client"
 
-import { use } from "react"
+import { use, useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, MapPin, Calendar, DollarSign, Building, Bookmark, ExternalLink } from "lucide-react"
 import Link from "next/link"
-
-// Mock job data - in real app, this would come from API/database
-const mockJob = {
-  id: "1",
-  title: "Senior Frontend Developer",
-  company: "TechCorp Inc.",
-  location: "San Francisco, CA",
-  salary: "$120,000 - $160,000",
-  postedAt: "2024-07-01",
-  matchingScore: 92,
-  fullDescription: `We are looking for a Senior Frontend Developer to join our growing team and help build the next generation of our web applications.
-
-As a Senior Frontend Developer, you will be responsible for developing and maintaining high-quality, scalable web applications using modern JavaScript frameworks and libraries. You will work closely with our design and backend teams to create exceptional user experiences.`,
-
-  qualifications: [
-    "5+ years of experience in frontend development",
-    "Expert knowledge of React, TypeScript, and modern JavaScript",
-    "Experience with state management libraries (Redux, Zustand)",
-    "Strong understanding of responsive design and CSS frameworks",
-    "Experience with testing frameworks (Jest, React Testing Library)",
-    "Knowledge of build tools and bundlers (Webpack, Vite)",
-    "Familiarity with version control systems (Git)",
-    "Bachelor's degree in Computer Science or related field",
-  ],
-
-  responsibilities: [
-    "Develop and maintain responsive web applications using React and TypeScript",
-    "Collaborate with UX/UI designers to implement pixel-perfect designs",
-    "Write clean, maintainable, and well-documented code",
-    "Participate in code reviews and provide constructive feedback",
-    "Optimize applications for maximum speed and scalability",
-    "Stay up-to-date with the latest frontend technologies and best practices",
-    "Mentor junior developers and contribute to team knowledge sharing",
-    "Work with backend developers to integrate APIs and services",
-  ],
-
-  benefits: [
-    "Competitive salary and equity package",
-    "Comprehensive health, dental, and vision insurance",
-    "Flexible work arrangements and remote work options",
-    "Professional development budget for conferences and courses",
-    "Generous PTO and parental leave policies",
-    "Modern office space with free meals and snacks",
-    "401(k) with company matching",
-    "Wellness programs and gym membership reimbursement",
-  ],
-}
+import { Header } from "@/components/header"
+import { AuthProvider } from "@/components/auth-provider"
 
 interface JobDetailPageProps {
   params: Promise<{ id: string }>
@@ -60,21 +15,81 @@ interface JobDetailPageProps {
 
 export default function JobDetailPage({ params }: JobDetailPageProps) {
   const { id } = use(params)
+  const [job, setJob] = useState<any | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // In real app, you would fetch job data based on ID
-  const job = mockJob
+  useEffect(() => {
+    // Try to get job from last search results in sessionStorage
+    const jobsRaw = typeof window !== 'undefined' ? sessionStorage.getItem('lastJobResults') : null
+    let foundJob = null
+    if (jobsRaw) {
+      try {
+        const jobs = JSON.parse(jobsRaw)
+        foundJob = jobs.find((j: any) => j.id === id)
+      } catch {}
+    }
+    if (foundJob) {
+      setJob(foundJob)
+      setLoading(false)
+    } else {
+      // Fallback: fetch from backend (search by id)
+      fetch(`/api/jobs/search`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: id, location: "" }),
+      })
+        .then(res => res.json())
+        .then(data => {
+          const match = (data.jobs || []).find((j: any) => j.id === id)
+          if (match) setJob(match)
+          else setError("Job not found.")
+        })
+        .catch(() => setError("Failed to load job details."))
+        .finally(() => setLoading(false))
+    }
+  }, [id])
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
+    if (!dateString) return "-"
+    const d = new Date(dateString)
+    return isNaN(d.getTime()) ? dateString : d.toLocaleDateString("en-US", {
       month: "long",
       day: "numeric",
       year: "numeric",
     })
   }
 
+  if (loading) {
+    return (
+      <AuthProvider>
+        <div className="min-h-screen bg-gray-50">
+          <Header />
+          <div className="container mx-auto px-4 py-8">
+            <div className="max-w-4xl mx-auto text-center py-20 text-gray-500">Loading job details...</div>
+          </div>
+        </div>
+      </AuthProvider>
+    )
+  }
+  if (error || !job) {
+    return (
+      <AuthProvider>
+        <div className="min-h-screen bg-gray-50">
+          <Header />
+          <div className="container mx-auto px-4 py-8">
+            <div className="max-w-4xl mx-auto text-center py-20 text-red-500">{error || "Job not found."}</div>
+          </div>
+        </div>
+      </AuthProvider>
+    )
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
+    <AuthProvider>
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto space-y-6">
           {/* Back Button */}
           <Link href="/">
@@ -152,7 +167,7 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
             </CardHeader>
             <CardContent>
               <ul className="space-y-2">
-                {job.qualifications.map((qualification, index) => (
+                {job.qualifications.map((qualification: string, index: number) => (
                   <li key={index} className="flex items-start gap-2">
                     <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0" />
                     <span className="text-gray-700">{qualification}</span>
@@ -169,7 +184,7 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
             </CardHeader>
             <CardContent>
               <ul className="space-y-2">
-                {job.responsibilities.map((responsibility, index) => (
+                {job.responsibilities.map((responsibility: string, index: number) => (
                   <li key={index} className="flex items-start gap-2">
                     <div className="w-2 h-2 bg-green-600 rounded-full mt-2 flex-shrink-0" />
                     <span className="text-gray-700">{responsibility}</span>
@@ -186,7 +201,7 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
             </CardHeader>
             <CardContent>
               <ul className="space-y-2">
-                {job.benefits.map((benefit, index) => (
+                {job.benefits.map((benefit: string, index: number) => (
                   <li key={index} className="flex items-start gap-2">
                     <div className="w-2 h-2 bg-purple-600 rounded-full mt-2 flex-shrink-0" />
                     <span className="text-gray-700">{benefit}</span>
@@ -220,7 +235,8 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
             </CardContent>
           </Card>
         </div>
+        </div>
       </div>
-    </div>
+    </AuthProvider>
   )
 }

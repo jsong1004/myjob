@@ -8,13 +8,9 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { ArrowLeft, Send, Loader2, Save, Download, MessageSquare, FileText, Sparkles } from "lucide-react"
 import Link from "next/link"
-
-interface ChatMessage {
-  id: string
-  type: "user" | "ai"
-  content: string
-  timestamp: Date
-}
+import { Header } from "@/components/header"
+import { AuthProvider } from "@/components/auth-provider"
+import { ChatMessage } from "@/lib/types"
 
 interface TailorResumePageProps {
   params: Promise<{ id: string }>
@@ -102,17 +98,40 @@ The resume is now better aligned with the job requirements. You can review it an
     setNewMessage("")
     setIsProcessing(true)
 
-    // Mock AI response
-    setTimeout(() => {
+    try {
+      // Call OpenRouter API for AI resume tailoring
+      const res = await fetch("/api/openrouter/tailor-resume", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: newMessage,
+          resume: currentResume,
+          jobTitle: job.title,
+          company: job.company,
+        }),
+      })
+      if (!res.ok) throw new Error("AI service error")
+      const data = await res.json()
       const aiResponse: ChatMessage = {
         id: (Date.now() + 1).toString(),
         type: "ai",
-        content: `I've updated your resume based on your request: "${newMessage}". The changes have been applied to the resume content. You can review the updated version and let me know if you need any further adjustments.`,
+        content: data.reply || "AI could not process your request.",
         timestamp: new Date(),
       }
       setChatMessages((prev) => [...prev, aiResponse])
-      setIsProcessing(false)
-    }, 2000)
+      if (data.updatedResume) setCurrentResume(data.updatedResume)
+    } catch (err) {
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 2).toString(),
+          type: "ai",
+          content: "Sorry, there was a problem with the AI service. Please try again later.",
+          timestamp: new Date(),
+        },
+      ])
+    }
+    setIsProcessing(false)
   }
 
   const handleSaveResume = () => {
@@ -128,8 +147,10 @@ The resume is now better aligned with the job requirements. You can review it an
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
+    <AuthProvider>
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <div className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="mb-6">
@@ -282,7 +303,8 @@ The resume is now better aligned with the job requirements. You can review it an
             </Card>
           </div>
         </div>
+        </div>
       </div>
-    </div>
+    </AuthProvider>
   )
 }

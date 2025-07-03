@@ -14,11 +14,16 @@ interface Job {
   title: string
   company: string
   location: string
-  summary: string
-  postedAt: string
+  description: string
+  qualifications: string[]
+  responsibilities: string[]
+  benefits: string[]
   salary: string
-  matchingScore: number
-  fullDescription: string
+  postedAt: string
+  applyUrl: string
+  source: string
+  matchingScore: number // AI score, required
+  matchingSummary?: string
 }
 
 interface JobResultsProps {
@@ -53,6 +58,17 @@ export function JobResults({ results }: JobResultsProps) {
     })
   }
 
+  if (!results || results.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>No jobs found</CardTitle>
+          <p className="text-sm text-gray-600">Try adjusting your search or check back later.</p>
+        </CardHeader>
+      </Card>
+    )
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -60,7 +76,7 @@ export function JobResults({ results }: JobResultsProps) {
           <TrendingUp className="h-5 w-5" />
           Job Matches ({results.length} found)
         </CardTitle>
-        <p className="text-sm text-gray-600">Showing jobs with 80+ matching score based on your default resume</p>
+        <p className="text-sm text-gray-600">Showing jobs with 60+ matching score based on your default resume (if available)</p>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
@@ -84,29 +100,43 @@ export function JobResults({ results }: JobResultsProps) {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className={`font-bold ${getScoreColor(job.matchingScore)}`}
+                      className={`font-bold ${getScoreColor(job.matchingScore ?? 0)}`}
                       onClick={() => setSelectedJob(job)}
                     >
-                      {job.matchingScore}%
+                      {typeof job.matchingScore === "number" ? `${job.matchingScore}%` : "-"}
                     </Button>
                   </TableCell>
                   <TableCell>
-                    <Link
-                      href={`/jobs/${job.id}`}
-                      className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                    >
-                      {job.title}
-                    </Link>
+                    {job.applyUrl ? (
+                      <a
+                        href={job.applyUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                      >
+                        {job.title}
+                      </a>
+                    ) : (
+                      <span className="font-medium">{job.title}</span>
+                    )}
                   </TableCell>
                   <TableCell className="font-medium">{job.company}</TableCell>
                   <TableCell>{job.location}</TableCell>
                   <TableCell className="max-w-xs">
-                    <p className="text-sm text-gray-600 line-clamp-2">{job.summary}</p>
+                    <p className="text-sm text-gray-600 line-clamp-2">
+                      {job.matchingSummary?.length
+                        ? job.matchingSummary
+                        : job.summary?.length
+                        ? job.summary
+                        : job.description?.slice(0, 200) || "No summary available."}
+                    </p>
                   </TableCell>
-                  <TableCell className="text-sm text-gray-500">{formatDate(job.postedAt)}</TableCell>
+                  <TableCell className="text-sm text-gray-500">
+                    {job.postedAt || "-"}
+                  </TableCell>
                   <TableCell>
                     <Badge variant="secondary" className="text-xs">
-                      {job.salary}
+                      {job.salary || "-"}
                     </Badge>
                   </TableCell>
                   <TableCell>
