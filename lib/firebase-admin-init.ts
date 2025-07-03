@@ -37,17 +37,30 @@ export function initFirebaseAdmin() {
         return false;
       }
     } else {
-      // Try to read from local file (development)
+      // Try to read from local file (development) - but handle gracefully if missing
       console.log('Trying to read Firebase service account from local file');
       try {
-        const serviceAccount = require('@/service-account-key.json');
-        initializeApp({
-          credential: cert(serviceAccount),
-          projectId: projectId,
-        });
-        console.log('Firebase Admin initialized with local file');
-        adminInitialized = true;
-        return true;
+        // Use dynamic import to avoid build-time errors if file doesn't exist
+        const fs = require('fs');
+        const path = require('path');
+        const serviceAccountPath = path.join(process.cwd(), 'service-account-key.json');
+        
+        if (fs.existsSync(serviceAccountPath)) {
+          const serviceAccountData = fs.readFileSync(serviceAccountPath, 'utf8');
+          const serviceAccount = JSON.parse(serviceAccountData);
+          
+          initializeApp({
+            credential: cert(serviceAccount),
+            projectId: projectId,
+          });
+          console.log('Firebase Admin initialized with local file');
+          adminInitialized = true;
+          return true;
+        } else {
+          console.warn('Local service account file not found, Firebase Admin not initialized');
+          console.warn('Please set FIREBASE_SERVICE_ACCOUNT_KEY environment variable or add service-account-key.json');
+          return false;
+        }
       } catch (fileError) {
         console.error('Failed to read service account file:', fileError);
         console.warn('Firebase Admin initialization failed - no service account found');
