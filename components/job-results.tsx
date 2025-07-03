@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Bookmark, ExternalLink, TrendingUp } from "lucide-react"
 import { MatchingScoreDialog } from "@/components/matching-score-dialog"
 import Link from "next/link"
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
 
 interface Job {
   id: string
@@ -123,16 +124,25 @@ export function JobResults({ results }: JobResultsProps) {
                   <TableCell className="font-medium">{job.company}</TableCell>
                   <TableCell>{job.location}</TableCell>
                   <TableCell className="max-w-xs">
-                    <p
-                      className="text-sm text-gray-600 line-clamp-2 cursor-pointer"
-                      title={job.matchingSummary?.length
-                        ? job.matchingSummary
-                        : job.description?.slice(0, 200) || "No summary available."}
-                    >
-                      {job.matchingSummary?.length
-                        ? job.matchingSummary
-                        : job.description?.slice(0, 200) || "No summary available."}
-                    </p>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <p
+                            className="text-sm text-gray-600 line-clamp-2 cursor-pointer"
+                            tabIndex={0}
+                          >
+                            {job.matchingSummary?.length
+                              ? job.matchingSummary
+                              : job.description?.slice(0, 200) || "No summary available."}
+                          </p>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-md whitespace-pre-line">
+                          {job.matchingSummary?.length
+                            ? job.matchingSummary
+                            : job.description || "No summary available."}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </TableCell>
                   <TableCell className="text-sm text-gray-500">
                     {job.postedAt || "-"}
