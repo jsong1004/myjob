@@ -88,7 +88,7 @@ export function JobResults({ results }: JobResultsProps) {
                 <TableHead>Job Title</TableHead>
                 <TableHead>Company</TableHead>
                 <TableHead>Location</TableHead>
-                <TableHead className="max-w-xs">Summary</TableHead>
+                <TableHead className="max-w-xs">Score Summary</TableHead>
                 <TableHead>Posted</TableHead>
                 <TableHead>Salary</TableHead>
                 <TableHead className="w-32">Actions</TableHead>
@@ -154,19 +154,37 @@ export function JobResults({ results }: JobResultsProps) {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleSaveJob(job.id)}
-                        className={savedJobs.has(job.id) ? "text-blue-600" : ""}
-                      >
-                        <Bookmark className={`h-4 w-4 ${savedJobs.has(job.id) ? "fill-current" : ""}`} />
-                      </Button>
-                      <Link href={`/tailor-resume/${job.id}`}>
-                        <Button variant="ghost" size="sm">
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
-                      </Link>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleSaveJob(job.id)}
+                              className={savedJobs.has(job.id) ? "text-blue-600" : ""}
+                            >
+                              <Bookmark className={`h-4 w-4 ${savedJobs.has(job.id) ? "fill-current" : ""}`} />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            {savedJobs.has(job.id) ? "Unsave job" : "Save job"}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Link href={`/tailor-resume/${job.id}`}>
+                              <Button variant="ghost" size="sm">
+                                <ExternalLink className="h-4 w-4" />
+                              </Button>
+                            </Link>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            Tailor my resume for this job
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
                   </TableCell>
                 </TableRow>
