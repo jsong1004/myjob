@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, Send, Loader2, Save, Download, MessageSquare, FileText, Sparkles } from "lucide-react"
+import { ArrowLeft, Send, Loader2, Save, Download, MessageSquare, FileText, Sparkles, Edit3 } from "lucide-react"
 import Link from "next/link"
 import { Header } from "@/components/header"
 import { AuthProvider, useAuth } from "@/components/auth-provider"
 import { ChatMessage } from "@/lib/types"
 import { auth } from "@/lib/firebase"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { Textarea } from "@/components/ui/textarea"
 
 interface TailorResumePageProps {
   params: Promise<{ id: string }>
@@ -35,6 +36,7 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
   const [tailorError, setTailorError] = useState<string | null>(null)
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([])
   const [isSaving, setIsSaving] = useState(false)
+  const [isEditMode, setIsEditMode] = useState(false)
 
   // Fetch job data and default resume on mount
   useEffect(() => {
@@ -209,7 +211,11 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
         timestamp: new Date(),
       }
       setChatMessages((prev) => [...prev, aiResponse])
-      if (mode === "agent" && data.updatedResume) setCurrentResume(data.updatedResume)
+      if (mode === "agent" && data.updatedResume) {
+        setCurrentResume(data.updatedResume)
+        // Exit edit mode when AI makes changes
+        setIsEditMode(false)
+      }
       // In 'ask' mode, do not update resume
     } catch (err) {
       setChatMessages((prev) => [
@@ -369,10 +375,21 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
             {/* Resume Preview */}
             <Card className="h-fit">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Tailored Resume Preview
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Tailored Resume Preview
+                  </CardTitle>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setIsEditMode(!isEditMode)}
+                    className="text-blue-600 hover:text-blue-700"
+                  >
+                    <Edit3 className="mr-2 h-4 w-4" />
+                    {isEditMode ? "View" : "Edit"}
+                  </Button>
+                </div>
                 <div className="flex items-center gap-2">
                   <Input
                     value={resumeName}
@@ -384,9 +401,18 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="bg-white border rounded-lg p-6 max-h-[600px] overflow-y-auto">
-                  <pre className="whitespace-pre-wrap text-sm font-mono leading-relaxed">{currentResume}</pre>
-                </div>
+                {isEditMode ? (
+                  <Textarea
+                    value={currentResume}
+                    onChange={(e) => setCurrentResume(e.target.value)}
+                    className="min-h-[600px] font-mono text-sm"
+                    placeholder="Edit your resume content here..."
+                  />
+                ) : (
+                  <div className="bg-white border rounded-lg p-6 max-h-[600px] overflow-y-auto">
+                    <pre className="whitespace-pre-wrap text-sm font-mono leading-relaxed">{currentResume}</pre>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

@@ -12,6 +12,7 @@ import { Header } from "@/components/header"
 import { AuthProvider, useAuth } from "@/components/auth-provider"
 import { Resume } from "@/lib/types"
 import { auth } from "@/lib/firebase"
+import Link from "next/link"
 
 export default function ResumesPage() {
   return (
@@ -558,10 +559,12 @@ function ResumesPageContent() {
                       </div>
 
                       <div className="flex flex-wrap gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleEditResume(resume)}>
-                          <Edit className="mr-1 h-3 w-3" />
-                          Edit
-                        </Button>
+                        <Link href={`/resumes/${resume.id}/edit`}>
+                          <Button variant="outline" size="sm">
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit
+                          </Button>
+                        </Link>
 
                         <Button variant="outline" size="sm" onClick={() => handleDownloadResume(resume)}>
                           <Download className="mr-1 h-3 w-3" />
@@ -611,10 +614,12 @@ function ResumesPageContent() {
                           Set Default
                         </Button>
 
-                        <Button variant="outline" size="sm" onClick={() => handleEditResume(resume)}>
-                          <Edit className="mr-1 h-3 w-3" />
-                          Edit
-                        </Button>
+                        <Link href={`/resumes/${resume.id}/edit`}>
+                          <Button variant="outline" size="sm">
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit
+                          </Button>
+                        </Link>
 
                         <Button variant="outline" size="sm" onClick={() => handleDownloadResume(resume)}>
                           <Download className="mr-1 h-3 w-3" />

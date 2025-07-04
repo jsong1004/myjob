@@ -8,15 +8,14 @@ import { Resume } from '@/lib/types';
 async function getAuthenticatedUser(request: NextRequest) {
   try {
     const authHeader = request.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return null;
-    }
+    if (!authHeader?.startsWith('Bearer ')) return null;
 
     const idToken = authHeader.split('Bearer ')[1];
+    if (!idToken) return null;
+
     initFirebaseAdmin();
     const auth = getAuth();
-    const decodedToken = await auth.verifyIdToken(idToken);
-    return decodedToken;
+    return await auth.verifyIdToken(idToken);
   } catch (error) {
     console.error('Auth verification failed:', error);
     return null;
@@ -30,30 +29,28 @@ interface RouteParams {
 // GET /api/resumes/[id] - Get specific resume
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = await params;
-    const user = await getAuthenticatedUser(request);
-    if (!user) {
+    const authResult = await getAuthenticatedUser(request);
+    if (!authResult) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    initFirebaseAdmin();
     const db = getFirestore();
-    const resumeDoc = await db.collection('resumes').doc(id).get();
+    const doc = await db.collection('resumes').doc(params.id).get();
 
-    if (!resumeDoc.exists) {
+    if (!doc.exists) {
       return NextResponse.json({ error: 'Resume not found' }, { status: 404 });
     }
 
-    const resumeData = resumeDoc.data();
-    if (resumeData?.userId !== user.uid) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    const data = doc.data();
+    if (data?.userId !== authResult.uid) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const resume: Resume = {
-      id: resumeDoc.id,
-      ...resumeData,
-      createdAt: resumeData.createdAt?.toDate() || new Date(),
-      updatedAt: resumeData.updatedAt?.toDate() || new Date(),
+    const resume = {
+      id: doc.id,
+      ...data,
+      createdAt: data?.createdAt?.toDate() || new Date(),
+      updatedAt: data?.updatedAt?.toDate() || new Date(),
     } as Resume;
 
     return NextResponse.json({ resume });
@@ -66,54 +63,30 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PUT /api/resumes/[id] - Update resume
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = await params;
-    const user = await getAuthenticatedUser(request);
-    if (!user) {
+    const authResult = await getAuthenticatedUser(request);
+    if (!authResult) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { name, content, isDefault } = await request.json();
 
-    if (!name || !content) {
-      return NextResponse.json({ error: 'Name and content are required' }, { status: 400 });
-    }
-
-    initFirebaseAdmin();
     const db = getFirestore();
-    const resumeDoc = await db.collection('resumes').doc(id).get();
+    const docRef = db.collection('resumes').doc(params.id);
+    const doc = await docRef.get();
 
-    if (!resumeDoc.exists) {
+    if (!doc.exists) {
       return NextResponse.json({ error: 'Resume not found' }, { status: 404 });
     }
 
-    const resumeData = resumeDoc.data();
-    if (resumeData?.userId !== user.uid) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    const data = doc.data();
+    if (data?.userId !== authResult.uid) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // If making this the default, unset other defaults first
-    if (isDefault && !resumeData.isDefault) {
-      const existingDefaults = await db.collection('resumes')
-        .where('userId', '==', user.uid)
-        .where('isDefault', '==', true)
-        .get();
-
-      const batch = db.batch();
-      existingDefaults.forEach((doc) => {
-        batch.update(doc.ref, { isDefault: false });
-      });
-      await batch.commit();
-
-      // Update user's defaultResumeId
-      const userRef = db.collection('users').doc(user.uid);
-      await userRef.update({ defaultResumeId: id });
-    }
-
-    // Update resume
-    await db.collection('resumes').doc(id).update({
+    await docRef.update({
       name,
       content,
-      isDefault: isDefault || false,
+      isDefault,
       updatedAt: new Date(),
     });
 
