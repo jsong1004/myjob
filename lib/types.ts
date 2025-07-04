@@ -100,4 +100,24 @@ export interface AuthContextType {
   signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
   updateProfile: (data: Partial<User>) => Promise<void>
+}
+
+export interface UserProfile {
+  userId: string
+  displayName: string
+  email: string
+  phoneNumber?: string
+  location?: string
+  linkedinUrl?: string
+  githubUrl?: string
+  portfolioUrl?: string
+  bio?: string
+  jobTitle?: string
+  experience?: string
+  skills: string[]
+  defaultResumeId?: string
+  emailNotifications: boolean
+  jobAlerts: boolean
+  createdAt: Date
+  updatedAt: Date
 } 
