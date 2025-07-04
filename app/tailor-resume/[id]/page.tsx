@@ -33,6 +33,8 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
   const [defaultResume, setDefaultResume] = useState<string>("")
   const [tailoring, setTailoring] = useState(false)
   const [tailorError, setTailorError] = useState<string | null>(null)
+  const [aiSuggestions, setAiSuggestions] = useState<string[]>([])
+  const [isSaving, setIsSaving] = useState(false)
 
   // Fetch job data and default resume on mount
   useEffect(() => {
@@ -50,6 +52,11 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
         }
         setJob(foundJob)
 
+        // Set resume name to "Title - Company Name" format
+        if (foundJob) {
+          setResumeName(`${foundJob.title} - ${foundJob.company}`)
+        }
+
         // 2. Fetch default resume
         if (user && auth?.currentUser) {
           const token = await auth.currentUser.getIdToken()
@@ -64,7 +71,6 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
             const defaultResume = data.resumes?.find((r: any) => r.isDefault) || data.resumes?.[0]
             if (defaultResume) {
               setDefaultResume(defaultResume.content)
-              setResumeName(defaultResume.name)
             }
           }
         }
@@ -116,6 +122,54 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
     }
     tailorResume()
   }, [job, defaultResume])
+
+  // Generate AI suggestions based on job description
+  useEffect(() => {
+    const generateSuggestions = async () => {
+      if (!job || !job.description) return
+      
+      try {
+        const res = await fetch("/api/openrouter/tailor-resume", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: "Generate 3 short, specific suggestions for improving a resume for this job. Each suggestion should be one sentence and actionable. Format as a JSON array of strings.",
+            jobTitle: job.title,
+            company: job.company,
+            jobDescription: job.fullDescription || job.description || "",
+            mode: "ask",
+          }),
+        })
+        
+        if (res.ok) {
+          const data = await res.json()
+          try {
+            // Try to parse the AI response as JSON array
+            const suggestions = JSON.parse(data.reply)
+            if (Array.isArray(suggestions)) {
+              setAiSuggestions(suggestions.slice(0, 3)) // Take first 3 suggestions
+            }
+          } catch {
+            // If parsing fails, use default suggestions
+            setAiSuggestions([
+              "Make the professional summary more concise",
+              "Add more specific metrics and achievements", 
+              "Highlight relevant technical skills"
+            ])
+          }
+        }
+      } catch (err) {
+        // Use default suggestions if AI call fails
+        setAiSuggestions([
+          "Make the professional summary more concise",
+          "Add more specific metrics and achievements",
+          "Highlight relevant technical skills"
+        ])
+      }
+    }
+    
+    generateSuggestions()
+  }, [job])
 
   const handleSendMessage = async () => {
     console.log("handleSendMessage called", { newMessage, job });
@@ -171,9 +225,61 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
     setIsProcessing(false)
   }
 
-  const handleSaveResume = () => {
-    // Save functionality will be implemented later
-    alert("Saving tailored resumes coming soon!")
+  const handleDownloadResume = () => {
+    if (!currentResume || !resumeName) return
+    
+    // Create markdown content
+    const markdownContent = `# ${resumeName}\n\n${currentResume}`
+    
+    // Create blob and download
+    const blob = new Blob([markdownContent], { type: 'text/markdown' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${resumeName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.md`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
+  const handleSaveResume = async () => {
+    if (!user || !auth?.currentUser || !currentResume || !resumeName) {
+      alert("Please sign in and ensure resume content is available")
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      const token = await auth.currentUser.getIdToken()
+      const res = await fetch('/api/resumes', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: resumeName,
+          content: currentResume,
+          type: 'tailored',
+          jobTitle: job?.title || '',
+          jobId: id,
+          isDefault: false
+        })
+      })
+      
+      if (res.ok) {
+        alert("Resume saved successfully!")
+      } else {
+        const error = await res.json()
+        alert(`Failed to save resume: ${error.error || 'Unknown error'}`)
+      }
+    } catch (err) {
+      console.error('Save error:', err)
+      alert("Failed to save resume. Please try again.")
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const formatTime = (date: Date) => {
@@ -240,13 +346,20 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
               </div>
 
               <div className="flex gap-2">
-                <Button variant="outline">
+                <Button 
+                  variant="outline"
+                  onClick={handleDownloadResume}
+                  disabled={!currentResume || !resumeName}
+                >
                   <Download className="mr-2 h-4 w-4" />
                   Download
                 </Button>
-                <Button onClick={handleSaveResume} disabled>
+                <Button 
+                  onClick={handleSaveResume} 
+                  disabled={!currentResume || !resumeName || !user || isSaving}
+                >
                   <Save className="mr-2 h-4 w-4" />
-                  Save Resume
+                  {isSaving ? "Saving..." : "Save Resume"}
                 </Button>
               </div>
             </div>
@@ -363,30 +476,18 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
 
                 {/* Quick Actions */}
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setNewMessage("Make the professional summary more concise")}
-                    disabled={isProcessing}
-                  >
-                    Shorten summary
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setNewMessage("Emphasize my React and TypeScript experience")}
-                    disabled={isProcessing}
-                  >
-                    Highlight React skills
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setNewMessage("Add more specific metrics and achievements")}
-                    disabled={isProcessing}
-                  >
-                    Add metrics
-                  </Button>
+                  {aiSuggestions.map((suggestion, index) => (
+                    <Button
+                      key={index}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setNewMessage(suggestion)}
+                      disabled={isProcessing}
+                      className="text-left justify-start"
+                    >
+                      {suggestion.length > 30 ? suggestion.substring(0, 30) + '...' : suggestion}
+                    </Button>
+                  ))}
                 </div>
               </CardContent>
             </Card>

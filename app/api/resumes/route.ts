@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/resumes - Create new resume
+// POST /api/resumes - Create new resume (handles both file uploads and direct content)
 export async function POST(request: NextRequest) {
   try {
     const authResult = await getAuthenticatedUser(request);
@@ -86,31 +86,59 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const formData = await request.formData();
-    const file = formData.get('file') as File;
-    const name = formData.get('name') as string;
-    const makeDefault = formData.get('makeDefault') === 'true';
+    const contentType = request.headers.get('content-type') || '';
+    let name: string;
+    let content: string;
+    let makeDefault: boolean;
+    let type: 'original' | 'tailored' | 'draft' = 'original';
+    let jobTitle: string | undefined;
+    let jobId: string | undefined;
 
-    if (!file || !name) {
-      return NextResponse.json({ error: 'File and name are required' }, { status: 400 });
-    }
+    if (contentType.includes('multipart/form-data')) {
+      // Handle file upload
+      const formData = await request.formData();
+      const file = formData.get('file') as File;
+      name = formData.get('name') as string;
+      makeDefault = formData.get('makeDefault') === 'true';
 
-    // Validate file
-    const validation = validateFile(file);
-    if (!validation.valid) {
-      return NextResponse.json({ error: validation.error }, { status: 400 });
-    }
+      if (!file || !name) {
+        return NextResponse.json({ error: 'File and name are required' }, { status: 400 });
+      }
 
-    // Parse file content
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const parseResult = await parseFile(buffer, file.name);
-    
-    if (parseResult.error) {
-      return NextResponse.json({ error: parseResult.error }, { status: 400 });
-    }
+      // Validate file
+      const validation = validateFile(file);
+      if (!validation.valid) {
+        return NextResponse.json({ error: validation.error }, { status: 400 });
+      }
 
-    if (!parseResult.content.trim()) {
-      return NextResponse.json({ error: 'File appears to be empty or could not extract text' }, { status: 400 });
+      // Parse file content
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const parseResult = await parseFile(buffer, file.name);
+      
+      if (parseResult.error) {
+        return NextResponse.json({ error: parseResult.error }, { status: 400 });
+      }
+
+      if (!parseResult.content.trim()) {
+        return NextResponse.json({ error: 'File appears to be empty or could not extract text' }, { status: 400 });
+      }
+
+      content = parseResult.content;
+    } else if (contentType.includes('application/json')) {
+      // Handle direct content save
+      const body = await request.json();
+      name = body.name;
+      content = body.content;
+      makeDefault = body.isDefault || false;
+      type = body.type || 'tailored';
+      jobTitle = body.jobTitle;
+      jobId = body.jobId;
+
+      if (!name || !content) {
+        return NextResponse.json({ error: 'Name and content are required' }, { status: 400 });
+      }
+    } else {
+      return NextResponse.json({ error: 'Content-Type must be multipart/form-data or application/json' }, { status: 400 });
     }
 
     const db = getFirestore();
@@ -137,9 +165,11 @@ export async function POST(request: NextRequest) {
     const resumeData: Omit<Resume, 'id'> = {
       userId: authResult.uid,
       name,
-      content: parseResult.content,
+      content,
       isDefault: makeDefault,
-      type: 'original',
+      type,
+      jobTitle,
+      jobId,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -158,11 +188,11 @@ export async function POST(request: NextRequest) {
     };
 
     return NextResponse.json({ 
-      message: 'Resume uploaded successfully',
+      message: contentType.includes('multipart/form-data') ? 'Resume uploaded successfully' : 'Resume saved successfully',
       resume: newResume 
     });
   } catch (error) {
-    console.error('Resume upload error:', error);
-    return NextResponse.json({ error: 'Failed to upload resume' }, { status: 500 });
+    console.error('Resume save/upload error:', error);
+    return NextResponse.json({ error: 'Failed to save resume' }, { status: 500 });
   }
 }
