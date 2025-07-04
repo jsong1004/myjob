@@ -1,6 +1,4 @@
-"use client"
-
-import { use, useEffect, useState } from "react"
+import { notFound } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -10,45 +8,16 @@ import { Header } from "@/components/header"
 import { AuthProvider } from "@/components/auth-provider"
 
 interface JobDetailPageProps {
-  params: Promise<{ id: string }>
+  params: Promise<{ id: string }>;
 }
 
-export default function JobDetailPage({ params }: JobDetailPageProps) {
-  const { id } = use(params)
-  const [job, setJob] = useState<any | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+export default async function JobDetailPage({ params }: JobDetailPageProps) {
+  const { id } = await params;
 
-  useEffect(() => {
-    // Try to get job from last search results in sessionStorage
-    const jobsRaw = typeof window !== 'undefined' ? sessionStorage.getItem('lastJobResults') : null
-    let foundJob = null
-    if (jobsRaw) {
-      try {
-        const jobs = JSON.parse(jobsRaw)
-        foundJob = jobs.find((j: any) => j.id === id)
-      } catch {}
-    }
-    if (foundJob) {
-      setJob(foundJob)
-      setLoading(false)
-    } else {
-      // Fallback: fetch from backend (search by id)
-      fetch(`/api/jobs/search`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: id, location: "" }),
-      })
-        .then(res => res.json())
-        .then(data => {
-          const match = (data.jobs || []).find((j: any) => j.id === id)
-          if (match) setJob(match)
-          else setError("Job not found.")
-        })
-        .catch(() => setError("Failed to load job details."))
-        .finally(() => setLoading(false))
-    }
-  }, [id])
+  const res = await fetch(`/api/jobs/${id}`, { cache: "no-store" });
+
+  if (!res.ok) return notFound();
+  const { job } = await res.json();
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "-"
@@ -58,31 +27,6 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
       day: "numeric",
       year: "numeric",
     })
-  }
-
-  if (loading) {
-    return (
-      <AuthProvider>
-        <div className="min-h-screen bg-gray-50">
-          <Header />
-          <div className="container mx-auto px-4 py-8">
-            <div className="max-w-4xl mx-auto text-center py-20 text-gray-500">Loading job details...</div>
-          </div>
-        </div>
-      </AuthProvider>
-    )
-  }
-  if (error || !job) {
-    return (
-      <AuthProvider>
-        <div className="min-h-screen bg-gray-50">
-          <Header />
-          <div className="container mx-auto px-4 py-8">
-            <div className="max-w-4xl mx-auto text-center py-20 text-red-500">{error || "Job not found."}</div>
-          </div>
-        </div>
-      </AuthProvider>
-    )
   }
 
   return (
@@ -136,7 +80,7 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
                       <Bookmark className="mr-2 h-4 w-4" />
                       Save Job
                     </Button>
-                    <Link href={`/tailor-resume/${job.id}`}>
+                    <Link href={`/tailor-resume/${encodeURIComponent(job.jobId || id)}`}>
                       <Button size="sm">
                         <ExternalLink className="mr-2 h-4 w-4" />
                         Tailor Resume
@@ -155,7 +99,7 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
             </CardHeader>
             <CardContent>
               <div className="prose max-w-none">
-                <p className="text-gray-700 leading-relaxed whitespace-pre-line">{job.fullDescription}</p>
+                <p className="text-gray-700 leading-relaxed whitespace-pre-line">{job.fullDescription || job.description}</p>
               </div>
             </CardContent>
           </Card>
@@ -167,7 +111,7 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
             </CardHeader>
             <CardContent>
               <ul className="space-y-2">
-                {job.qualifications.map((qualification: string, index: number) => (
+                {(job.qualifications || []).map((qualification: string, index: number) => (
                   <li key={index} className="flex items-start gap-2">
                     <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0" />
                     <span className="text-gray-700">{qualification}</span>
@@ -184,7 +128,7 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
             </CardHeader>
             <CardContent>
               <ul className="space-y-2">
-                {job.responsibilities.map((responsibility: string, index: number) => (
+                {(job.responsibilities || []).map((responsibility: string, index: number) => (
                   <li key={index} className="flex items-start gap-2">
                     <div className="w-2 h-2 bg-green-600 rounded-full mt-2 flex-shrink-0" />
                     <span className="text-gray-700">{responsibility}</span>
@@ -201,7 +145,7 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
             </CardHeader>
             <CardContent>
               <ul className="space-y-2">
-                {job.benefits.map((benefit: string, index: number) => (
+                {(job.benefits || []).map((benefit: string, index: number) => (
                   <li key={index} className="flex items-start gap-2">
                     <div className="w-2 h-2 bg-purple-600 rounded-full mt-2 flex-shrink-0" />
                     <span className="text-gray-700">{benefit}</span>
@@ -220,7 +164,7 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
                   Tailor your resume to this specific role to increase your chances of getting noticed.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                  <Link href={`/tailor-resume/${job.id}`}>
+                  <Link href={`/tailor-resume/${encodeURIComponent(job.jobId || id)}`}>
                     <Button size="lg" className="w-full sm:w-auto">
                       <ExternalLink className="mr-2 h-4 w-4" />
                       Tailor Resume for This Job

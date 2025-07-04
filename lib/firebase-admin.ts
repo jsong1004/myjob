@@ -43,8 +43,7 @@ if (process.env.NODE_ENV === 'development') {
 
 function createFirebaseAdminApp() {
   try {
-    return getApps().find(app => app.name === 'admin') || 
-           initializeApp(firebaseAdminConfig, 'admin')
+    return getApps().length ? getApps()[0] : initializeApp(firebaseAdminConfig)
   } catch (error) {
     console.error('Error initializing Firebase Admin:', error)
     throw error
@@ -54,9 +53,9 @@ function createFirebaseAdminApp() {
 const firebaseAdminApp = createFirebaseAdminApp()
 
 // Initialize Firebase Admin Auth
-export const adminAuth = getAuth(firebaseAdminApp)
+export const adminAuth = getAuth()
 
 // Initialize Firebase Admin Firestore
-export const adminDb = getFirestore(firebaseAdminApp)
+export const adminDb = getFirestore()
 
 export default firebaseAdminApp 

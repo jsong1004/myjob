@@ -1,6 +1,6 @@
 "use client"
 
-import { use, useState } from "react"
+import { use, useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,8 +9,10 @@ import { Separator } from "@/components/ui/separator"
 import { ArrowLeft, Send, Loader2, Save, Download, MessageSquare, FileText, Sparkles } from "lucide-react"
 import Link from "next/link"
 import { Header } from "@/components/header"
-import { AuthProvider } from "@/components/auth-provider"
+import { AuthProvider, useAuth } from "@/components/auth-provider"
 import { ChatMessage } from "@/lib/types"
+import { auth } from "@/lib/firebase"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 interface TailorResumePageProps {
   params: Promise<{ id: string }>
@@ -18,74 +20,106 @@ interface TailorResumePageProps {
 
 export default function TailorResumePage({ params }: TailorResumePageProps) {
   const { id } = use(params)
+  const { user } = useAuth()
 
-  // Mock job data
-  const job = {
-    id: "1",
-    title: "Senior Frontend Developer",
-    company: "TechCorp Inc.",
-    location: "San Francisco, CA",
-  }
-
-  const [currentResume, setCurrentResume] = useState(`John Doe
-Senior Frontend Developer
-Email: john.doe@email.com | Phone: (555) 123-4567
-LinkedIn: linkedin.com/in/johndoe | GitHub: github.com/johndoe
-
-PROFESSIONAL SUMMARY
-Experienced Frontend Developer with 4+ years of expertise in React, JavaScript, and modern web technologies. Passionate about creating responsive, user-friendly applications with clean, maintainable code.
-
-TECHNICAL SKILLS
-• Frontend: React, TypeScript, JavaScript (ES6+), HTML5, CSS3, Sass
-• State Management: Redux, Context API
-• Testing: Jest, React Testing Library
-• Tools: Git, Webpack, npm/yarn, VS Code
-• Design: Responsive Design, CSS Grid, Flexbox
-
-PROFESSIONAL EXPERIENCE
-
-Frontend Developer | WebSolutions Inc. | 2020 - Present
-• Developed and maintained 5+ React applications serving 10,000+ users
-• Collaborated with UX/UI designers to implement pixel-perfect designs
-• Improved application performance by 30% through code optimization
-• Mentored 2 junior developers on React best practices
-
-Junior Frontend Developer | StartupTech | 2019 - 2020
-• Built responsive web components using React and CSS
-• Participated in agile development process and daily standups
-• Contributed to company's design system and component library
-
-EDUCATION
-Bachelor of Science in Computer Science
-State University | 2015 - 2019
-
-PROJECTS
-• Personal Portfolio Website - React, TypeScript, Tailwind CSS
-• E-commerce Dashboard - React, Redux, Chart.js
-• Weather App - React, API Integration, Responsive Design`)
-
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    {
-      id: "1",
-      type: "ai",
-      content: `I've created a tailored version of your resume for the ${job.title} position at ${job.company}. Here are the key improvements I made:
-
-• Enhanced your professional summary to emphasize 4+ years of React experience
-• Highlighted relevant technical skills that match the job requirements
-• Emphasized your experience with responsive design and performance optimization
-• Added specific metrics to demonstrate your impact
-
-The resume is now better aligned with the job requirements. You can review it and ask me to make any adjustments!`,
-      timestamp: new Date(),
-    },
-  ])
-
+  const [job, setJob] = useState<any | null>(null)
+  const [currentResume, setCurrentResume] = useState<string>("")
+  const [resumeName, setResumeName] = useState<string>("")
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [newMessage, setNewMessage] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
-  const [resumeName, setResumeName] = useState(`${job.title} - ${job.company}`)
+  const [loading, setLoading] = useState(true)
+  const [mode, setMode] = useState<'agent' | 'ask'>("agent")
+  const [defaultResume, setDefaultResume] = useState<string>("")
+  const [tailoring, setTailoring] = useState(false)
+  const [tailorError, setTailorError] = useState<string | null>(null)
+
+  // Fetch job data and default resume on mount
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true)
+      setTailorError(null)
+      try {
+        // Fetch job data directly from Firestore
+        let foundJob = null
+        console.log(`[TailorResume][useEffect] Fetching job data for id: ${id}`)
+        const res = await fetch(`/api/jobs/${id}`)
+        if (res.ok) {
+          const data = await res.json()
+          foundJob = data.job || null
+        }
+        setJob(foundJob)
+
+        // 2. Fetch default resume
+        if (user && auth?.currentUser) {
+          const token = await auth.currentUser.getIdToken()
+          const res = await fetch('/api/resumes', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          })
+          if (res.ok) {
+            const data = await res.json()
+            const defaultResume = data.resumes?.find((r: any) => r.isDefault) || data.resumes?.[0]
+            if (defaultResume) {
+              setDefaultResume(defaultResume.content)
+              setResumeName(defaultResume.name)
+            }
+          }
+        }
+      } catch (err) {
+        setTailorError('Failed to load job or resume data.')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [id, user])
+
+  // Tailor the resume automatically when both job and defaultResume are loaded
+  useEffect(() => {
+    const tailorResume = async () => {
+      if (!job || !defaultResume) return
+      setTailoring(true)
+      setTailorError(null)
+      try {
+        const res = await fetch("/api/openrouter/tailor-resume", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: "Tailor this resume for the following job. Do not change unless necessary.",
+            resume: defaultResume,
+            jobTitle: job.title,
+            company: job.company,
+            jobDescription: job.fullDescription || job.description || "",
+            mode: "agent",
+          }),
+        })
+        if (!res.ok) throw new Error("AI service error")
+        const data = await res.json()
+        setCurrentResume(data.updatedResume || defaultResume)
+        setChatMessages([
+          {
+            id: "1",
+            type: "ai",
+            content: `Here's your tailored resume for the ${job.title} position at ${job.company}. You can review it and ask me to make any adjustments!`,
+            timestamp: new Date(),
+          },
+        ])
+      } catch (err) {
+        setTailorError('Failed to tailor resume. Please try again later.')
+        setCurrentResume(defaultResume)
+      } finally {
+        setTailoring(false)
+      }
+    }
+    tailorResume()
+  }, [job, defaultResume])
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim()) return
+    console.log("handleSendMessage called", { newMessage, job });
+    if (!newMessage.trim() || !job) return
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -99,7 +133,7 @@ The resume is now better aligned with the job requirements. You can review it an
     setIsProcessing(true)
 
     try {
-      // Call OpenRouter API for AI resume tailoring
+      // Call OpenRouter API for AI resume tailoring or Q&A
       const res = await fetch("/api/openrouter/tailor-resume", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -108,6 +142,8 @@ The resume is now better aligned with the job requirements. You can review it an
           resume: currentResume,
           jobTitle: job.title,
           company: job.company,
+          jobDescription: job.fullDescription || job.description || "",
+          mode, // pass mode to backend
         }),
       })
       if (!res.ok) throw new Error("AI service error")
@@ -119,7 +155,8 @@ The resume is now better aligned with the job requirements. You can review it an
         timestamp: new Date(),
       }
       setChatMessages((prev) => [...prev, aiResponse])
-      if (data.updatedResume) setCurrentResume(data.updatedResume)
+      if (mode === "agent" && data.updatedResume) setCurrentResume(data.updatedResume)
+      // In 'ask' mode, do not update resume
     } catch (err) {
       setChatMessages((prev) => [
         ...prev,
@@ -135,8 +172,8 @@ The resume is now better aligned with the job requirements. You can review it an
   }
 
   const handleSaveResume = () => {
-    // Mock save functionality
-    alert(`Resume saved as "${resumeName}"`)
+    // Save functionality will be implemented later
+    alert("Saving tailored resumes coming soon!")
   }
 
   const formatTime = (date: Date) => {
@@ -144,6 +181,36 @@ The resume is now better aligned with the job requirements. You can review it an
       hour: "2-digit",
       minute: "2-digit",
     })
+  }
+
+  if (loading || tailoring) {
+    return (
+      <AuthProvider>
+        <div className="min-h-screen bg-gray-50">
+          <Header />
+          <div className="container mx-auto px-4 py-8">
+            <div className="max-w-4xl mx-auto text-center py-20 text-gray-500">
+              {loading ? 'Loading tailored resume...' : 'Tailoring your resume for this job...'}
+            </div>
+          </div>
+        </div>
+      </AuthProvider>
+    )
+  }
+
+  if (tailorError || !job) {
+    return (
+      <AuthProvider>
+        <div className="min-h-screen bg-gray-50">
+          <Header />
+          <div className="container mx-auto px-4 py-8">
+            <div className="max-w-4xl mx-auto text-center py-20 text-red-500">
+              {tailorError || 'Unable to load job information. Please return to the job search and try again.'}
+            </div>
+          </div>
+        </div>
+      </AuthProvider>
+    )
   }
 
   return (
@@ -168,7 +235,7 @@ The resume is now better aligned with the job requirements. You can review it an
                   Tailor Resume
                 </h1>
                 <p className="text-gray-600">
-                  AI-powered resume customization for {job.title} at {job.company}
+                  AI-powered resume customization for {job?.title || "the selected job"} at {job?.company || "the company"}
                 </p>
               </div>
 
@@ -177,7 +244,7 @@ The resume is now better aligned with the job requirements. You can review it an
                   <Download className="mr-2 h-4 w-4" />
                   Download
                 </Button>
-                <Button onClick={handleSaveResume}>
+                <Button onClick={handleSaveResume} disabled>
                   <Save className="mr-2 h-4 w-4" />
                   Save Resume
                 </Button>
@@ -217,13 +284,28 @@ The resume is now better aligned with the job requirements. You can review it an
                   <MessageSquare className="h-5 w-5" />
                   AI Resume Assistant
                 </CardTitle>
-                <p className="text-sm text-gray-600">
-                  Chat with AI to refine your resume. Try commands like "make the summary shorter" or "emphasize my
-                  React experience"
+                <div className="flex items-center gap-4 mt-2">
+                  <span className="text-sm text-gray-600">Mode:</span>
+                  <ToggleGroup type="single" value={mode} onValueChange={v => v && setMode(v as 'agent' | 'ask')}>
+                    <ToggleGroupItem value="agent">Agent (Edit Resume)</ToggleGroupItem>
+                    <ToggleGroupItem value="ask">Ask (Q&A Only)</ToggleGroupItem>
+                  </ToggleGroup>
+                </div>
+                <p className="text-sm text-gray-600 mt-2">
+                  {mode === 'agent'
+                    ? 'Give instructions to edit your resume. Example: "Make the summary shorter".'
+                    : 'Ask questions about your resume or the job. Example: "What skills should I highlight?"'}
                 </p>
               </CardHeader>
 
               <CardContent className="flex-1 flex flex-col">
+                {/* Debug: Show job object */}
+                <div className="mb-2">
+                  <details>
+                    <summary className="text-xs text-gray-400 cursor-pointer">Debug: Job object</summary>
+                    <pre className="text-xs bg-gray-50 p-2 rounded border border-gray-100 max-h-40 overflow-auto">{JSON.stringify(job, null, 2)}</pre>
+                  </details>
+                </div>
                 {/* Chat Messages */}
                 <div className="flex-1 space-y-4 mb-4 overflow-y-auto">
                   {chatMessages.map((message) => (
@@ -259,18 +341,25 @@ The resume is now better aligned with the job requirements. You can review it an
                 <Separator className="mb-4" />
 
                 {/* Message Input */}
-                <div className="flex gap-2">
-                  <Input
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="Ask me to modify your resume..."
-                    onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
-                    disabled={isProcessing}
-                  />
-                  <Button onClick={handleSendMessage} disabled={isProcessing || !newMessage.trim()}>
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
+                {job ? (
+                  <div className="flex gap-2">
+                    <Input
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      placeholder="Ask me to modify your resume..."
+                      onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
+                      disabled={isProcessing}
+                    />
+                    <Button onClick={handleSendMessage} disabled={isProcessing || !newMessage.trim() || !job}>
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-sm text-red-500 bg-red-50 border border-red-200 rounded p-3 mt-2">
+                    Unable to load job information. Please return to the job search and try again.<br/>
+                    (The chat is disabled until a job is loaded.)
+                  </div>
+                )}
 
                 {/* Quick Actions */}
                 <div className="mt-3 flex flex-wrap gap-2">

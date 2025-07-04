@@ -102,7 +102,8 @@ export async function POST(req: NextRequest) {
       }
       
       const processedJob = {
-        id: job.job_id || job.jobkey || job.jobId || job.id || Math.random().toString(36).slice(2),
+        id: Math.random().toString(36).slice(2),
+        // id: job.job_id || job.jobkey || job.jobId || job.id || Math.random().toString(36).slice(2),
         title: job.title || "",
         company: job.company_name || job.company || "",
         location: job.location || "",
