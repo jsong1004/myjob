@@ -1,0 +1,57 @@
+steps:
+  # 1. Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: 
+      - 'build'
+      - '-t'
+      - 'us-west1-docker.pkg.dev/myresume-457817/myjob-service/myjob-service:${SHORT_SHA}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyAB9462ndefnzzJg44HPa40P3m9vwPUFw0'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=myresume-457817.firebaseapp.com'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_PROJECT_ID=myresume-457817'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=myresume-457817.firebasestorage.app'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=711582759542'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_APP_ID=1:711582759542:web:99ab045aa44f0b1fe57d57'
+      - '.'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'us-west1-docker.pkg.dev/myresume-457817/myjob-service/myjob-service:${SHORT_SHA}']
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'myjob-service'
+      - '--image'
+      - 'us-west1-docker.pkg.dev/myresume-457817/myjob-service/myjob-service:${SHORT_SHA}'
+      - '--region'
+      - 'us-west1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - >-
+        NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyAB9462ndefnzzJg44HPa40P3m9vwPUFw0,
+        NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=myresume-457817.firebaseapp.com,
+        NEXT_PUBLIC_FIREBASE_PROJECT_ID=myresume-457817,
+        NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=myresume-457817.firebasestorage.app,
+        NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=711582759542,
+        NEXT_PUBLIC_FIREBASE_APP_ID=1:711582759542:web:99ab045aa44f0b1fe57d57,
+        NODE_ENV=production
+      - '--update-secrets'
+      - >-
+        FIREBASE_SERVICE_ACCOUNT_KEY=projects/711582759542/secrets/ServiceAccountKey:latest,
+        OPENROUTER_API_KEY=projects/711582759542/secrets/OPENROUTER_API_KEY:latest,
+        SERPAPI_KEY=projects/711582759542/secrets/SERPER_API_KEY:latest
+# Store the image in Artifact Registry
+images:
+  - 'us-west1-docker.pkg.dev/myresume-457817/myjob-service/myjob-service:${SHORT_SHA}'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

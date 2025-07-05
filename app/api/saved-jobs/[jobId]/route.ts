@@ -1,5 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
-import { adminDb, adminAuth } from "@/lib/firebase-admin"
+import { initFirebaseAdmin } from "@/lib/firebase-admin-init"
+import { getFirestore } from "firebase-admin/firestore"
+import { getAuth } from "firebase-admin/auth"
+
+async function getDb() {
+  initFirebaseAdmin()
+  return getFirestore()
+}
+
+async function getAuthInstance() {
+  initFirebaseAdmin()
+  return getAuth()
+}
 
 export async function DELETE(req: NextRequest, { params }: { params: { jobId: string } }) {
   try {
@@ -7,22 +19,28 @@ export async function DELETE(req: NextRequest, { params }: { params: { jobId: st
     const token = authHeader.replace("Bearer ", "")
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
+    const adminAuth = await getAuthInstance()
     const decoded = await adminAuth.verifyIdToken(token)
     const userId = decoded.uid
     const { jobId } = params
 
-    const docRef = adminDb.collection("savedJobs").doc(jobId)
-    const doc = await docRef.get()
-    if (!doc.exists) {
+    const adminDb = await getDb()
+    const querySnapshot = await adminDb
+      .collection("savedJobs")
+      .where("userId", "==", userId)
+      .where("jobId", "==", jobId)
+      .get()
+
+    if (querySnapshot.empty) {
       return NextResponse.json({ error: "Saved job not found" }, { status: 404 })
     }
-    if (doc.data()?.userId !== userId) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
-    await docRef.delete()
-    return NextResponse.json({ success: true })
+
+    const doc = querySnapshot.docs[0]
+    await doc.ref.delete()
+
+    return NextResponse.json({ message: "Job successfully unsaved" })
   } catch (error) {
-    console.error("[SavedJobs][DELETE] Error:", error)
+    console.error(`[SavedJobs][DELETE][${params.jobId}] Error:`, error)
     return NextResponse.json({ error: "Failed to unsave job" }, { status: 500 })
   }
 } 

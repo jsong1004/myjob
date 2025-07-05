@@ -13,10 +13,34 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 }
 
+// Debug logging for production
+if (typeof window !== 'undefined') {
+  console.log('CLIENT Firebase Config Debug:', {
+    apiKey: firebaseConfig.apiKey ? 'SET' : 'MISSING',
+    authDomain: firebaseConfig.authDomain ? 'SET' : 'MISSING',
+    projectId: firebaseConfig.projectId ? 'SET' : 'MISSING',
+    storageBucket: firebaseConfig.storageBucket ? 'SET' : 'MISSING',
+    messagingSenderId: firebaseConfig.messagingSenderId ? 'SET' : 'MISSING',
+    appId: firebaseConfig.appId ? 'SET' : 'MISSING',
+    nodeEnv: process.env.NODE_ENV
+  })
+} else {
+  console.log('SERVER Firebase Config Debug:', {
+    apiKey: firebaseConfig.apiKey ? 'SET' : 'MISSING',
+    authDomain: firebaseConfig.authDomain ? 'SET' : 'MISSING',
+    projectId: firebaseConfig.projectId ? 'SET' : 'MISSING',
+    storageBucket: firebaseConfig.storageBucket ? 'SET' : 'MISSING',
+    messagingSenderId: firebaseConfig.messagingSenderId ? 'SET' : 'MISSING',
+    appId: firebaseConfig.appId ? 'SET' : 'MISSING',
+    nodeEnv: process.env.NODE_ENV
+  })
+}
+
 // Check if we have all required config
 const hasRequiredConfig = firebaseConfig.apiKey && 
                          firebaseConfig.authDomain && 
                          firebaseConfig.projectId &&
+                         firebaseConfig.storageBucket &&
                          firebaseConfig.messagingSenderId &&
                          firebaseConfig.appId
 
@@ -26,10 +50,14 @@ function createFirebaseApp() {
     // Don't initialize Firebase if we don't have the required config or we're on the server during build
     if (!hasRequiredConfig) {
       console.warn('Firebase configuration is incomplete. Some features may not work.')
+      console.warn('hasRequiredConfig:', hasRequiredConfig)
       return null
     }
     
-    return getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig)
+    console.log('Initializing Firebase app...')
+    const app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig)
+    console.log('Firebase app initialized successfully')
+    return app
   } catch (error) {
     console.error('Error initializing Firebase:', error)
     return null

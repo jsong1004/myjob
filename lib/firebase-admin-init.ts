@@ -1,74 +1,63 @@
-import { getApps, initializeApp, cert } from 'firebase-admin/app';
-
-let adminInitialized = false;
+import { initializeApp, cert, getApps } from 'firebase-admin/app';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export function initFirebaseAdmin() {
-  // Check if Firebase is already initialized - this is the key fix
+  // If already initialized, no need to do anything
   if (getApps().length > 0) {
-    console.log('Firebase Admin already initialized');
-    adminInitialized = true;
     return true;
   }
 
+  // Check for the build-time environment variable from Docker
+  if (process.env.IS_BUILDING === 'true') {
+    console.log("Skipping Firebase Admin initialization during Docker build.");
+    return false;
+  }
+  
+  console.log('Attempting to initialize Firebase Admin...');
+  console.log('Environment check:');
+  console.log('- NODE_ENV:', process.env.NODE_ENV);
+  console.log('- FIREBASE_SERVICE_ACCOUNT_KEY exists:', !!process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+  console.log('- NEXT_PUBLIC_FIREBASE_PROJECT_ID:', process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
+  
   try {
-    console.log('Initializing Firebase Admin...');
-    
-    // Check if we have required environment variables
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-    if (!projectId) {
-      console.error('Missing NEXT_PUBLIC_FIREBASE_PROJECT_ID');
-      return false;
-    }
-    
-    // Try to read service account from environment variable first
+    // Prefer environment variable for production/deployment (injected by Cloud Run from Secret Manager)
     if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-      console.log('Using Firebase service account from environment variable');
-      try {
-        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-        initializeApp({
-          credential: cert(serviceAccount),
-          projectId: projectId,
-        });
-        console.log('Firebase Admin initialized with environment variable');
-        adminInitialized = true;
-        return true;
-      } catch (parseError) {
-        console.error('Failed to parse service account JSON:', parseError);
-        return false;
-      }
-    } else {
-      // Try to read from local file (development) - but handle gracefully if missing
-      console.log('Trying to read Firebase service account from local file');
-      try {
-        // Use dynamic import to avoid build-time errors if file doesn't exist
-        const fs = require('fs');
-        const path = require('path');
-        const serviceAccountPath = path.join(process.cwd(), 'service-account-key.json');
-        
-        if (fs.existsSync(serviceAccountPath)) {
-          const serviceAccountData = fs.readFileSync(serviceAccountPath, 'utf8');
-          const serviceAccount = JSON.parse(serviceAccountData);
-          
-          initializeApp({
-            credential: cert(serviceAccount),
-            projectId: projectId,
-          });
-          console.log('Firebase Admin initialized with local file');
-          adminInitialized = true;
-          return true;
-        } else {
-          console.warn('Local service account file not found, Firebase Admin not initialized');
-          console.warn('Please set FIREBASE_SERVICE_ACCOUNT_KEY environment variable or add service-account-key.json');
-          return false;
-        }
-      } catch (fileError) {
-        console.error('Failed to read service account file:', fileError);
-        console.warn('Firebase Admin initialization failed - no service account found');
-        return false;
-      }
+      console.log('Parsing service account from environment variable (Secret Manager)...');
+      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+      console.log('Service account parsed successfully, initializing app...');
+      initializeApp({
+        credential: cert(serviceAccount),
+        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      });
+      console.log('Firebase Admin initialized with Secret Manager (via environment variable).');
+      return true;
     }
+
+    // Fallback to local file for local development
+    const serviceAccountPath = path.resolve('./service-account-key.json');
+    if (fs.existsSync(serviceAccountPath)) {
+      console.log('Using local service account file for development...');
+      const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+      initializeApp({
+        credential: cert(serviceAccount),
+        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      });
+      console.log('Firebase Admin initialized with local file.');
+      return true;
+    }
+
+    console.error('Firebase Admin not initialized. No service account key found.');
+    console.error('Expected: FIREBASE_SERVICE_ACCOUNT_KEY environment variable (from Secret Manager)');
+    console.error('Or: service-account-key.json file (for local development)');
+    return false;
+
   } catch (error) {
-    console.error('Failed to initialize Firebase Admin:', error);
+    console.error('Firebase Admin Initialization Error:', error);
+    console.error('This might be due to:');
+    console.error('1. Invalid JSON in Secret Manager');
+    console.error('2. Missing Secret Manager permissions');
+    console.error('3. Incorrect environment variable name');
     return false;
   }
 }
