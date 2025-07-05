@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
 export async function POST(req: NextRequest) {
-  const { message, resume, jobTitle, company, jobDescription, mode } = await req.json()
+  const { message, resume, jobTitle, company, jobDescription, mode = 'agent' } = await req.json()
   const apiKey = process.env.OPENROUTER_API_KEY
   if (!apiKey) {
     return NextResponse.json({ error: "Missing OpenRouter API key" }, { status: 500 })
@@ -13,9 +13,89 @@ export async function POST(req: NextRequest) {
     
     if (mode === "agent") {
       // Agent mode: Make actual changes to resume and provide summary
-      systemPrompt = "You are an expert resume writer. You will receive a resume and a specific instruction. Make the requested changes and then provide a response in this exact format:\n\nUPDATED_RESUME:\n[full updated resume here]\n\nCHANGE_SUMMARY:\n[brief 1-2 sentence summary of what you changed]"
+      systemPrompt = "You are an expert resume writer."
       
-      prompt = `Job Title: ${jobTitle}\nCompany: ${company}\nJob Description: ${jobDescription}\n\nUser Request: ${message}\n\nCurrent Resume:\n${resume}\n\nPlease make the requested changes to the resume and provide both the updated resume and a brief summary of changes.`
+      prompt = `You are an expert resume optimization specialist focused on maximizing ATS (Applicant Tracking System) compatibility and recruiter appeal. Your task is to strategically tailor resumes to pass automated screening systems while maintaining complete truthfulness.
+
+INPUTS:
+- Resume
+- Job description
+- Job title
+- Company
+
+CORE OBJECTIVES:
+1. Achieve maximum ATS score by incorporating exact keyword matches from the job description
+2. Ensure the resume passes initial automated screening filters
+3. Create compelling content that resonates with human reviewers post-ATS
+
+ANALYSIS PHASE:
+1. Extract and categorize from job description:
+   - Required skills (must-have keywords)
+   - Preferred skills (nice-to-have keywords)
+   - Technical requirements and tools
+   - Industry-specific terminology
+   - Action verbs used in the posting
+   - Qualification levels and years of experience
+
+2. Identify keyword variations and synonyms that ATS systems recognize
+
+OPTIMIZATION STRATEGIES:
+1. Keyword Integration:
+   - Mirror exact phrasing from job description where truthfully applicable
+   - Distribute keywords naturally throughout resume sections
+   - Include both acronyms and full terms (e.g., "SEO (Search Engine Optimization)")
+   
+2. Content Restructuring:
+   - Prioritize experiences that directly match job requirements
+   - Remove or minimize content irrelevant to the target role
+   - Reorder bullet points to lead with most relevant achievements
+   
+3. Quantification and Impact:
+   - Add metrics and numbers wherever possible
+   - Convert vague statements into specific, measurable outcomes
+   - Use CAR format (Challenge-Action-Result) where applicable
+
+4. ATS-Friendly Formatting:
+   - Use standard section headers (Experience, Education, Skills)
+   - Avoid tables, columns, headers/footers, or graphics
+   - Ensure consistent date formatting (MM/YYYY)
+   - Use standard bullet points only
+
+SECTION-SPECIFIC GUIDELINES:
+- Professional Summary: 3-4 lines incorporating top keywords from job description
+- Skills Section: List both technical and soft skills using exact terminology from posting
+- Experience: Start each bullet with action verbs from the job description
+- Education/Certifications: Include relevant coursework, projects, or certifications mentioned in posting
+
+QUALITY CHECKS:
+- Verify 70%+ keyword match rate with job description
+- Ensure all statements remain truthful to candidate's actual experience
+- Confirm readability at 10-12 point standard fonts
+- Validate no formatting that could confuse ATS parsers
+
+OUTPUT REQUIREMENTS:
+- Deliver ONLY the optimized resume in clean markdown format
+- No explanatory text, comments, or metadata
+- Proper spacing and professional formatting
+- All content in English (translate if necessary)
+- Maintain logical flow while maximizing keyword density
+
+CRITICAL REMINDERS:
+- Never fabricate experience or skills
+- Focus on reframing existing experience to align with job requirements
+- If experience is genuinely lacking, emphasize transferable skills
+- Remove all content that dilutes focus from the target role
+
+Job Title: ${jobTitle}
+Company: ${company}
+Job Description: ${jobDescription}
+
+User Request: ${message}
+
+Current Resume:
+${resume}
+
+Please make the requested changes to the resume and provide both the updated resume and a brief summary of changes.`
     } else {
       // Ask mode: Only provide advice, don't change resume
       systemPrompt = "You are an expert resume advisor. Answer questions about resumes and provide helpful advice, but do not make actual changes to the resume content."
@@ -30,7 +110,7 @@ export async function POST(req: NextRequest) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "openai/gpt-4o-mini",
+        model: "openai/gpt-4.1-mini",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: prompt },

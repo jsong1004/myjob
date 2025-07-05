@@ -22,7 +22,16 @@ export async function GET(
       return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     }
     const doc = snapshot.docs[0];
-    return NextResponse.json({ job: doc.data() });
+    const savedJobData = doc.data();
+    
+    // Combine the top-level saved job data with the nested original data
+    // to ensure all fields, especially the description, are present.
+    const jobData = {
+      ...(savedJobData.originalData || {}), // a backup
+      ...savedJobData,
+    };
+
+    return NextResponse.json({ job: jobData });
   } catch (error) {
     console.error('[JobById][GET] Error:', error);
     return NextResponse.json({ error: 'Failed to fetch job' }, { status: 500 });

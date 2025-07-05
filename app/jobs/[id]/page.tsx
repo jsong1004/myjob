@@ -14,10 +14,34 @@ interface JobDetailPageProps {
 export default async function JobDetailPage({ params }: JobDetailPageProps) {
   const { id } = await params;
 
-  const res = await fetch(`/api/jobs/${id}`, { cache: "no-store" });
+  // Construct absolute URL for server-side fetching
+  const absoluteUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/api/jobs/${id}`;
 
-  if (!res.ok) return notFound();
-  const { job } = await res.json();
+  console.log(`[JobDetailPage] Fetching job data from: ${absoluteUrl}`);
+
+  let job;
+  try {
+    const res = await fetch(absoluteUrl, { cache: "no-store" });
+
+    if (!res.ok) {
+      console.error(`[JobDetailPage] API responded with ${res.status} for job ID: ${id}`);
+      const errorText = await res.text();
+      console.error(`[JobDetailPage] API error response: ${errorText}`);
+      return notFound();
+    }
+
+    const data = await res.json();
+    job = data.job;
+
+    if (!job) {
+      console.error(`[JobDetailPage] Job object not found in API response for ID: ${id}`);
+      return notFound();
+    }
+  } catch (error) {
+    console.error(`[JobDetailPage] Failed to fetch job data for ID ${id}:`, error);
+    // You might want to return a more user-friendly error page here
+    return notFound();
+  }
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "-"
