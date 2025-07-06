@@ -10,6 +10,8 @@ interface Job {
   title: string
   company: string
   matchingScore: number
+  matchingSummary?: string
+  scoreDetails?: any
 }
 
 interface MatchingScoreDialogProps {
@@ -19,30 +21,59 @@ interface MatchingScoreDialogProps {
 }
 
 export function MatchingScoreDialog({ job, isOpen, onClose }: MatchingScoreDialogProps) {
-  // Mock matching breakdown data
-  const matchingBreakdown = {
+  // Use real score details if available, otherwise fall back to mock data
+  const scoreDetails = job.scoreDetails
+  
+  const mockData = {
     skills: {
-      score: 95,
-      matched: ["React", "TypeScript", "JavaScript", "CSS"],
-      missing: ["Vue.js"],
+      score: 85,
+      matched: ["Communication", "Problem Solving", "Teamwork"],
+      missing: ["Industry Specific Skills"],
     },
     experience: {
-      score: 88,
-      yearsRequired: 5,
-      yearsHave: 4,
-      relevantExperience: "Frontend Development, Web Applications",
+      score: 80,
+      yearsRequired: 3,
+      yearsHave: 2,
+      relevantExperience: "General Professional Experience",
     },
     education: {
-      score: 85,
-      required: "Bachelor's in Computer Science or related field",
-      have: "Bachelor's in Computer Science",
+      score: 75,
+      required: "Bachelor's degree preferred",
+      have: "Educational background",
     },
     keywords: {
-      score: 92,
-      matched: ["Frontend", "React", "Responsive Design", "API Integration"],
-      total: 15,
+      score: 70,
+      matched: ["Professional", "Dedicated", "Results-oriented"],
+      total: 10,
     },
   }
+
+  // If we have real score details, use them; otherwise use mock data
+  const matchingBreakdown = scoreDetails ? {
+    skills: {
+      score: scoreDetails.skillsAndKeywords?.score || mockData.skills.score,
+      matched: scoreDetails.skillsAndKeywords?.breakdown?.requiredSkills ? 
+        [scoreDetails.skillsAndKeywords.breakdown.requiredSkills] : mockData.skills.matched,
+      missing: scoreDetails.skillsAndKeywords?.breakdown?.technologyAndTools ? 
+        [scoreDetails.skillsAndKeywords.breakdown.technologyAndTools] : mockData.skills.missing,
+    },
+    experience: {
+      score: scoreDetails.experienceAndAchievements?.score || mockData.experience.score,
+      yearsRequired: mockData.experience.yearsRequired,
+      yearsHave: mockData.experience.yearsHave,
+      relevantExperience: scoreDetails.experienceAndAchievements?.breakdown?.roleRelevance || mockData.experience.relevantExperience,
+    },
+    education: {
+      score: scoreDetails.educationAndCertifications?.score || mockData.education.score,
+      required: mockData.education.required,
+      have: scoreDetails.educationAndCertifications?.rationale || mockData.education.have,
+    },
+    keywords: {
+      score: scoreDetails.jobTitleAndSeniority?.score || mockData.keywords.score,
+      matched: mockData.keywords.matched,
+      total: mockData.keywords.total,
+    },
+  } : mockData
 
   const getScoreIcon = (score: number) => {
     if (score >= 90) return <CheckCircle className="h-5 w-5 text-green-500" />
@@ -181,6 +212,17 @@ export function MatchingScoreDialog({ job, isOpen, onClose }: MatchingScoreDialo
               </div>
             </div>
           </div>
+
+          {/* Summary Section */}
+          {job.matchingSummary && (
+            <div className="pt-4 border-t">
+              <h3 className="text-lg font-semibold mb-3">Match Summary</h3>
+              <div className="flex items-start gap-3 bg-blue-50 p-4 rounded-lg">
+                <CheckCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-1" />
+                <p className="text-gray-800 text-sm leading-relaxed">{job.matchingSummary}</p>
+              </div>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

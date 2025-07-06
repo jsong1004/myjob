@@ -1,6 +1,8 @@
 "use client"
 
 import { use, useState, useEffect } from "react"
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -409,8 +411,8 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
                     placeholder="Edit your resume content here..."
                   />
                 ) : (
-                  <div className="bg-white border rounded-lg p-6 max-h-[600px] overflow-y-auto">
-                    <pre className="whitespace-pre-wrap text-sm font-mono leading-relaxed">{currentResume}</pre>
+                  <div className="bg-white border rounded-lg p-6 max-h-[600px] overflow-y-auto prose prose-sm max-w-none">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{currentResume}</ReactMarkdown>
                   </div>
                 )}
               </CardContent>
@@ -457,7 +459,9 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
                           message.type === "user" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-900"
                         }`}
                       >
-                        <p className="text-sm">{message.content}</p>
+                        <div className="prose prose-sm max-w-none">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                        </div>
                         <p className={`text-xs mt-1 ${message.type === "user" ? "text-blue-100" : "text-gray-500"}`}>
                           {formatTime(message.timestamp)}
                         </p>

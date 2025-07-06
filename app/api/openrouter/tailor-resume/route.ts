@@ -10,9 +10,11 @@ export async function POST(req: NextRequest) {
   try {
     let prompt = ""
     let systemPrompt = ""
+    let llmModel = ""
     
     if (mode === "agent") {
       // Agent mode: Make actual changes to resume and provide summary
+      llmModel = "openai/gpt-4.1-mini",
       systemPrompt = "You are an expert resume writer."
       
       prompt = `You are an expert resume optimization specialist focused on maximizing ATS (Applicant Tracking System) compatibility and recruiter appeal. Your task is to strategically tailor resumes to pass automated screening systems while maintaining complete truthfulness.
@@ -74,8 +76,12 @@ QUALITY CHECKS:
 - Validate no formatting that could confuse ATS parsers
 
 OUTPUT REQUIREMENTS:
-- Deliver ONLY the optimized resume in clean markdown format
-- No explanatory text, comments, or metadata
+- Format your response as follows:
+  UPDATED_RESUME:
+  [Insert the complete optimized resume here in clean markdown format]
+  
+  CHANGE_SUMMARY:
+  [Brief summary of the changes made]
 - Proper spacing and professional formatting
 - All content in English (translate if necessary)
 - Maintain logical flow while maximizing keyword density
@@ -98,6 +104,8 @@ ${resume}
 Please make the requested changes to the resume and provide both the updated resume and a brief summary of changes.`
     } else {
       // Ask mode: Only provide advice, don't change resume
+      llmModel = "openai/gpt-4o-mini",
+
       systemPrompt = "You are an expert resume advisor. Answer questions about resumes and provide helpful advice, but do not make actual changes to the resume content."
       
       prompt = `Job Title: ${jobTitle}\nCompany: ${company}\nJob Description: ${jobDescription}\n\nResume:\n${resume}\n\nQuestion: ${message}\n\nPlease provide helpful advice without making changes to the resume.`
@@ -110,7 +118,7 @@ Please make the requested changes to the resume and provide both the updated res
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "openai/gpt-4.1-mini",
+        model: llmModel,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: prompt },
@@ -131,8 +139,31 @@ Please make the requested changes to the resume and provide both the updated res
       const updatedResumeMatch = aiResponse.match(/UPDATED_RESUME:\s*([\s\S]*?)\s*CHANGE_SUMMARY:/);
       const changeSummaryMatch = aiResponse.match(/CHANGE_SUMMARY:\s*([\s\S]*?)$/);
       
-      const updatedResume = updatedResumeMatch ? updatedResumeMatch[1].trim() : resume;
-      const changeSummary = changeSummaryMatch ? changeSummaryMatch[1].trim() : "Changes have been made to your resume.";
+      let updatedResume = resume;
+      let changeSummary = "Changes have been made to your resume.";
+      
+      if (updatedResumeMatch && changeSummaryMatch) {
+        // If the AI followed the format correctly
+        updatedResume = updatedResumeMatch[1].trim();
+        changeSummary = changeSummaryMatch[1].trim();
+      } else if (aiResponse.includes("UPDATED_RESUME:")) {
+        // If partial format is found
+        const resumeMatch = aiResponse.match(/UPDATED_RESUME:\s*([\s\S]*?)$/);
+        if (resumeMatch) {
+          updatedResume = resumeMatch[1].trim();
+          changeSummary = "Resume has been updated according to your request.";
+        }
+      } else {
+        // Fallback: treat the entire response as the updated resume if it looks like resume content
+        const hasResumeStructure = aiResponse.includes("Experience") || aiResponse.includes("Skills") || aiResponse.includes("Education") || aiResponse.includes("Summary");
+        if (hasResumeStructure && aiResponse.length > 100) {
+          updatedResume = aiResponse.trim();
+          changeSummary = "Resume has been updated according to your request.";
+        } else {
+          // If it doesn't look like resume content, treat it as a message and keep original resume
+          changeSummary = aiResponse;
+        }
+      }
       
       return NextResponse.json({ 
         reply: changeSummary, 

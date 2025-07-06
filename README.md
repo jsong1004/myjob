@@ -4,38 +4,38 @@ MyJob is a modern, AI-driven platform designed to streamline the job search proc
 
 ## ✨ Features
 
-  - **🤖 AI-Powered Job Matching:** Utilizes the OpenRouter API to analyze job descriptions against your resume, providing a matching score to identify the best-fit opportunities. Only jobs with a score of 80 or higher are shown by default.
-  - **📄 AI-Generated Summaries:** Get a quick, AI-generated summary of any job description (50 words or less) to understand the role at a glance.
-  - **📝 Interactive Resume Tailoring & Editing:**
-      - Tailor your resume for a specific job using a chat-based AI assistant.
-      - Edit any resume with AI chat, even without a job context. The AI can make changes or answer questions about your resume.
-      - Resume preview is directly editable; AI chat works with your manual edits.
-  - **👤 Profile Management:**
-      - Manage your account information, professional bio, social links, skills, and preferences.
-      - Set your default resume for job applications.
-  - **🔍 Advanced Job Search:** Leverages the SerpApi to search for jobs based on keywords and location.
-  - **🔐 User Authentication:** Secure sign-up and sign-in with Email/Password or Google OAuth, powered by Firebase Authentication.
-  - **📂 Comprehensive Resume Management:**
-      - Upload and store multiple resumes in various formats (DOCX, Markdown).
-      - View, edit (with or without AI), and delete any resume.
-      - Set a default resume for job matching and download your resumes in markdown format at any time.
-      - Save tailored resumes directly from the AI tailoring page.
-  - **🧭 Intuitive Navigation:**
-      - Profile, Resume, and Saved Jobs links in the header for easy access.
+- **🤖 AI-Powered Job Matching:** Utilizes the OpenRouter API to analyze job descriptions against your resume, providing a matching score to identify the best-fit opportunities. Only jobs with a score of 80 or higher are shown by default.
+- **📄 AI-Generated Summaries:** Get a quick, AI-generated summary of any job description (50 words or less) to understand the role at a glance.
+- **📝 Interactive Resume Tailoring & Editing:**
+    - Tailor your resume for a specific job using a chat-based AI assistant.
+    - Edit any resume with AI chat, even without a job context. The AI can make changes or answer questions about your resume.
+    - Resume preview is directly editable; AI chat works with your manual edits.
+- **👤 Profile Management:**
+    - Manage your account information, professional bio, social links, skills, and preferences.
+    - Set your default resume for job applications.
+- **🔍 Advanced Job Search:** Leverages the SerpApi to search for jobs based on keywords and location.
+- **🔐 User Authentication:** Secure sign-up and sign-in with Email/Password or Google OAuth, powered by Firebase Authentication.
+- **📂 Comprehensive Resume Management:**
+    - Upload and store multiple resumes in various formats (DOCX, Markdown).
+    - View, edit (with or without AI), and delete any resume.
+    - Set a default resume for job matching and download your resumes in markdown format at any time.
+    - Save tailored resumes directly from the AI tailoring page.
+- **🧭 Intuitive Navigation:**
+    - Profile, Resume, and Saved Jobs links in the header for easy access.
 
 ## 🛠️ Technology Stack
 
 The project is built with a modern, robust technology stack:
 
-  - **Framework:** [Next.js](https://nextjs.org/) 15 (App Router)
-  - **Language:** [TypeScript](https://www.typescriptlang.org/)
-  - **Styling:** [Tailwind CSS](https://tailwindcss.com/) with a custom design system
-  - **UI Components:** [shadcn/ui](https://ui.shadcn.com/) built on Radix UI primitives
-  - **Authentication:** [Firebase Authentication](https://firebase.google.com/docs/auth)
-  - **Database:** [Cloud Firestore](https://firebase.google.com/docs/firestore) for storing user data, resumes, and saved jobs
-  - **AI Services:** [OpenRouter API](https://openrouter.ai/) (`openai/gpt-4o-mini`) for matching, summarization, and resume editing
-  - **Job Search Data:** [SerpApi](https://serpapi.com/) for fetching job listings
-  - **Package Manager:** [pnpm](https://pnpm.io/)
+- **Framework:** [Next.js](https://nextjs.org/) 15 (App Router)
+- **Language:** [TypeScript](https://www.typescriptlang.org/)
+- **Styling:** [Tailwind CSS](https://tailwindcss.com/) with a custom design system
+- **UI Components:** [shadcn/ui](https://ui.shadcn.com/) built on Radix UI primitives
+- **Authentication:** [Firebase Authentication](https://firebase.google.com/docs/auth)
+- **Database:** [Cloud Firestore](https://firebase.google.com/docs/firestore) for storing user data, resumes, and saved jobs
+- **AI Services:** [OpenRouter API](https://openrouter.ai/) (`openai/gpt-4o-mini`) for matching, summarization, and resume editing
+- **Job Search Data:** [SerpApi](https://serpapi.com/) for fetching job listings
+- **Package Manager:** [pnpm](https://pnpm.io/)
 
 ## 🚀 Getting Started
 
@@ -43,8 +43,8 @@ Follow these instructions to set up the project for local development.
 
 ### 1. Prerequisites
 
-  - [Node.js](https://nodejs.org/) (version 18.18.0 or later recommended)
-  - [pnpm](https://pnpm.io/installation) package manager
+- [Node.js](https://nodejs.org/) (version 18.18.0 or later recommended)
+- [pnpm](https://pnpm.io/installation) package manager
 
 ### 2. Clone the Repository
 
@@ -94,4 +94,28 @@ pnpm dev
 
 The application will be available at [http://localhost:3000](http://localhost:3000).
 
------
+## 📂 Project Structure
+
+The project follows the standard Next.js App Router structure:
+
+```
+/
+├── app/                  # Main application routes and UI
+│   ├── api/              # API routes for backend services
+│   ├── (main)/           # Main application layout and pages
+│   └── ...
+├── components/           # Shared UI components
+│   ├── ui/               # shadcn/ui components
+│   └── ...
+├── lib/                  # Helper functions and utilities
+├── public/               # Static assets
+└── ...
+```
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a pull request or open an issue if you have any suggestions or find any bugs.
+
+## 📄 License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.

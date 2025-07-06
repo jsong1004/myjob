@@ -39,18 +39,20 @@ export function JobResults({ results }: JobResultsProps) {
   const { toast } = useToast()
   const [savedJobs, setSavedJobs] = useState<Set<string>>(new Set())
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
-  const [loadingSaved, setLoadingSaved] = useState(false)
+  const [loadingSaved, setLoadingSaved] = useState(true)
 
   useEffect(() => {
     const fetchSavedJobs = async () => {
-      if (!user || !auth?.currentUser) return
+      if (!user || !auth?.currentUser) {
+        setLoadingSaved(false)
+        return
+      }
       setLoadingSaved(true)
       try {
         const token = await auth.currentUser.getIdToken()
         const response = await fetch("/api/saved-jobs", {
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
           },
         })
         if (response.ok) {
@@ -59,9 +61,9 @@ export function JobResults({ results }: JobResultsProps) {
             (data.savedJobs || []).map((job: any) => job.jobId)
           )
           setSavedJobs(savedSet)
-        }
+        } 
       } catch (err) {
-        // Ignore for now
+        // Error is not critical to user experience
       } finally {
         setLoadingSaved(false)
       }
@@ -77,56 +79,40 @@ export function JobResults({ results }: JobResultsProps) {
     const isSaved = savedJobs.has(job.id)
     try {
       const token = await auth.currentUser.getIdToken()
-      if (isSaved) {
-        // Unsave
-        const response = await fetch(`/api/saved-jobs/${job.id}`, {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        })
-        if (response.ok) {
-          setSavedJobs(prev => {
-            const newSet = new Set(prev)
+      const method = isSaved ? "DELETE" : "POST"
+      const url = isSaved ? `/api/saved-jobs/${job.id}` : "/api/saved-jobs"
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: isSaved ? undefined : JSON.stringify({
+          jobId: job.id,
+          title: job.title,
+          company: job.company,
+          location: job.location,
+          summary: job.matchingSummary || job.description?.slice(0, 200) || "",
+          salary: job.salary || "",
+          matchingScore: job.matchingScore ?? 0,
+          originalData: job,
+        }),
+      })
+
+      if (response.ok) {
+        setSavedJobs(prev => {
+          const newSet = new Set(prev)
+          if (isSaved) {
             newSet.delete(job.id)
-            return newSet
-          })
-          toast({ title: "Job unsaved" })
-        } else {
-          toast({ title: "Failed to unsave job", variant: "destructive" })
-        }
-      } else {
-        // Save
-        const response = await fetch("/api/saved-jobs", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            jobId: job.id,
-            title: job.title,
-            company: job.company,
-            location: job.location,
-            summary: job.matchingSummary || job.description?.slice(0, 200) || "",
-            salary: job.salary || "",
-            matchingScore: job.matchingScore ?? 0,
-            originalData: job,
-          }),
-        })
-        if (response.ok) {
-          setSavedJobs(prev => {
-            const newSet = new Set(prev)
+          } else {
             newSet.add(job.id)
-            return newSet
-          })
-          toast({ title: "Job saved" })
-        } else if (response.status === 409) {
-          toast({ title: "Job already saved" })
-        } else {
-          toast({ title: "Failed to save job", variant: "destructive" })
-        }
+          }
+          return newSet
+        })
+        toast({ title: isSaved ? "Job unsaved" : "Job saved" })
+      } else {
+        toast({ title: `Failed to ${isSaved ? 'unsave' : 'save'} job`, variant: "destructive" })
       }
     } catch (err) {
       toast({ title: "Error saving job", variant: "destructive" })
@@ -134,125 +120,106 @@ export function JobResults({ results }: JobResultsProps) {
   }
 
   const getScoreColor = (score: number) => {
-    if (score >= 90) return "text-green-600 bg-green-50"
-    if (score >= 85) return "text-blue-600 bg-blue-50"
-    return "text-orange-600 bg-orange-50"
-  }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    })
+    if (score >= 90) return "text-green-600 bg-green-50 border-green-200"
+    if (score >= 80) return "text-blue-600 bg-blue-50 border-blue-200"
+    return "text-amber-600 bg-amber-50 border-amber-200"
   }
 
   if (!results || results.length === 0) {
     return (
-      <Card>
+      <Card className="text-center py-12">
         <CardHeader>
-          <CardTitle>No jobs found</CardTitle>
-          <p className="text-sm text-gray-600">Try adjusting your search or check back later.</p>
+          <CardTitle>No Jobs Found</CardTitle>
+          <p className="text-muted-foreground">Try adjusting your search terms.</p>
         </CardHeader>
       </Card>
     )
   }
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <TrendingUp className="h-5 w-5" />
           Job Matches ({results.length} found)
         </CardTitle>
-        <p className="text-sm text-gray-600">Showing jobs with 60+ matching score based on your default resume (if available)</p>
+        <p className="text-sm text-muted-foreground">Showing jobs with the highest match scores based on your resume.</p>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
+        <div className="border rounded-lg overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-20">Score</TableHead>
+                <TableHead className="w-24 text-center">Score</TableHead>
                 <TableHead>Job Title</TableHead>
-                <TableHead>Company</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead className="max-w-xs">Score Summary</TableHead>
-                <TableHead>Posted</TableHead>
-                <TableHead>Salary</TableHead>
-                <TableHead className="w-32">Actions</TableHead>
+                <TableHead>Details</TableHead>
+                <TableHead className="max-w-xs">AI Summary</TableHead>
+                <TableHead className="text-right w-32">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {results.map((job) => (
-                <TableRow key={job.id}>
-                  <TableCell>
+                <TableRow key={job.id} className="hover:bg-muted/50">
+                  <TableCell className="text-center">
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
-                      className={`font-bold ${getScoreColor(job.matchingScore ?? 0)}`}
+                      className={`font-bold text-base border ${getScoreColor(job.matchingScore ?? 0)}`}
                       onClick={() => setSelectedJob(job)}
                     >
-                      {typeof job.matchingScore === "number" ? `${job.matchingScore}%` : "-"}
+                      {job.matchingScore ?? 0}
                     </Button>
                   </TableCell>
                   <TableCell>
-                    {job.applyUrl ? (
-                      <a
-                        href={job.applyUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                      >
-                        {job.title}
-                      </a>
-                    ) : (
-                      <span className="font-medium">{job.title}</span>
-                    )}
+                    <div className="font-medium">
+                      {job.applyUrl ? (
+                        <a
+                          href={job.applyUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:underline"
+                        >
+                          {job.title}
+                        </a>
+                      ) : (
+                        job.title
+                      )}
+                    </div>
+                    <div className="text-sm text-muted-foreground">{job.company}</div>
                   </TableCell>
-                  <TableCell className="font-medium">{job.company}</TableCell>
-                  <TableCell>{job.location}</TableCell>
+                  <TableCell>
+                     <div className="text-sm text-muted-foreground">{job.location}</div>
+                     <Badge variant="secondary" className="mt-1 font-mono text-xs">
+                      {job.salary || "Not specified"}
+                    </Badge>
+                  </TableCell>
                   <TableCell className="max-w-xs">
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <p
-                            className="text-sm text-gray-600 line-clamp-2 cursor-pointer"
-                            tabIndex={0}
-                          >
-                            {job.matchingSummary?.length
-                              ? job.matchingSummary
-                              : job.description?.slice(0, 200) || "No summary available."}
+                          <p className="text-sm text-muted-foreground line-clamp-2 cursor-help">
+                            {job.matchingSummary || "No summary available."}
                           </p>
                         </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-md whitespace-pre-line">
-                          {job.matchingSummary?.length
-                            ? job.matchingSummary
-                            : job.description || "No summary available."}
+                        <TooltipContent side="top" className="max-w-md p-4 whitespace-pre-line">
+                          <p>{job.matchingSummary || "No summary available."}</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
                   </TableCell>
-                  <TableCell className="text-sm text-gray-500">
-                    {job.postedAt || "-"}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className="text-xs">
-                      {job.salary || "-"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button
                               variant="ghost"
-                              size="sm"
+                              size="icon"
                               onClick={() => handleSaveJob(job)}
-                              className={savedJobs.has(job.id) ? "text-blue-600" : ""}
+                              className={savedJobs.has(job.id) ? "text-blue-600 hover:text-blue-700" : "text-muted-foreground"}
                               disabled={loadingSaved}
                             >
-                              <Bookmark className={`h-4 w-4 ${savedJobs.has(job.id) ? "fill-current" : ""}`} />
+                              <Bookmark className={`h-5 w-5 ${savedJobs.has(job.id) ? "fill-current" : ""}`} />
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent side="top">
@@ -263,14 +230,14 @@ export function JobResults({ results }: JobResultsProps) {
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Link href={`/tailor-resume/${job.id}`}>
-                              <Button variant="ghost" size="sm">
-                                <ExternalLink className="h-4 w-4" />
+                            <Link href={`/tailor-resume/${job.id}`} passHref>
+                              <Button asChild variant="ghost" size="icon">
+                                <a><ExternalLink className="h-5 w-5 text-muted-foreground" /></a>
                               </Button>
                             </Link>
                           </TooltipTrigger>
                           <TooltipContent side="top">
-                            Tailor my resume for this job
+                            Tailor resume for this job
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
@@ -283,7 +250,11 @@ export function JobResults({ results }: JobResultsProps) {
         </div>
 
         {selectedJob && (
-          <MatchingScoreDialog job={selectedJob} isOpen={!!selectedJob} onClose={() => setSelectedJob(null)} />
+          <MatchingScoreDialog 
+            job={selectedJob}
+            isOpen={!!selectedJob} 
+            onClose={() => setSelectedJob(null)} 
+          />
         )}
       </CardContent>
     </Card>

@@ -4,23 +4,36 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Bookmark, ExternalLink } from "lucide-react"
+import { Bookmark, ExternalLink, Loader2, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { Header } from "@/components/header"
 import { AuthProvider, useAuth } from "@/components/auth-provider"
 import { auth } from "@/lib/firebase"
 import type { SavedJob } from "@/lib/types"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
+import { MatchingScoreDialog } from "@/components/matching-score-dialog"
 
 export default function SavedJobsPage() {
+  return (
+    <AuthProvider>
+      <SavedJobsPageContent />
+    </AuthProvider>
+  )
+}
+
+function SavedJobsPageContent() {
   const { user } = useAuth()
   const [savedJobs, setSavedJobs] = useState<SavedJob[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [selectedJob, setSelectedJob] = useState<SavedJob | null>(null)
 
   useEffect(() => {
     const fetchSavedJobs = async () => {
-      if (!user || !auth?.currentUser) return
+      if (!user || !auth?.currentUser) {
+        setLoading(false)
+        return
+      }
       setLoading(true)
       setError(null)
       try {
@@ -28,7 +41,6 @@ export default function SavedJobsPage() {
         const response = await fetch("/api/saved-jobs", {
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
           },
         })
         if (response.ok) {
@@ -54,7 +66,6 @@ export default function SavedJobsPage() {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
         },
       })
       if (response.ok) {
@@ -67,103 +78,126 @@ export default function SavedJobsPage() {
     }
   }
 
+  const getScoreColor = (score: number) => {
+    if (score >= 90) return "text-green-600 bg-green-100 border-green-200"
+    if (score >= 80) return "text-blue-600 bg-blue-100 border-blue-200"
+    return "text-amber-600 bg-amber-100 border-amber-200"
+  }
+
   return (
-    <AuthProvider>
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <main className="container mx-auto px-4 py-8">
-          <div className="max-w-4xl mx-auto">
-            <h1 className="text-3xl font-bold mb-6 text-gray-900">Saved Jobs</h1>
-            {loading ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Loading...</CardTitle>
-                </CardHeader>
-              </Card>
-            ) : error ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Error</CardTitle>
-                  <p className="text-sm text-red-600">{error}</p>
-                </CardHeader>
-              </Card>
-            ) : savedJobs.length === 0 ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle>No saved jobs</CardTitle>
-                  <p className="text-sm text-gray-600">You haven't saved any jobs yet.</p>
-                </CardHeader>
-              </Card>
-            ) : (
-              <Card>
-                <CardContent className="p-0">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Title</TableHead>
-                        <TableHead>Company</TableHead>
-                        <TableHead>Location</TableHead>
-                        <TableHead>Score</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {savedJobs.map((job) => (
-                        <TableRow key={job.id}>
-                          <TableCell>
-                            {job.originalData?.applyUrl ? (
-                              <a
-                                href={job.originalData.applyUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                              >
-                                {job.title}
-                              </a>
-                            ) : (
-                              <span className="font-medium">{job.title}</span>
-                            )}
-                          </TableCell>
-                          <TableCell>{job.company}</TableCell>
-                          <TableCell>{job.location}</TableCell>
-                          <TableCell>{job.matchingScore ?? "-"}%</TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleUnsaveJob(job.id)}
-                                className="text-blue-600"
-                                title="Unsave job"
-                              >
-                                <Bookmark className="h-4 w-4 fill-current" />
-                              </Button>
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Link href={`/tailor-resume/${job.jobId}`}>
-                                      <Button variant="ghost" size="sm">
-                                        <ExternalLink className="h-4 w-4" />
-                                      </Button>
-                                    </Link>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top">
-                                    Tailor my resume for this job
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            )}
+    <>
+      <Header />
+      <main className="container mx-auto px-4 py-12 md:py-16">
+        <div className="max-w-4xl mx-auto">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold tracking-tight">Saved Jobs</h1>
+            <p className="text-muted-foreground">Review and manage the jobs you've saved.</p>
           </div>
-        </main>
-      </div>
-    </AuthProvider>
+
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : error ? (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : savedJobs.length === 0 ? (
+            <Card className="text-center py-16">
+              <CardContent>
+                <Bookmark className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-xl font-semibold mb-2">No Saved Jobs</h3>
+                <p className="text-muted-foreground mb-4">You haven't saved any jobs yet.</p>
+                <Button asChild>
+                  <Link href="/">Find Jobs</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Job Title</TableHead>
+                      <TableHead>Company</TableHead>
+                      <TableHead className="text-center">Score</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {savedJobs.map((job) => (
+                      <TableRow key={job.id}>
+                        <TableCell>
+                          <div className="font-medium">{job.title}</div>
+                          <div className="text-sm text-muted-foreground">{job.location}</div>
+                        </TableCell>
+                        <TableCell>{job.company}</TableCell>
+                        <TableCell className="text-center">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={`font-bold ${getScoreColor(job.matchingScore ?? 0)}`}
+                            onClick={() => setSelectedJob(job)}
+                          >
+                            {job.matchingScore ?? "-"}%
+                          </Button>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleUnsaveJob(job.id)}
+                                    className="text-muted-foreground hover:text-destructive"
+                                  >
+                                    <Bookmark className="h-5 w-5 fill-current text-primary" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent><p>Unsave Job</p></TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button asChild variant="ghost" size="icon">
+                                    <Link href={`/tailor-resume/${job.jobId}`}>
+                                      <ExternalLink className="h-5 w-5 text-muted-foreground" />
+                                    </Link>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent><p>Tailor Resume</p></TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+
+          {selectedJob && (
+            <MatchingScoreDialog 
+              job={{
+                id: selectedJob.jobId,
+                title: selectedJob.title,
+                company: selectedJob.company,
+                matchingScore: selectedJob.matchingScore ?? 0,
+                matchingSummary: selectedJob.summary || selectedJob.originalData?.description?.slice(0, 200)
+              }} 
+              isOpen={!!selectedJob} 
+              onClose={() => setSelectedJob(null)} 
+            />
+          )}
+        </div>
+      </main>
+    </>
   )
 } 

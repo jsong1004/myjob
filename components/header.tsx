@@ -10,6 +10,8 @@ import { User, FileText, Bookmark, LogOut, Settings } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
 import { AuthModal } from "@/components/auth-modal"
 
+import Image from "next/image"
+
 export function Header() {
   const { user, loading, signOut } = useAuth()
   const [showAuthModal, setShowAuthModal] = useState(false)
@@ -42,61 +44,39 @@ export function Header() {
       .toUpperCase()
   }
 
-  if (loading) {
-    return (
-      <header className="bg-white shadow-sm border-b">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
-            <Link href="/" className="text-2xl font-bold text-blue-600">
-              myJob
-            </Link>
-
-            <nav className="hidden md:flex items-center space-x-6">
-              <Link href="/" className="text-gray-600 hover:text-gray-900">
-                Search Jobs
-              </Link>
-            </nav>
-
-            <div className="flex items-center space-x-4">
-              <Skeleton className="h-8 w-20" />
-              <Skeleton className="h-8 w-20" />
-            </div>
-          </div>
-        </div>
-      </header>
-    )
-  }
-
   return (
     <>
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-background/75 backdrop-blur-lg sticky top-0 z-50 border-b">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
-            <Link href="/" className="text-2xl font-bold text-blue-600">
+            <Link href="/" className="flex items-center gap-2 text-xl font-semibold">
+              <Image src="/logo.svg" alt="myJob logo" width={24} height={24} />
               myJob
             </Link>
 
-            <nav className="hidden md:flex items-center space-x-6">
-              <Link href="/" className="text-gray-600 hover:text-gray-900">
+            <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
+              <Link href="/" className="text-muted-foreground hover:text-foreground transition-colors">
                 Search Jobs
               </Link>
               {user && (
                 <>
-                  <Link href="/saved-jobs" className="text-gray-600 hover:text-gray-900">
+                  <Link href="/saved-jobs" className="text-muted-foreground hover:text-foreground transition-colors">
                     Saved Jobs
                   </Link>
-                  <Link href="/resumes" className="text-gray-600 hover:text-gray-900">
+                  <Link href="/resumes" className="text-muted-foreground hover:text-foreground transition-colors">
                     My Resumes
                   </Link>
-                  <Link href="/profile" className="text-gray-600 hover:text-gray-900">
+                  <Link href="/profile" className="text-muted-foreground hover:text-foreground transition-colors">
                     Profile
                   </Link>
                 </>
               )}
             </nav>
 
-            <div className="flex items-center space-x-4">
-              {!user ? (
+            <div className="flex items-center space-x-2">
+              {loading ? (
+                <Skeleton className="h-9 w-24" />
+              ) : !user ? (
                 <div className="space-x-2">
                   <Button variant="ghost" onClick={handleSignIn}>
                     Sign In
@@ -106,8 +86,8 @@ export function Header() {
               ) : (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                      <Avatar className="h-8 w-8">
+                    <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                      <Avatar className="h-9 w-9">
                         <AvatarImage src={user.photoURL} alt={user.name} />
                         <AvatarFallback>
                           {getUserInitials(user.name)}
@@ -125,24 +105,24 @@ export function Header() {
                     <DropdownMenuItem asChild>
                       <Link href="/profile" className="flex items-center">
                         <User className="mr-2 h-4 w-4" />
-                        Profile
+                        <span>Profile</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/resumes" className="flex items-center">
                         <FileText className="mr-2 h-4 w-4" />
-                        My Resumes
+                        <span>My Resumes</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/saved-jobs" className="flex items-center">
                         <Bookmark className="mr-2 h-4 w-4" />
-                        Saved Jobs
+                        <span>Saved Jobs</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleSignOut}>
                       <LogOut className="mr-2 h-4 w-4" />
-                      Sign Out
+                      <span>Sign Out</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

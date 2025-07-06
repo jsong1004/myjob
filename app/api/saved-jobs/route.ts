@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     const decoded = await adminAuth.verifyIdToken(token)
     const userId = decoded.uid
     const body = await req.json()
-    const { jobId, title, company, location, summary, salary, matchingScore, originalData } = body
+    const { jobId, title, company, location, summary, salary, matchingScore, scoreDetails, matchingSummary, originalData } = body
     if (!jobId || !title || !company) {
       return NextResponse.json({ error: "Missing required job fields" }, { status: 400 })
     }
@@ -71,6 +71,8 @@ export async function POST(req: NextRequest) {
       summary: summary || "",
       salary: salary || "",
       matchingScore: matchingScore ?? 0,
+      matchingSummary: matchingSummary || "",
+      scoreDetails: scoreDetails || {},
       savedAt: new Date(),
       originalData: originalData || {},
     })

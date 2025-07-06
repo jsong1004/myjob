@@ -160,14 +160,14 @@ export async function POST(req: NextRequest) {
         ).join("\n---\n");
         
         console.log(`[JobSearch] Jobs data for AI (character count: ${jobsForPrompt.length})`);
-        console.log(`[JobSearch] Jobs being analyzed:`, jobsForAI.map(j => ({
+        console.log(`[JobSearch] Jobs being analyzed:`, jobsForAI.map((j: { id: any; title: any; company: any; description: string | any[]; }) => ({
           id: j.id, 
           title: j.title, 
           company: j.company,
           descriptionLength: j.description.length
         })));
         
-        const prompt = `Given the following resume and a list of jobs, rate how well the resume matches each job on a scale of 0-100. For each job, return a JSON array of objects with id, title, company, score, and a 1-sentence summary.\n\nResume:\n${resume}\n\nJobs:\n${jobsForPrompt}`;
+        const prompt = `Please score the following jobs against the provided resume.\n\nResume:\n${resume}\n\nJobs:\n${jobsForPrompt}`;
         
         console.log(`[JobSearch] Final prompt length: ${prompt.length} characters`);
         console.log(`[JobSearch] Prompt preview (first 500 chars):`, prompt.substring(0, 500) + '...');
@@ -177,7 +177,28 @@ export async function POST(req: NextRequest) {
           messages: [
             { 
               role: "system", 
-              content: "You are an expert job matching assistant. Your task is to evaluate how well a candidate's resume matches a given list of job descriptions. Assess each job against the resume using a structured scoring system based on the following five weighted categories, totaling 100%:\n\n1. Skills Match – 30%\n- Does the resume list the required technical skills?\n- Are relevant tools and platforms (e.g., AWS, Python, Salesforce) mentioned?\n- Do years of experience align with expectations?\n\n2. Experience Alignment – 25%\n- Do past roles reflect the core responsibilities of the job?\n- Are industries, functions, or team sizes relevant or comparable?\n- Is there evidence of role progression or leadership, if required?\n\n3. Job Title Similarity – 15%\n- Are previous titles equivalent or closely related to the job title?\n- Has the candidate operated at a similar seniority level (e.g., Lead, Manager)?\n\n4. Education & Certifications – 10%\n- Does the resume meet the stated educational requirements?\n- Are any required certifications present (e.g., PMP, CPA, AWS Certified)?\n\n5. Language & Keywords Match – 20%\n- How many key terms from the job description appear in the resume?\n- Are keywords used meaningfully and in relevant context?\n\nFor each job, return a JSON array of objects with the following structure: [{\"id\":\"job_id_123\",\"title\":\"Job Title\",\"company\":\"Company Name\",\"score\":87,\"summary\":\"Strong technical alignment and relevant experience, though title mismatch slightly lowers the match score.\"}]" 
+              content: `You are an expert job-matching assistant. Analyze how well a candidate's resume matches each job description.
+
+SCORING CRITERIA (0-100):
+- Skills & Keywords (40%): Match between candidate skills and job requirements
+- Experience & Achievements (40%): Relevance of past roles, years of experience, quantifiable achievements
+- Education & Certifications (10%): Educational background alignment
+- Job Title & Seniority (10%): Career progression and title alignment
+
+IMPORTANT: You must return ONLY a valid JSON array. Do not include any explanatory text, markdown formatting, or code blocks. Your response should start with [ and end with ].
+
+Return format:
+[
+  {
+    "id": "job_id_here",
+    "title": "Job Title",
+    "company": "Company Name",
+    "score": 85,
+    "summary": "Brief explanation of the match quality and key factors affecting the score."
+  }
+]
+
+Analyze each job carefully and provide accurate scores based on the resume content.`
             },
             { role: "user", content: prompt },
           ],
@@ -223,43 +244,76 @@ export async function POST(req: NextRequest) {
           let matches: any[] = [];
           try {
             console.log(`[JobSearch] Attempting to parse response as JSON...`);
+            
+            // First try direct parsing
             matches = JSON.parse(responseText);
-            console.log(`[JobSearch] Successfully parsed JSON, got ${matches.length} matches`);
+            console.log(`[JobSearch] Successfully parsed JSON directly, got ${matches.length} matches`);
+            
+            // Validate that matches is an array
+            if (!Array.isArray(matches)) {
+              console.warn(`[JobSearch] Response is not an array, wrapping in array`);
+              matches = [matches];
+            }
+            
           } catch (parseError) {
-            console.log(`[JobSearch] Direct JSON parse failed, trying to extract JSON array...`);
-            const match = responseText.match(/\[([\s\S]*?)\]/);
-            if (match) {
+            console.log(`[JobSearch] Direct JSON parse failed, trying multiple extraction methods...`);
+            console.log(`[JobSearch] Parse error:`, parseError);
+            
+            // Try to extract JSON from markdown code blocks
+            let jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
+            if (jsonMatch) {
               try {
-                matches = JSON.parse(match[0]);
-                console.log(`[JobSearch] Successfully extracted and parsed JSON array, got ${matches.length} matches`);
-              } catch (extractError) {
-                console.error(`[JobSearch] Failed to parse extracted JSON:`, extractError);
-                console.log(`[JobSearch] Extracted text:`, match[0]);
+                matches = JSON.parse(jsonMatch[1]);
+                console.log(`[JobSearch] Successfully extracted JSON from markdown code block, got ${matches.length} matches`);
+              } catch (codeBlockError) {
+                console.error(`[JobSearch] Failed to parse JSON from code block:`, codeBlockError);
               }
-            } else {
-              console.error(`[JobSearch] No JSON array found in response`);
+            }
+            
+            // Try to extract JSON array with flexible matching
+            if (matches.length === 0) {
+              jsonMatch = responseText.match(/\[\s*\{[\s\S]*?\}\s*\]/);
+              if (jsonMatch) {
+                try {
+                  matches = JSON.parse(jsonMatch[0]);
+                  console.log(`[JobSearch] Successfully extracted JSON array with flexible matching, got ${matches.length} matches`);
+                } catch (flexibleError) {
+                  console.error(`[JobSearch] Failed to parse flexible JSON:`, flexibleError);
+                  console.log(`[JobSearch] Flexible match text:`, jsonMatch[0]);
+                }
+              }
+            }
+            
+            // If all parsing fails, log the full response for debugging
+            if (matches.length === 0) {
+              console.error(`[JobSearch] All JSON parsing attempts failed`);
+              console.error(`[JobSearch] Full response text:`, responseText);
             }
           }
           
           console.log(`[JobSearch] Parsed matches:`, matches);
           
           // Map scores and summaries back to jobs using id
-          jobs = jobs.map((job: any) => {
-            const found = matches.find((m: any) => m.id === job.id);
-            const updatedJob = {
-              ...job,
-              matchingScore: found?.score ?? 0,
-              matchingSummary: found?.summary ?? "",
-            };
-            
-            if (found) {
-              console.log(`[JobSearch] Matched job ${job.id} (${job.title}): score=${found.score}, summary="${found.summary}"`);
-            } else {
-              console.log(`[JobSearch] No match found for job ${job.id} (${job.title})`);
-            }
-            
-            return updatedJob;
-          });
+          if (matches.length > 0) {
+            jobs = jobs.map((job: any) => {
+              const found = matches.find((m: any) => m.id === job.id);
+              const updatedJob = {
+                ...job,
+                matchingScore: found?.score ?? 0,
+                matchingSummary: found?.summary ?? "",
+              };
+              
+              if (found) {
+                console.log(`[JobSearch] Matched job ${job.id} (${job.title}): score=${found.score}, summary="${found.summary}"`);
+              } else {
+                console.log(`[JobSearch] No match found for job ${job.id} (${job.title})`);
+              }
+              
+              return updatedJob;
+            });
+          } else {
+            console.warn(`[JobSearch] No matches found in AI response, keeping original job data`);
+          }
           
           console.log(`[JobSearch] Final matching scores:`, jobs.map((j: any) => ({
             id: j.id,
@@ -303,14 +357,9 @@ export async function POST(req: NextRequest) {
         console.log('[JobSearch] Original scores:', jobs.map((j: any) => ({ id: j.id, title: j.title, score: j.matchingScore })));
       }
     } else if (resume) {
-      // If we have resume but no matching scores (API failed), assign default scores and return all jobs
-      console.log(`[JobSearch] OpenRouter matching failed, assigning default scores to all ${jobs.length} jobs`);
-      jobs = jobs.map((job: any) => ({
-        ...job,
-        matchingScore: 50, // Default score
-        matchingSummary: "Matching analysis unavailable - OpenRouter API error"
-      }));
-      console.log(`[JobSearch] Returning all ${jobs.length} jobs with default scores`);
+      // If we have resume but no matching scores (API failed), don't filter - return all jobs
+      console.log(`[JobSearch] OpenRouter matching failed, returning all ${jobs.length} jobs without filtering`);
+      // Don't assign default scores - let the frontend handle display of jobs without scores
     } else {
       console.log(`[JobSearch] No resume provided, returning all ${jobs.length} jobs without filtering`);
     }

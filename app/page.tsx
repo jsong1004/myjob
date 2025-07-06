@@ -37,50 +37,38 @@ function HomePage() {
   const [searchResults, setSearchResults] = useState<Job[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [defaultResume, setDefaultResume] = useState<Resume | null>(null)
-  const [resumeLoading, setResumeLoading] = useState(false)
+  const [resumeLoading, setResumeLoading] = useState(true)
   const { user } = useAuth()
 
-  // Fetch default resume when user is authenticated
   useEffect(() => {
     const fetchDefaultResume = async () => {
-      if (!user || !auth?.currentUser) return
+      if (!user || !auth?.currentUser) {
+        setResumeLoading(false)
+        return
+      }
       
       setResumeLoading(true)
-      console.log('[HomePage] Fetching default resume for user:', user.email)
-      
       try {
         const token = await auth.currentUser.getIdToken()
         const response = await fetch('/api/resumes', {
           headers: {
             'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
           }
         })
         
         if (response.ok) {
           const data = await response.json()
-          console.log('[HomePage] Resumes fetched:', data.resumes?.length || 0)
-          
-          // Find the default resume
           const defaultResumeData = data.resumes?.find((r: Resume) => r.isDefault)
           if (defaultResumeData) {
-            console.log('[HomePage] Default resume found:', defaultResumeData.name)
             setDefaultResume(defaultResumeData)
           } else {
-            // If no default, use the first resume
-            const firstResume = data.resumes?.[0]
-            if (firstResume) {
-              console.log('[HomePage] No default resume, using first resume:', firstResume.name)
-              setDefaultResume(firstResume)
-            } else {
-              console.log('[HomePage] No resumes found for user')
-            }
+            setDefaultResume(data.resumes?.[0] || null)
           }
         } else {
-          console.error('[HomePage] Failed to fetch resumes:', response.status, response.statusText)
+          console.error('Failed to fetch resumes:', response.statusText)
         }
       } catch (error) {
-        console.error('[HomePage] Error fetching default resume:', error)
+        console.error('Error fetching default resume:', error)
       } finally {
         setResumeLoading(false)
       }
@@ -90,7 +78,6 @@ function HomePage() {
   }, [user])
 
   const handleSearch = async (query: string, location: string) => {
-    console.log('[HomePage] Starting job search:', { query, location, hasDefaultResume: !!defaultResume })
     setIsLoading(true)
     setSearchResults([])
     
@@ -100,13 +87,6 @@ function HomePage() {
         location,
         resume: defaultResume?.content || ""
       }
-      
-      console.log('[HomePage] Search payload:', {
-        query: searchPayload.query,
-        location: searchPayload.location,
-        resumeLength: searchPayload.resume.length,
-        resumePreview: searchPayload.resume.substring(0, 100) + '...'
-      })
       
       const response = await fetch('/api/jobs/search', {
         method: 'POST',
@@ -118,50 +98,53 @@ function HomePage() {
 
       if (response.ok) {
         const data = await response.json()
-        console.log('[HomePage] Job search results:', data.jobs?.length || 0, 'jobs')
         setSearchResults(data.jobs || [])
       } else {
-        console.error('[HomePage] Job search failed:', response.status, response.statusText)
-        const errorData = await response.text()
-        console.error('[HomePage] Error response:', errorData)
+        console.error('Job search failed:', await response.text())
       }
     } catch (error) {
-      console.error('[HomePage] Job search error:', error)
+      console.error('Job search error:', error)
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <>
       <Header />
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-12 md:py-16">
         <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">
-              Find Your Perfect Job Match
+          <div className="text-center mb-10">
+            <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground mb-4">
+              Find Your Next Opportunity
             </h1>
-            <p className="text-xl text-gray-600 mb-2">
-              AI-powered job search tailored to your resume
+            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
+              Leverage AI to match your resume with the perfect job. Search, score, and tailor your application all in one place.
             </p>
           </div>
           
           <JobSearch onSearch={handleSearch} isLoading={isLoading} />
           
+          {isLoading && (
+            <div className="mt-8 text-center">
+              <p className="text-muted-foreground">Searching for jobs...</p>
+            </div>
+          )}
+
           {searchResults.length > 0 && (
-            <div className="mt-8">
+            <div className="mt-10">
               <JobResults results={searchResults} />
             </div>
           )}
           
           {!isLoading && searchResults.length === 0 && (
-            <div className="mt-8 text-center text-gray-500">
-              <p>Start your search to find amazing job opportunities!</p>
+            <div className="mt-10 text-center text-muted-foreground">
+              <p>Your job search results will appear here.</p>
             </div>
           )}
         </div>
       </main>
-    </div>
+    </>
   )
 }
 
