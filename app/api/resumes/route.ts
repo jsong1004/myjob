@@ -96,31 +96,31 @@ export async function POST(request: NextRequest) {
 
     if (contentType.includes('multipart/form-data')) {
       // Handle file upload
-      const formData = await request.formData();
-      const file = formData.get('file') as File;
+    const formData = await request.formData();
+    const file = formData.get('file') as File;
       name = formData.get('name') as string;
       makeDefault = formData.get('makeDefault') === 'true';
 
-      if (!file || !name) {
-        return NextResponse.json({ error: 'File and name are required' }, { status: 400 });
-      }
+    if (!file || !name) {
+      return NextResponse.json({ error: 'File and name are required' }, { status: 400 });
+    }
 
-      // Validate file
-      const validation = validateFile(file);
-      if (!validation.valid) {
-        return NextResponse.json({ error: validation.error }, { status: 400 });
-      }
+    // Validate file
+    const validation = validateFile(file);
+    if (!validation.valid) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
+    }
 
-      // Parse file content
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const parseResult = await parseFile(buffer, file.name);
-      
-      if (parseResult.error) {
-        return NextResponse.json({ error: parseResult.error }, { status: 400 });
-      }
+    // Parse file content
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const parseResult = await parseFile(buffer, file.name);
+    
+    if (parseResult.error) {
+      return NextResponse.json({ error: parseResult.error }, { status: 400 });
+    }
 
-      if (!parseResult.content.trim()) {
-        return NextResponse.json({ error: 'File appears to be empty or could not extract text' }, { status: 400 });
+    if (!parseResult.content.trim()) {
+      return NextResponse.json({ error: 'File appears to be empty or could not extract text' }, { status: 400 });
       }
 
       content = parseResult.content;

@@ -4,9 +4,9 @@ import { useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
-import { User, FileText, Bookmark, LogOut, Settings } from "lucide-react"
+import { User, FileText, Bookmark, LogOut, Settings, Github } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
 import { AuthModal } from "@/components/auth-modal"
 
@@ -120,6 +120,13 @@ export function Header() {
                         <span>Saved Jobs</span>
                       </Link>
                     </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/feedback" className="flex items-center">
+                        <Github className="mr-2 h-4 w-4" />
+                        <span>Submit Feedback</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleSignOut}>
                       <LogOut className="mr-2 h-4 w-4" />
                       <span>Sign Out</span>

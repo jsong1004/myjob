@@ -48,7 +48,8 @@ steps:
       - >-
         FIREBASE_SERVICE_ACCOUNT_KEY=projects/711582759542/secrets/ServiceAccountKey:latest,
         OPENROUTER_API_KEY=projects/711582759542/secrets/OPENROUTER_API_KEY:latest,
-        SERPAPI_KEY=projects/711582759542/secrets/SERPER_API_KEY:latest
+        SERPAPI_KEY=projects/711582759542/secrets/SERPER_API_KEY:latest,
+        GITHUB_TOKEN=projects/711582759542/secrets/GITHUB_TOKEN:latest
 # Store the image in Artifact Registry
 images:
   - 'us-west1-docker.pkg.dev/myresume-457817/myjob-service/myjob-service:${SHORT_SHA}'

@@ -91,6 +91,19 @@ export interface ChatMessage {
   timestamp: Date
 }
 
+// Feedback document interface
+export interface Feedback {
+  id: string;
+  userId?: string;
+  userName?: string;
+  userEmail?: string;
+  type: 'feature' | 'bug';
+  title: string;
+  description: string;
+  githubIssueUrl?: string;
+  createdAt: Timestamp;
+}
+
 // Auth context interface
 export interface AuthContextType {
   user: User | null
@@ -100,7 +113,7 @@ export interface AuthContextType {
   signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
   updateProfile: (data: Partial<User>) => Promise<void>
-}
+} 
 
 export interface UserProfile {
   userId: string
