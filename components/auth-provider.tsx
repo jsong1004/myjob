@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-import { 
+import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signInWithPopup,
@@ -9,20 +9,22 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged,
   updateProfile as firebaseUpdateProfile,
-  type User as FirebaseUser
 } from 'firebase/auth'
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase'
 import { User, AuthContextType } from '@/lib/types'
-import { useIdleTimeout } from '@/hooks/useIdleTimeout';
+import { useIdleTimeout } from '@/hooks/use-idle-timeout';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const googleProvider = new GoogleAuthProvider();
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   const signOut = async () => {
+    if (!auth) throw new Error("Auth not initialized");
     await firebaseSignOut(auth);
     setUser(null);
   };
@@ -32,11 +34,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
+        const userDocRef = doc(db, "users", firebaseUser.uid);
+        const userDoc = await getDoc(userDocRef);
         if (userDoc.exists()) {
           setUser({ uid: firebaseUser.uid, ...userDoc.data() } as User);
         } else {
-          // If user exists in Auth but not Firestore, create a basic profile
           const newUser: User = {
             uid: firebaseUser.uid,
             email: firebaseUser.email || "",
@@ -45,7 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
           };
-          await setDoc(doc(db, "users", firebaseUser.uid), newUser);
+          await setDoc(userDocRef, newUser);
           setUser(newUser);
         }
       } else {
@@ -57,10 +59,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-    // ... other functions (signIn, signUp, etc.)
+  const signIn = async (email: string, password: string) => {
+    if (!auth) throw new Error("Auth not initialized");
+    await signInWithEmailAndPassword(auth, email, password);
+  };
+
+  const signUp = async (email: string, password: string, name: string) => {
+    if (!auth || !db) throw new Error("Firebase not initialized");
+    const result = await createUserWithEmailAndPassword(auth, email, password);
+    if (result.user) {
+        await firebaseUpdateProfile(result.user, { displayName: name });
+        const newUser = {
+          uid: result.user.uid,
+          email,
+          name,
+          photoURL: result.user.photoURL,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        };
+        await setDoc(doc(db, "users", result.user.uid), newUser);
+    }
+  };
+
+  const signInWithGoogle = async () => {
+    if (!auth) throw new Error("Auth not initialized");
+    await signInWithPopup(auth, googleProvider);
+  };
+
+  const updateProfile = async (data: Partial<User>) => {
+    if (!user || !db) throw new Error("No user logged in or DB not initialized.");
+    const userDocRef = doc(db, "users", user.uid);
+    await updateDoc(userDocRef, { ...data, updatedAt: serverTimestamp() });
+    setUser(prevUser => prevUser ? { ...prevUser, ...data } as User : null);
+  };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signOut /* ... other values */ }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        signIn,
+        signUp,
+        signOut,
+        signInWithGoogle,
+        updateProfile,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
