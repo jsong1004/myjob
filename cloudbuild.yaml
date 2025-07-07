@@ -44,11 +44,12 @@ steps:
         NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=711582759542,
         NEXT_PUBLIC_FIREBASE_APP_ID=1:711582759542:web:99ab045aa44f0b1fe57d57,
         NODE_ENV=production
+
       - '--update-secrets'
       - >-
         FIREBASE_SERVICE_ACCOUNT_KEY=projects/711582759542/secrets/ServiceAccountKey:latest,
         OPENROUTER_API_KEY=projects/711582759542/secrets/OPENROUTER_API_KEY:latest,
-        SERPAPI_KEY=projects/711582759542/secrets/SERPER_API_KEY:latest,
+        SERPAPI_KEY=projects/711582759542/secrets/SERPAPI_KEY:latest,
         GITHUB_TOKEN=projects/711582759542/secrets/GITHUB_TOKEN:latest
 # Store the image in Artifact Registry
 images:

@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     
     if (mode === "agent") {
       // Agent mode: Make actual changes to resume and provide summary
-      llmModel = "openai/gpt-4.1-mini",
+      llmModel = "openai/gpt-4o-mini"
       systemPrompt = "You are an expert resume writer."
       
       prompt = `You are an expert resume optimization specialist focused on maximizing ATS (Applicant Tracking System) compatibility and recruiter appeal. Your task is to strategically tailor resumes to pass automated screening systems while maintaining complete truthfulness.
@@ -108,7 +108,7 @@ ${resume}
 Please make the requested changes to the resume and provide both the updated resume and a brief summary of changes.`
     } else {
       // Ask mode: Only provide advice, don't change resume
-      llmModel = "openai/gpt-4o-mini",
+      llmModel = "openai/gpt-4o-mini"
 
       systemPrompt = "You are an expert resume advisor. Answer questions about resumes and provide helpful advice, but do not make actual changes to the resume content."
       
@@ -194,6 +194,12 @@ Please make the requested changes to the resume and provide both the updated res
       return NextResponse.json({ reply: aiResponse })
     }
   } catch (err) {
-    return NextResponse.json({ error: "Failed to call OpenRouter" }, { status: 500 })
+    console.error("OpenRouter API error:", err)
+    console.error("Error details:", err instanceof Error ? err.message : String(err))
+    console.error("Stack trace:", err instanceof Error ? err.stack : 'No stack trace')
+    return NextResponse.json({ 
+      error: "Failed to call OpenRouter", 
+      details: err instanceof Error ? err.message : String(err) 
+    }, { status: 500 })
   }
 } 

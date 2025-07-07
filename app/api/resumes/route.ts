@@ -75,7 +75,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ resumes });
   } catch (error) {
     console.error('Get resumes error:', error);
-    return NextResponse.json({ error: 'Failed to fetch resumes' }, { status: 500 });
+    console.error('Error details:', error instanceof Error ? error.message : String(error));
+    console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
+    return NextResponse.json({ 
+      error: 'Failed to fetch resumes', 
+      details: error instanceof Error ? error.message : String(error) 
+    }, { status: 500 });
   }
 }
 
@@ -195,6 +200,11 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Resume save/upload error:', error);
-    return NextResponse.json({ error: 'Failed to save resume' }, { status: 500 });
+    console.error('Error details:', error instanceof Error ? error.message : String(error));
+    console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
+    return NextResponse.json({ 
+      error: 'Failed to save resume', 
+      details: error instanceof Error ? error.message : String(error) 
+    }, { status: 500 });
   }
 }

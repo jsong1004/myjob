@@ -3,7 +3,7 @@ import { initFirebaseAdmin } from "@/lib/firebase-admin-init"
 import { getFirestore } from "firebase-admin/firestore"
 import { getAuth } from "firebase-admin/auth"
 
-export async function DELETE(req: NextRequest, { params }: { params: { jobId: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   try {
     initFirebaseAdmin()
     const adminAuth = getAuth()
@@ -15,7 +15,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { jobId: st
 
     const decoded = await adminAuth.verifyIdToken(token)
     const userId = decoded.uid
-    const { jobId } = params
+    const { jobId } = await params
 
     const querySnapshot = await adminDb
       .collection("savedJobs")
@@ -32,7 +32,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { jobId: st
 
     return NextResponse.json({ message: "Job successfully unsaved" })
   } catch (error) {
-    console.error(`[SavedJobs][DELETE][${params.jobId}] Error:`, error)
+    console.error(`[SavedJobs][DELETE] Error:`, error)
     return NextResponse.json({ error: "Failed to unsave job" }, { status: 500 })
   }
 } 

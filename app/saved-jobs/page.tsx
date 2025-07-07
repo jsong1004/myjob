@@ -70,7 +70,7 @@ function SavedJobsPageContent() {
         },
       })
       if (response.ok) {
-        setSavedJobs((prev) => prev.filter((job) => job.id !== jobId))
+        setSavedJobs((prev) => prev.filter((job) => job.jobId !== jobId))
       } else {
         alert("Failed to unsave job.")
       }
@@ -196,7 +196,7 @@ function SavedJobsPageContent() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    onClick={() => handleUnsaveJob(job.id)}
+                                    onClick={() => handleUnsaveJob(job.jobId)}
                                     className="text-muted-foreground hover:text-destructive"
                                   >
                                     <Bookmark className="h-5 w-5 fill-current text-primary" />

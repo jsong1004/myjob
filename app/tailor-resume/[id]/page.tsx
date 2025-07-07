@@ -110,7 +110,11 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
             mode: "agent",
           }),
         })
-        if (!res.ok) throw new Error("AI service error")
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({ error: 'Unknown error' }))
+          console.error('AI service error:', errorData)
+          throw new Error(`AI service error: ${errorData.error || 'Unknown error'}`)
+        }
         const data = await res.json()
         setCurrentResume(data.updatedResume || defaultResume)
         setChatMessages([
@@ -122,7 +126,8 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
     },
   ])
       } catch (err) {
-        setTailorError('Failed to tailor resume. Please try again later.')
+        console.error('Tailor resume error:', err)
+        setTailorError('Sorry, there was a problem with the AI service. Please try again later.')
         setCurrentResume(defaultResume)
       } finally {
         setTailoring(false)

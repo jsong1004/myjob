@@ -6,7 +6,10 @@ import { getAuth } from "firebase-admin/auth";
 export async function POST(req: NextRequest) {
   const { message, resume, mode } = await req.json();
   const apiKey = process.env.OPENROUTER_API_KEY;
+  console.log("OpenRouter API key exists:", !!apiKey);
+  console.log("OpenRouter API key length:", apiKey?.length || 0);
   if (!apiKey) {
+    console.log("ERROR: Missing OpenRouter API key");
     return NextResponse.json(
       { error: "Missing OpenRouter API key" },
       { status: 500 }
@@ -53,6 +56,7 @@ export async function POST(req: NextRequest) {
 
     if (!openrouterRes.ok) {
       const error = await openrouterRes.text();
+      console.log("OpenRouter API error:", openrouterRes.status, error);
       return NextResponse.json(
         { error: "OpenRouter error", details: error },
         { status: 500 }
@@ -103,8 +107,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ reply: aiResponse });
     }
   } catch (err) {
+    console.error("OpenRouter API exception:", err);
+    console.error("Error message:", err instanceof Error ? err.message : String(err));
     return NextResponse.json(
-      { error: "Failed to call OpenRouter" },
+      { error: "Failed to call OpenRouter", details: err instanceof Error ? err.message : String(err) },
       { status: 500 }
     );
   }

@@ -50,7 +50,7 @@ const mockActivities = [
     timestamp: Timestamp.fromDate(new Date(Date.now() - 4 * 60 * 60 * 1000)), // 4 hours ago
     metadata: {
       mode: 'agent',
-      model: 'openai/gpt-4o-mini',
+      model: 'openai/gpt-4.1-mini',
       resumeId: 'resume-456'
     }
   },
@@ -86,7 +86,7 @@ const mockActivities = [
     timeTaken: 1.3,
     timestamp: Timestamp.fromDate(new Date(Date.now() - 10 * 60 * 60 * 1000)), // 10 hours ago
     metadata: {
-      model: 'openai/gpt-4o-mini',
+      model: 'openai/gpt-4.1-mini',
       jobId: 'job-789',
       company: 'StartupXYZ'
     }
@@ -99,7 +99,7 @@ const mockActivities = [
     timestamp: Timestamp.fromDate(new Date(Date.now() - 24 * 60 * 60 * 1000)), // 1 day ago
     metadata: {
       mode: 'ask',
-      model: 'openai/gpt-4o-mini',
+      model: 'openai/gpt-4.1-mini',
       resumeId: 'resume-456'
     }
   },

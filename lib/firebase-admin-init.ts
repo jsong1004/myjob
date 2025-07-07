@@ -54,10 +54,13 @@ export function initFirebaseAdmin() {
 
   } catch (error) {
     console.error('Firebase Admin Initialization Error:', error);
+    console.error('Error details:', error instanceof Error ? error.message : String(error));
+    console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
     console.error('This might be due to:');
     console.error('1. Invalid JSON in Secret Manager');
     console.error('2. Missing Secret Manager permissions');
     console.error('3. Incorrect environment variable name');
+    console.error('4. Missing required Firebase project configuration');
     return false;
   }
 }

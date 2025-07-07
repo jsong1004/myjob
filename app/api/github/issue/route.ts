@@ -14,7 +14,27 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const labels = type === "bug" ? ["bug"] : ["feature-request"];
+  // Map feedback types to appropriate GitHub labels
+  let labels: string[] = [];
+  switch (type) {
+    case "bug":
+      labels = ["bug"];
+      break;
+    case "feature":
+      labels = ["enhancement"];
+      break;
+    case "enhancement":
+      labels = ["enhancement"];
+      break;
+    case "help wanted":
+      labels = ["help wanted"];
+      break;
+    case "question":
+      labels = ["question"];
+      break;
+    default:
+      labels = ["enhancement"]; // fallback
+  }
   const submittedBy = user ? `**Submitted by:** ${user.name} (${user.email || 'No email provided'})` : '**Submitted by:** Anonymous';
 
   const body = `
