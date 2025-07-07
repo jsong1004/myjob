@@ -4,6 +4,7 @@ import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Toaster } from '@/components/ui/toaster'
 import { AuthProvider } from '@/components/auth-provider'
+import { Footer } from '@/components/footer'
 
 export const metadata: Metadata = {
   title: 'AI-Powered Job Search',
@@ -26,7 +27,10 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            {children}
+            <div className="relative flex min-h-screen flex-col bg-background">
+              <main className="flex-1">{children}</main>
+              <Footer />
+            </div>
             <Toaster />
           </ThemeProvider>
         </AuthProvider>
