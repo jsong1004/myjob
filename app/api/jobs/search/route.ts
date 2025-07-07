@@ -5,8 +5,6 @@ import { logActivity } from "@/lib/activity-logger";
 import { initFirebaseAdmin } from "@/lib/firebase-admin-init";
 import { getAuth } from "firebase-admin/auth";
 
-initFirebaseAdmin();
-
 export async function POST(req: NextRequest) {
   try {
     const { query, location, resume } = await req.json();
@@ -219,6 +217,7 @@ export async function POST(req: NextRequest) {
           const timeTaken = (Date.now() - startTime) / 1000;
           const token = req.headers.get('Authorization')?.split('Bearer ')[1];
           if (token) {
+            initFirebaseAdmin();
             const decodedToken = await getAuth().verifyIdToken(token);
             const userId = decodedToken.uid;
             await logActivity({
@@ -226,7 +225,12 @@ export async function POST(req: NextRequest) {
               activityType: 'job_matching',
               tokenUsage,
               timeTaken,
-              metadata: { model: openrouterRequestBody.model, num_jobs: jobsForAI.length },
+              metadata: { 
+                model: openrouterRequestBody.model, 
+                num_jobs: jobsForAI.length,
+                query: query,
+                location: location,
+              },
             });
           }
 
@@ -403,6 +407,7 @@ export async function POST(req: NextRequest) {
           const timeTaken = (Date.now() - startTime) / 1000;
           const token = req.headers.get('Authorization')?.split('Bearer ')[1];
           if (token) {
+            initFirebaseAdmin();
             const decodedToken = await getAuth().verifyIdToken(token);
             const userId = decodedToken.uid;
             await logActivity({
@@ -410,7 +415,12 @@ export async function POST(req: NextRequest) {
               activityType: 'job_summary',
               tokenUsage,
               timeTaken,
-              metadata: { model: "openai/gpt-4o-mini", job_id: job.id },
+              metadata: { 
+                model: "openai/gpt-4o-mini", 
+                job_id: job.id,
+                query: query,
+                location: location,
+              },
             });
           }
           console.log(`[JobSearch] Generated summary for ${job.title}: "${summary}"`);

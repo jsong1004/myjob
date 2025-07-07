@@ -3,8 +3,6 @@ import { logActivity } from "@/lib/activity-logger";
 import { initFirebaseAdmin } from "@/lib/firebase-admin-init";
 import { getAuth } from "firebase-admin/auth";
 
-initFirebaseAdmin();
-
 export async function POST(req: NextRequest) {
   const { message, resume, mode } = await req.json();
   const apiKey = process.env.OPENROUTER_API_KEY;
@@ -68,6 +66,7 @@ export async function POST(req: NextRequest) {
 
     const token = req.headers.get("Authorization")?.split("Bearer ")[1];
     if (token) {
+      initFirebaseAdmin();
       const decodedToken = await getAuth().verifyIdToken(token);
       const userId = decodedToken.uid;
       await logActivity({
@@ -75,7 +74,7 @@ export async function POST(req: NextRequest) {
         activityType: "resume_edit",
         tokenUsage,
         timeTaken,
-        metadata: { model: llmModel, mode },
+        metadata: { model: llmModel, mode, user_prompt: message },
       });
     }
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { initFirebaseAdmin } from '@/lib/firebase-admin-init';
 
 // Get authenticated user from request
@@ -23,19 +23,19 @@ async function getAuthenticatedUser(request: NextRequest) {
 }
 
 interface RouteParams {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }
 
 // POST /api/resumes/[id]/set-default - Set resume as default
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = await params;
+    initFirebaseAdmin();
+    const { id } = params;
     const user = await getAuthenticatedUser(request);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    initFirebaseAdmin();
     const db = getFirestore();
     
     // Check if resume exists and belongs to user
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Set this resume as default
     batch.update(resumeDoc.ref, { 
       isDefault: true,
-      updatedAt: new Date()
+      updatedAt: Timestamp.now()
     });
 
     await batch.commit();

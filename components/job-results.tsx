@@ -192,7 +192,7 @@ export function JobResults({ results }: JobResultsProps) {
                     <div className="font-medium">{job.company}</div>
                   </TableCell>
                   <TableCell>
-                    <div className="text-sm text-muted-foreground">{job.location}</div>
+                     <div className="text-sm text-muted-foreground">{job.location}</div>
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -205,7 +205,7 @@ export function JobResults({ results }: JobResultsProps) {
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
-                    <Badge variant="secondary" className="mt-1 font-mono text-xs">
+                     <Badge variant="secondary" className="mt-1 font-mono text-xs">
                       {job.salary || "Not specified"}
                     </Badge>
                   </TableCell>

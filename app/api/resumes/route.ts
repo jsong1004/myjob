@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { parseFile, validateFile } from '@/lib/file-parser-simple';
 import { Resume } from '@/lib/types';
 import { initFirebaseAdmin } from '@/lib/firebase-admin-init';
@@ -39,6 +39,7 @@ async function getAuthenticatedUser(request: NextRequest) {
 // GET /api/resumes - Get all resumes for authenticated user
 export async function GET(request: NextRequest) {
   try {
+    initFirebaseAdmin();
     console.log('GET /api/resumes - Starting request');
     console.log('Authorization header:', request.headers.get('Authorization')?.substring(0, 20) + '...');
     
@@ -81,6 +82,7 @@ export async function GET(request: NextRequest) {
 // POST /api/resumes - Create new resume (handles both file uploads and direct content)
 export async function POST(request: NextRequest) {
   try {
+    initFirebaseAdmin();
     const authResult = await getAuthenticatedUser(request);
     if (!authResult) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -170,8 +172,8 @@ export async function POST(request: NextRequest) {
       type,
       jobTitle,
       jobId,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
     };
 
     const docRef = await db.collection('resumes').add(resumeData);

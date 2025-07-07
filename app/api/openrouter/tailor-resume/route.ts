@@ -3,8 +3,6 @@ import { logActivity } from "@/lib/activity-logger";
 import { initFirebaseAdmin } from "@/lib/firebase-admin-init";
 import { getAuth } from "firebase-admin/auth";
 
-initFirebaseAdmin();
-
 export async function POST(req: NextRequest) {
   const { message, resume, jobTitle, company, jobDescription, mode = 'agent' } = await req.json()
   const apiKey = process.env.OPENROUTER_API_KEY
@@ -144,6 +142,7 @@ Please make the requested changes to the resume and provide both the updated res
 
     const token = req.headers.get('Authorization')?.split('Bearer ')[1];
     if (token) {
+        initFirebaseAdmin();
         const decodedToken = await getAuth().verifyIdToken(token);
         const userId = decodedToken.uid;
         await logActivity({
@@ -151,7 +150,7 @@ Please make the requested changes to the resume and provide both the updated res
             activityType: 'resume_generation',
             tokenUsage,
             timeTaken,
-            metadata: { model: llmModel, mode },
+            metadata: { model: llmModel, mode, user_prompt: message },
         });
     }
     

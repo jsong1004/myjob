@@ -114,13 +114,13 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
         const data = await res.json()
         setCurrentResume(data.updatedResume || defaultResume)
         setChatMessages([
-          {
-            id: "1",
-            type: "ai",
+    {
+      id: "1",
+      type: "ai",
             content: `Here's your tailored resume for the ${job.title} position at ${job.company}. You can review it and ask me to make any adjustments!`,
-            timestamp: new Date(),
-          },
-        ])
+      timestamp: new Date(),
+    },
+  ])
       } catch (err) {
         setTailorError('Failed to tailor resume. Please try again later.')
         setCurrentResume(defaultResume)
@@ -390,10 +390,10 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
             <Card className="h-fit">
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    Tailored Resume Preview
-                  </CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Tailored Resume Preview
+                </CardTitle>
                   <Button 
                     variant="ghost" 
                     size="sm"
@@ -425,7 +425,7 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
                 ) : (
                   <div className="bg-white border rounded-lg p-6 max-h-[600px] overflow-y-auto prose prose-sm max-w-none">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{currentResume}</ReactMarkdown>
-                  </div>
+                </div>
                 )}
               </CardContent>
             </Card>
@@ -497,18 +497,18 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
 
                 {/* Message Input */}
                 {job ? (
-                  <div className="flex gap-2">
-                    <Input
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      placeholder="Ask me to modify your resume..."
-                      onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
-                      disabled={isProcessing}
-                    />
+                <div className="flex gap-2">
+                  <Input
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    placeholder="Ask me to modify your resume..."
+                    onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
+                    disabled={isProcessing}
+                  />
                     <Button onClick={handleSendMessage} disabled={isProcessing || !newMessage.trim() || !job}>
-                      <Send className="h-4 w-4" />
-                    </Button>
-                  </div>
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
                 ) : (
                   <div className="text-sm text-red-500 bg-red-50 border border-red-200 rounded p-3 mt-2">
                     Unable to load job information. Please return to the job search and try again.<br/>
@@ -519,16 +519,16 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
                 {/* Quick Actions */}
                 <div className="mt-3 flex flex-wrap gap-2">
                   {aiSuggestions.map((suggestion, index) => (
-                    <Button
+                  <Button
                       key={index}
-                      variant="outline"
-                      size="sm"
+                    variant="outline"
+                    size="sm"
                       onClick={() => setNewMessage(suggestion)}
-                      disabled={isProcessing}
+                    disabled={isProcessing}
                       className="text-left justify-start"
-                    >
+                  >
                       {suggestion.length > 30 ? suggestion.substring(0, 30) + '...' : suggestion}
-                    </Button>
+                  </Button>
                   ))}
                 </div>
               </CardContent>

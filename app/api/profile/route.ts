@@ -23,6 +23,7 @@ async function getAuthenticatedUser(request: NextRequest) {
 // GET /api/profile - Get user profile
 export async function GET(request: NextRequest) {
   try {
+    initFirebaseAdmin();
     const authResult = await getAuthenticatedUser(request);
     if (!authResult) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -46,6 +47,7 @@ export async function GET(request: NextRequest) {
 // POST /api/profile - Create or update user profile
 export async function POST(request: NextRequest) {
   try {
+    initFirebaseAdmin();
     const authResult = await getAuthenticatedUser(request);
     if (!authResult) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

@@ -4,27 +4,19 @@ import { getFirestore } from "firebase-admin/firestore"
 import { getAuth } from "firebase-admin/auth"
 import { SavedJob } from "@/lib/types"
 
-async function getDb() {
-  initFirebaseAdmin()
-  return getFirestore()
-}
-
-async function getAuthInstance() {
-  initFirebaseAdmin()
-  return getAuth()
-}
-
 export async function GET(req: NextRequest) {
   try {
+    initFirebaseAdmin()
+    const adminAuth = getAuth()
+    const adminDb = getFirestore()
+
     const authHeader = req.headers.get("authorization") || ""
     const token = authHeader.replace("Bearer ", "")
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    const adminAuth = await getAuthInstance()
     const decoded = await adminAuth.verifyIdToken(token)
     const userId = decoded.uid
 
-    const adminDb = await getDb()
     const snapshot = await adminDb.collection("savedJobs").where("userId", "==", userId).get()
     const savedJobs: SavedJob[] = []
     snapshot.forEach((doc: FirebaseFirestore.QueryDocumentSnapshot) => {
@@ -39,11 +31,14 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    initFirebaseAdmin()
+    const adminAuth = getAuth()
+    const adminDb = getFirestore()
+
     const authHeader = req.headers.get("authorization") || ""
     const token = authHeader.replace("Bearer ", "")
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    const adminAuth = await getAuthInstance()
     const decoded = await adminAuth.verifyIdToken(token)
     const userId = decoded.uid
     const body = await req.json()
@@ -52,7 +47,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required job fields" }, { status: 400 })
     }
 
-    const adminDb = await getDb()
     // Prevent duplicate saves for the same user and job
     const existing = await adminDb.collection("savedJobs")
       .where("userId", "==", userId)

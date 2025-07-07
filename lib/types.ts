@@ -1,4 +1,4 @@
-import { Timestamp } from 'firebase/firestore'
+import { Timestamp } from 'firebase-admin/firestore'
 
 // User document interface
 export interface User {

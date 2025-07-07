@@ -3,13 +3,12 @@ import { initFirebaseAdmin } from '@/lib/firebase-admin-init';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 
-initFirebaseAdmin();
-
-const auth = getAuth();
-const firestore = getFirestore();
-
 export async function GET(request: Request) {
   try {
+    initFirebaseAdmin();
+    const auth = getAuth();
+    const firestore = getFirestore();
+
     const token = request.headers.get('Authorization')?.split('Bearer ')[1];
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -18,11 +17,26 @@ export async function GET(request: Request) {
     const decodedToken = await auth.verifyIdToken(token);
     const userId = decodedToken.uid;
 
-    const activitiesSnapshot = await firestore
+    const { searchParams } = new URL(request.url);
+    const activityType = searchParams.get('activityType');
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
+
+    let query: FirebaseFirestore.Query = firestore
       .collection('user-activities')
-      .where('userId', '==', userId)
-      .orderBy('timestamp', 'desc')
-      .get();
+      .where('userId', '==', userId);
+
+    if (activityType) {
+      query = query.where('activityType', '==', activityType);
+    }
+    if (startDate) {
+      query = query.where('timestamp', '>=', new Date(startDate));
+    }
+    if (endDate) {
+      query = query.where('timestamp', '<=', new Date(endDate));
+    }
+
+    const activitiesSnapshot = await query.orderBy('timestamp', 'desc').get();
 
     const activities = activitiesSnapshot.docs.map(doc => {
       const data = doc.data();
@@ -45,6 +59,10 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    initFirebaseAdmin();
+    const auth = getAuth();
+    const firestore = getFirestore();
+
     const token = request.headers.get('Authorization')?.split('Bearer ')[1];
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

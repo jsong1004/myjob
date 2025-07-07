@@ -6,7 +6,7 @@ import { Toaster } from '@/components/ui/toaster'
 import { AuthProvider } from '@/components/auth-provider'
 
 export const metadata: Metadata = {
-  title: 'myJob - AI-Powered Job Search',
+  title: 'AI-Powered Job Search',
   description: 'Find your perfect job match with AI-powered search and resume tailoring',
   generator: 'Next.js',
 }

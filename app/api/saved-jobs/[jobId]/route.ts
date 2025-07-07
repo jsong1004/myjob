@@ -3,28 +3,20 @@ import { initFirebaseAdmin } from "@/lib/firebase-admin-init"
 import { getFirestore } from "firebase-admin/firestore"
 import { getAuth } from "firebase-admin/auth"
 
-async function getDb() {
-  initFirebaseAdmin()
-  return getFirestore()
-}
-
-async function getAuthInstance() {
-  initFirebaseAdmin()
-  return getAuth()
-}
-
 export async function DELETE(req: NextRequest, { params }: { params: { jobId: string } }) {
   try {
+    initFirebaseAdmin()
+    const adminAuth = getAuth()
+    const adminDb = getFirestore()
+
     const authHeader = req.headers.get("authorization") || ""
     const token = authHeader.replace("Bearer ", "")
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    const adminAuth = await getAuthInstance()
     const decoded = await adminAuth.verifyIdToken(token)
     const userId = decoded.uid
     const { jobId } = params
 
-    const adminDb = await getDb()
     const querySnapshot = await adminDb
       .collection("savedJobs")
       .where("userId", "==", userId)

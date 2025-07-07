@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { initFirebaseAdmin } from '@/lib/firebase-admin-init';
 import { Resume } from '@/lib/types';
 
@@ -23,12 +23,13 @@ async function getAuthenticatedUser(request: NextRequest) {
 }
 
 interface RouteParams {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }
 
 // GET /api/resumes/[id] - Get specific resume
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
+    initFirebaseAdmin();
     const authResult = await getAuthenticatedUser(request);
     if (!authResult) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -63,6 +64,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PUT /api/resumes/[id] - Update resume
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
+    initFirebaseAdmin();
     const authResult = await getAuthenticatedUser(request);
     if (!authResult) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -87,7 +89,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       name,
       content,
       isDefault,
-      updatedAt: new Date(),
+      updatedAt: Timestamp.now(),
     });
 
     return NextResponse.json({ message: 'Resume updated successfully' });
@@ -98,15 +100,15 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 }
 
 // DELETE /api/resumes/[id] - Delete resume
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { id } = await params;
+    initFirebaseAdmin();
+    const { id } = params;
     const user = await getAuthenticatedUser(request);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    initFirebaseAdmin();
     const db = getFirestore();
     const resumeDoc = await db.collection('resumes').doc(id).get();
 
