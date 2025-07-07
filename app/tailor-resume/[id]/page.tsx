@@ -90,13 +90,17 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
   // Tailor the resume automatically when both job and defaultResume are loaded
   useEffect(() => {
     const tailorResume = async () => {
-      if (!job || !defaultResume) return
+      if (!job || !defaultResume || !user || !auth?.currentUser) return
       setTailoring(true)
       setTailorError(null)
       try {
+        const token = await auth.currentUser.getIdToken()
         const res = await fetch("/api/openrouter/tailor-resume", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
           body: JSON.stringify({
             message: "Tailor this resume for the following job. Do not change unless necessary.",
             resume: defaultResume,
@@ -125,17 +129,21 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
       }
     }
     tailorResume()
-  }, [job, defaultResume])
+  }, [job, defaultResume, user])
 
   // Generate AI suggestions based on job description
   useEffect(() => {
     const generateSuggestions = async () => {
-      if (!job || !job.description) return
+      if (!job || !job.description || !user || !auth?.currentUser) return
       
       try {
+        const token = await auth.currentUser.getIdToken()
         const res = await fetch("/api/openrouter/tailor-resume", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
           body: JSON.stringify({
             message: "Generate 3 short, specific suggestions for improving a resume for this job. Each suggestion should be one sentence and actionable. Format as a JSON array of strings.",
             jobTitle: job.title,
@@ -173,11 +181,11 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
     }
     
     generateSuggestions()
-  }, [job])
+  }, [job, user])
 
   const handleSendMessage = async () => {
     console.log("handleSendMessage called", { newMessage, job });
-    if (!newMessage.trim() || !job) return
+    if (!newMessage.trim() || !job || !user || !auth?.currentUser) return
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -191,10 +199,14 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
     setIsProcessing(true)
 
     try {
+      const token = await auth.currentUser.getIdToken()
       // Call OpenRouter API for AI resume tailoring or Q&A
       const res = await fetch("/api/openrouter/tailor-resume", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify({
           message: newMessage,
           resume: currentResume,

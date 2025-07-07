@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle, AlertCircle, XCircle } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 interface Job {
   id: string
@@ -11,6 +12,7 @@ interface Job {
   company: string
   matchingScore: number
   matchingSummary?: string
+  summary?: string
   scoreDetails?: any
 }
 

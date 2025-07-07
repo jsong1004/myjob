@@ -91,6 +91,9 @@ export default function FeedbackPage() {
                           <SelectContent>
                             <SelectItem value="feature">Feature Request</SelectItem>
                             <SelectItem value="bug">Bug Report</SelectItem>
+                            <SelectItem value="enhancement">Enhancement</SelectItem>
+                            <SelectItem value="help wanted">Help Wanted</SelectItem>
+                            <SelectItem value="question">Question</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>

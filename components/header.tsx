@@ -69,6 +69,9 @@ export function Header() {
                   <Link href="/profile" className="text-muted-foreground hover:text-foreground transition-colors">
                     Profile
                   </Link>
+                  <Link href="/my-activities" className="text-muted-foreground hover:text-foreground transition-colors">
+                    My Activities
+                  </Link>
                 </>
               )}
             </nav>

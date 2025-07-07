@@ -81,12 +81,16 @@ export default function ResumeEditPage({ params }: ResumeEditPageProps) {
   // Generate AI suggestions for general resume improvement
   useEffect(() => {
     const generateSuggestions = async () => {
-      if (!currentResume) return
+      if (!currentResume || !user || !auth?.currentUser) return
       
       try {
+        const token = await auth.currentUser.getIdToken()
         const res = await fetch("/api/openrouter/resume-edit", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
           body: JSON.stringify({
             message: "Generate 3 short, specific suggestions for improving this resume. Each suggestion should be one sentence and actionable. Format as a JSON array of strings.",
             resume: currentResume,
@@ -136,9 +140,16 @@ export default function ResumeEditPage({ params }: ResumeEditPageProps) {
     setIsProcessing(true)
 
     try {
+      if (!auth?.currentUser) {
+        throw new Error("User not authenticated")
+      }
+      const token = await auth.currentUser.getIdToken()
       const res = await fetch("/api/openrouter/resume-edit", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify({
           message: newMessage,
           resume: currentResume, // Use the current resume content (including manual edits)

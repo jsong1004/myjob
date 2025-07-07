@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getJson } from "serpapi";
 
+import { logActivity } from "@/lib/activity-logger";
+import { initFirebaseAdmin } from "@/lib/firebase-admin-init";
+import { getAuth } from "firebase-admin/auth";
+
+initFirebaseAdmin();
+
 export async function POST(req: NextRequest) {
   try {
     const { query, location, resume } = await req.json();
@@ -137,9 +143,11 @@ export async function POST(req: NextRequest) {
 
     // If resume is provided, call OpenRouter to get matching scores
     if (resume && jobs.length > 0) {
+      let totalTokenUsage = 0;
       console.log(`\n=== [JobSearch] Starting OpenRouter Matching Analysis ===`);
       
       try {
+        const startTime = Date.now();
         const openrouterApiKey = process.env.OPENROUTER_API_KEY;
         console.log(`[JobSearch] OpenRouter API key check: exists=${!!openrouterApiKey}, length=${openrouterApiKey?.length || 0}`);
         
@@ -177,28 +185,7 @@ export async function POST(req: NextRequest) {
           messages: [
             { 
               role: "system", 
-              content: `You are an expert job-matching assistant. Analyze how well a candidate's resume matches each job description.
-
-SCORING CRITERIA (0-100):
-- Skills & Keywords (40%): Match between candidate skills and job requirements
-- Experience & Achievements (40%): Relevance of past roles, years of experience, quantifiable achievements
-- Education & Certifications (10%): Educational background alignment
-- Job Title & Seniority (10%): Career progression and title alignment
-
-IMPORTANT: You must return ONLY a valid JSON array. Do not include any explanatory text, markdown formatting, or code blocks. Your response should start with [ and end with ].
-
-Return format:
-[
-  {
-    "id": "job_id_here",
-    "title": "Job Title",
-    "company": "Company Name",
-    "score": 85,
-    "summary": "Brief explanation of the match quality and key factors affecting the score."
-  }
-]
-
-Analyze each job carefully and provide accurate scores based on the resume content.`
+              content: `You are an expert job-matching assistant. Analyze how well a candidate's resume matches each job description.\n\nSCORING CRITERIA (0-100):\n- Skills & Keywords (40%): Match between candidate skills and job requirements\n- Experience & Achievements (40%): Relevance of past roles, years of experience, quantifiable achievements\n- Education & Certifications (10%): Educational background alignment\n- Job Title & Seniority (10%): Career progression and title alignment\n\nIMPORTANT: You must return ONLY a valid JSON array. Do not include any explanatory text, markdown formatting, or code blocks. Your response should start with [ and end with ].\n\nReturn format:\n[\n  {\n    "id": "job_id_here",\n    "title": "Job Title",\n    "company": "Company Name",\n    "score": 85,\n    "summary": "Brief explanation of the match quality and key factors affecting the score."\n  }\n]\n\nAnalyze each job carefully and provide accurate scores based on the resume content.`
             },
             { role: "user", content: prompt },
           ],
@@ -227,6 +214,22 @@ Analyze each job carefully and provide accurate scores based on the resume conte
         
         if (openrouterRes.ok) {
           const data = await openrouterRes.json();
+          const tokenUsage = data.usage?.total_tokens || 0;
+          totalTokenUsage += tokenUsage;
+          const timeTaken = (Date.now() - startTime) / 1000;
+          const token = req.headers.get('Authorization')?.split('Bearer ')[1];
+          if (token) {
+            const decodedToken = await getAuth().verifyIdToken(token);
+            const userId = decodedToken.uid;
+            await logActivity({
+              userId,
+              activityType: 'job_matching',
+              tokenUsage,
+              timeTaken,
+              metadata: { model: openrouterRequestBody.model, num_jobs: jobsForAI.length },
+            });
+          }
+
           console.log(`[JobSearch] OpenRouter API response received successfully`);
           console.log(`[JobSearch] Response data keys:`, Object.keys(data));
           console.log(`[JobSearch] Full OpenRouter response:`, JSON.stringify(data, null, 2));
@@ -371,6 +374,7 @@ Analyze each job carefully and provide accurate scores based on the resume conte
       console.log(`[JobSearch] Generating summary for job ${i + 1}/${jobs.length}: ${job.title}`);
       
       try {
+        const startTime = Date.now();
         const apiKey = process.env.OPENROUTER_API_KEY;
         if (!apiKey) throw new Error("Missing OpenRouter API key");
         
@@ -395,6 +399,20 @@ Analyze each job carefully and provide accurate scores based on the resume conte
           const data = await openrouterRes.json();
           const summary = data.choices?.[0]?.message?.content || "";
           jobs[i].summary = summary;
+          const tokenUsage = data.usage?.total_tokens || 0;
+          const timeTaken = (Date.now() - startTime) / 1000;
+          const token = req.headers.get('Authorization')?.split('Bearer ')[1];
+          if (token) {
+            const decodedToken = await getAuth().verifyIdToken(token);
+            const userId = decodedToken.uid;
+            await logActivity({
+              userId,
+              activityType: 'job_summary',
+              tokenUsage,
+              timeTaken,
+              metadata: { model: "openai/gpt-4o-mini", job_id: job.id },
+            });
+          }
           console.log(`[JobSearch] Generated summary for ${job.title}: "${summary}"`);
         } else {
           console.error(`[JobSearch] Failed to generate summary for ${job.title}: ${openrouterRes.status}`);

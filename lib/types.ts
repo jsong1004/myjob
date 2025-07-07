@@ -54,6 +54,9 @@ export interface JobSearchResult {
   postedAt: string
   applyUrl?: string
   source: string
+  matchingScore?: number
+  matchingSummary?: string
+  summary?: string
 }
 
 // AI matching breakdown interface

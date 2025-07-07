@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { FileText, Upload, Star, Edit, Trash2, Plus, Calendar, Download, Loader2, AlertCircle } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
+import { FileText, Upload, Star, Edit, Trash2, Plus, Calendar, Download, Loader2, AlertCircle, MoreVertical } from "lucide-react"
 import { Header } from "@/components/header"
 import { AuthProvider, useAuth } from "@/components/auth-provider"
 import { Resume } from "@/lib/types"
@@ -71,7 +72,7 @@ function ResumesPageContent() {
         setError(`Failed to fetch resumes: ${response.statusText}`)
       }
     } catch (error) {
-      setError(`Error fetching resumes: ${error.message}`)
+      setError(`Error fetching resumes: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setLoading(false)
     }
@@ -163,7 +164,7 @@ function ResumesPageContent() {
         setError((await response.json()).error || 'Failed to upload resume')
       }
     } catch (error) {
-      setError(`Failed to upload resume: ${error.message}`)
+      setError(`Failed to upload resume: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setUploading(false)
     }
@@ -224,7 +225,12 @@ function ResumesPageContent() {
     }
   }
 
-  const formatDate = (date: Date | string) => new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+  const formatDate = (date: Date | string | any) => {
+    if (date && typeof date === 'object' && 'toDate' in date) {
+      return date.toDate().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    }
+    return new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+  }
 
   if (loading) {
     return (
@@ -321,7 +327,7 @@ function ResumesPageContent() {
                       <div className="flex items-center justify-between">
                         <p className="text-xs text-muted-foreground"><Calendar className="inline h-3 w-3 mr-1.5" />Created {formatDate(resume.createdAt)}</p>
                         <div className="flex gap-2">
-                          <Button asChild variant="outline" size="sm"><Link href={`/resumes/${resume.id}/edit`}><Edit className="mr-2 h-4 w-4" />Edit</Link></Button>
+                          <Button asChild variant="default" size="sm"><Link href={`/resumes/${resume.id}/edit`}><Edit className="mr-2 h-4 w-4" />Edit</Link></Button>
                           <Button variant="outline" size="sm" onClick={() => handleDownloadResume(resume)}><Download className="mr-2 h-4 w-4" />Download</Button>
                         </div>
                       </div>
@@ -351,10 +357,22 @@ function ResumesPageContent() {
                           <div className="flex items-center justify-between">
                             <p className="text-xs text-muted-foreground"><Calendar className="inline h-3 w-3 mr-1.5" />{formatDate(resume.createdAt)}</p>
                             <div className="flex gap-2">
-                              <Button variant="outline" size="sm" onClick={() => handleSetDefault(resume.id)}><Star className="mr-2 h-4 w-4" />Set Default</Button>
-                              <Button asChild variant="outline" size="sm"><Link href={`/resumes/${resume.id}/edit`}><Edit className="mr-2 h-4 w-4" />Edit</Link></Button>
+                              <Button asChild variant="default" size="sm"><Link href={`/resumes/${resume.id}/edit`}><Edit className="mr-2 h-4 w-4" />Edit</Link></Button>
                               <Button variant="outline" size="sm" onClick={() => handleDownloadResume(resume)}><Download className="mr-2 h-4 w-4" />Download</Button>
-                              <Button variant="destructive" size="sm" onClick={() => handleDeleteResume(resume.id)}><Trash2 className="mr-2 h-4 w-4" />Delete</Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="outline" size="sm"><MoreVertical className="h-4 w-4" /></Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => handleSetDefault(resume.id)}>
+                                    <Star className="mr-2 h-4 w-4" />Set as Default
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => handleDeleteResume(resume.id)} className="text-destructive">
+                                    <Trash2 className="mr-2 h-4 w-4" />Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </div>
                         </CardContent>

@@ -28,6 +28,7 @@ interface Job {
   source: string
   matchingScore: number // AI score, required
   matchingSummary?: string
+  summary?: string // Add this for job summary
 }
 
 interface JobResultsProps {
@@ -152,8 +153,9 @@ export function JobResults({ results }: JobResultsProps) {
               <TableRow>
                 <TableHead className="w-24 text-center">Score</TableHead>
                 <TableHead>Job Title</TableHead>
+                <TableHead>Company</TableHead>
                 <TableHead>Details</TableHead>
-                <TableHead className="max-w-xs">AI Summary</TableHead>
+                <TableHead className="max-w-xs">Matching Summary</TableHead>
                 <TableHead className="text-right w-32">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -185,11 +187,25 @@ export function JobResults({ results }: JobResultsProps) {
                         job.title
                       )}
                     </div>
-                    <div className="text-sm text-muted-foreground">{job.company}</div>
                   </TableCell>
                   <TableCell>
-                     <div className="text-sm text-muted-foreground">{job.location}</div>
-                     <Badge variant="secondary" className="mt-1 font-mono text-xs">
+                    <div className="font-medium">{job.company}</div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm text-muted-foreground">{job.location}</div>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="text-sm text-muted-foreground mt-1 line-clamp-2 cursor-help">
+                            {job.summary || job.description?.slice(0, 100) + "..." || "No summary available"}
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-md p-4 whitespace-pre-line">
+                          <p>{job.summary || job.description}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <Badge variant="secondary" className="mt-1 font-mono text-xs">
                       {job.salary || "Not specified"}
                     </Badge>
                   </TableCell>

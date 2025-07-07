@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
+import { logActivity } from "@/lib/activity-logger";
+import { initFirebaseAdmin } from "@/lib/firebase-admin-init";
+import { getAuth } from "firebase-admin/auth";
+
+initFirebaseAdmin();
 
 export async function POST(req: NextRequest) {
   const { message, resume, jobTitle, company, jobDescription, mode = 'agent' } = await req.json()
@@ -8,6 +13,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const startTime = Date.now();
     let prompt = ""
     let systemPrompt = ""
     let llmModel = ""
@@ -133,6 +139,21 @@ Please make the requested changes to the resume and provide both the updated res
     
     const data = await openrouterRes.json()
     const aiResponse = data.choices?.[0]?.message?.content || ""
+    const tokenUsage = data.usage?.total_tokens || 0;
+    const timeTaken = (Date.now() - startTime) / 1000;
+
+    const token = req.headers.get('Authorization')?.split('Bearer ')[1];
+    if (token) {
+        const decodedToken = await getAuth().verifyIdToken(token);
+        const userId = decodedToken.uid;
+        await logActivity({
+            userId,
+            activityType: 'resume_generation',
+            tokenUsage,
+            timeTaken,
+            metadata: { model: llmModel, mode },
+        });
+    }
     
     if (mode === "agent") {
       // Parse the AI response to extract updated resume and change summary

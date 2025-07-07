@@ -88,11 +88,19 @@ function HomePage() {
         resume: defaultResume?.content || ""
       }
       
+      const token = user && auth?.currentUser ? await auth.currentUser.getIdToken() : null
+      
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      }
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+      
       const response = await fetch('/api/jobs/search', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(searchPayload),
       })
 

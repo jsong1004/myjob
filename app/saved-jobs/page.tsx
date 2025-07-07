@@ -12,6 +12,7 @@ import { auth } from "@/lib/firebase"
 import type { SavedJob } from "@/lib/types"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
 import { MatchingScoreDialog } from "@/components/matching-score-dialog"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function SavedJobsPage() {
   return (
@@ -122,7 +123,9 @@ function SavedJobsPageContent() {
                     <TableRow>
                       <TableHead>Job Title</TableHead>
                       <TableHead>Company</TableHead>
+                      <TableHead>Details</TableHead>
                       <TableHead className="text-center">Score</TableHead>
+                      <TableHead>Matching Summary</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -130,10 +133,37 @@ function SavedJobsPageContent() {
                     {savedJobs.map((job) => (
                       <TableRow key={job.id}>
                         <TableCell>
-                          <div className="font-medium">{job.title}</div>
+                          <div className="font-medium">
+                            {job.originalData?.applyUrl ? (
+                              <a
+                                href={job.originalData.applyUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="hover:underline"
+                              >
+                                {job.title}
+                              </a>
+                            ) : (
+                              job.title
+                            )}
+                          </div>
                           <div className="text-sm text-muted-foreground">{job.location}</div>
                         </TableCell>
                         <TableCell>{job.company}</TableCell>
+                        <TableCell>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <p className="text-sm text-muted-foreground line-clamp-2 cursor-help">
+                                  {job.originalData?.summary || "No summary available."}
+                                </p>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-md p-4 whitespace-pre-line">
+                                <p>{job.originalData?.summary || "No summary available."}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableCell>
                         <TableCell className="text-center">
                           <Button
                             variant="outline"
@@ -143,6 +173,20 @@ function SavedJobsPageContent() {
                           >
                             {job.matchingScore ?? "-"}%
                           </Button>
+                        </TableCell>
+                        <TableCell>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <p className="text-sm text-muted-foreground line-clamp-2 cursor-help">
+                                  {job.summary || "No matching summary."}
+                                </p>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-md p-4 whitespace-pre-line">
+                                <p>{job.summary || "No matching summary available."}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
@@ -186,11 +230,13 @@ function SavedJobsPageContent() {
           {selectedJob && (
             <MatchingScoreDialog 
               job={{
+                ...selectedJob.originalData,
                 id: selectedJob.jobId,
                 title: selectedJob.title,
                 company: selectedJob.company,
                 matchingScore: selectedJob.matchingScore ?? 0,
-                matchingSummary: selectedJob.summary || selectedJob.originalData?.description?.slice(0, 200)
+                matchingSummary: selectedJob.originalData?.matchingSummary || selectedJob.summary,
+                summary: selectedJob.originalData?.summary,
               }} 
               isOpen={!!selectedJob} 
               onClose={() => setSelectedJob(null)} 
