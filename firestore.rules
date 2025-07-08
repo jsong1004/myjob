@@ -18,6 +18,12 @@ service cloud.firestore {
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
     }
     
+    // Allow admin to read all user activities, but users can only write their own
+    match /user-activities/{activityId} {
+      allow read: if request.auth != null && request.auth.token.email == 'jsong@koreatous.com';
+      allow write: if request.auth != null && request.auth.uid == request.resource.data.userId;
+    }
+    
     // Top-level cover letters collection - users can only access their own cover letters
     match /coverLetters/{letterId} {
       allow read, write, delete: if request.auth != null && request.auth.uid == resource.data.userId;

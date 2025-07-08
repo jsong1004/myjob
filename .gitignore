@@ -41,3 +41,5 @@ service-account-key.json
 
 # Claude
 CLAUDE.md
+
+cloudbuild.yaml

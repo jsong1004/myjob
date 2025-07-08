@@ -44,6 +44,8 @@ export function Header() {
       .toUpperCase()
   }
 
+  const isAdmin = user?.email === 'jsong@koreatous.com';
+
   return (
     <>
       <header className="bg-background/75 backdrop-blur-lg sticky top-0 z-50 border-b">
@@ -69,6 +71,7 @@ export function Header() {
                   <Link href="/cover-letters" className="text-muted-foreground hover:text-foreground transition-colors">
                     My Cover Letters
                   </Link>
+                  {isAdmin && <Link href="/admin/activities" className="text-primary font-semibold">Admin</Link>}
                 </>
               )}
             </nav>
