@@ -12,6 +12,7 @@ import type { CoverLetter } from "@/lib/types"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import Link from "next/link"
 
 export default function CoverLettersPage() {
   return (
@@ -74,11 +75,6 @@ function CoverLettersPageContent() {
         variant: "destructive",
       })
     }
-  }
-
-  const handlePreviewCoverLetter = (coverLetter: CoverLetter) => {
-    // Simple preview using alert - could be enhanced with a modal
-    alert(coverLetter.content)
   }
 
   const handleDeleteCoverLetter = async (coverLetterId: string) => {
@@ -163,12 +159,12 @@ function CoverLettersPageContent() {
                     {coverLetters.map((coverLetter) => (
                       <TableRow key={coverLetter.id}>
                         <TableCell>
-                          <button
+                          <a
+                            href={`/cover-letter/${coverLetter.id}`}
                             className="font-medium text-primary hover:underline"
-                            onClick={() => handlePreviewCoverLetter(coverLetter)}
                           >
                             {coverLetter.name}
-                          </button>
+                          </a>
                         </TableCell>
                         <TableCell>{coverLetter.jobTitle}</TableCell>
                         <TableCell>{coverLetter.company}</TableCell>

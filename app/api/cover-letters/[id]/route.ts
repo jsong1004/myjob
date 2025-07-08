@@ -70,4 +70,70 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     console.error('Delete cover letter error:', error);
     return NextResponse.json({ error: 'Failed to delete cover letter' }, { status: 500 });
   }
+}
+
+// GET /api/cover-letters/[id] - Get a single cover letter
+export async function GET(request: NextRequest, { params }: RouteParams) {
+  try {
+    initFirebaseAdmin();
+    const { id } = params;
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const db = getFirestore();
+    const coverLetterDoc = await db.collection('coverLetters').doc(id).get();
+
+    if (!coverLetterDoc.exists) {
+      return NextResponse.json({ error: 'Cover letter not found' }, { status: 404 });
+    }
+
+    const coverLetterData = coverLetterDoc.data();
+    if (coverLetterData?.userId !== user.uid) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    return NextResponse.json(coverLetterData);
+  } catch (error) {
+    console.error('Get cover letter error:', error);
+    return NextResponse.json({ error: 'Failed to get cover letter' }, { status: 500 });
+  }
+}
+
+// PUT /api/cover-letters/[id] - Update a cover letter
+export async function PUT(request: NextRequest, { params }: RouteParams) {
+  try {
+    initFirebaseAdmin();
+    const { id } = params;
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const updateData = await request.json();
+
+    const db = getFirestore();
+    const coverLetterRef = db.collection('coverLetters').doc(id);
+    const coverLetterDoc = await coverLetterRef.get();
+
+    if (!coverLetterDoc.exists) {
+      return NextResponse.json({ error: 'Cover letter not found' }, { status: 404 });
+    }
+
+    const coverLetterData = coverLetterDoc.data();
+    if (coverLetterData?.userId !== user.uid) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    await coverLetterRef.update({
+      ...updateData,
+      updatedAt: new Date(),
+    });
+
+    return NextResponse.json({ message: 'Cover letter updated successfully' });
+  } catch (error) {
+    console.error('Update cover letter error:', error);
+    return NextResponse.json({ error: 'Failed to update cover letter' }, { status: 500 });
+  }
 } 

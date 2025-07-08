@@ -4,7 +4,7 @@ import { initFirebaseAdmin } from "@/lib/firebase-admin-init";
 import { getAuth } from "firebase-admin/auth";
 
 export async function POST(req: NextRequest) {
-  const { message, resume, jobTitle, company, jobDescription, mode = 'agent' } = await req.json()
+  const { message, resume, jobTitle, company, jobDescription, mode = 'agent', coverLetter: existingCoverLetter } = await req.json()
   const apiKey = process.env.OPENROUTER_API_KEY
   if (!apiKey) {
     return NextResponse.json({ error: "Missing OpenRouter API key" }, { status: 500 })
@@ -19,9 +19,31 @@ export async function POST(req: NextRequest) {
     if (mode === "agent") {
       // Agent mode: Generate cover letter and provide summary
       llmModel = "openai/gpt-4o-mini"
-      systemPrompt = "You are an expert cover letter writer who creates compelling, personalized cover letters that stand out to recruiters."
       
-      prompt = `You are an expert cover letter writer specializing in creating compelling, personalized cover letters that capture a candidate's unique value proposition and demonstrate genuine interest in the specific role and company.
+      if (existingCoverLetter) {
+        // EDITING an existing cover letter
+        systemPrompt = "You are an expert cover letter editor. Your task is to refine an existing cover letter based on the user's instructions. Make only the requested changes, preserving the rest of the letter. The output must be the complete, updated cover letter."
+        prompt = `Please edit the following cover letter based on my request.
+
+USER REQUEST:
+${message}
+
+EXISTING COVER LETTER:
+${existingCoverLetter}
+
+Resume and Job details are provided for context.
+- Job Title: ${jobTitle}
+- Company: ${company}
+- Job Description: ${jobDescription}
+- Resume: ${resume}
+
+OUTPUT REQUIREMENTS:
+Respond with only the complete, updated cover letter text. Do not include any other commentary, preamble, or summary. Just the letter.`
+      } else {
+        // GENERATING a new cover letter
+        systemPrompt = "You are an expert cover letter writer who creates compelling, personalized cover letters that stand out to recruiters."
+      
+        prompt = `You are an expert cover letter writer specializing in creating compelling, personalized cover letters that capture a candidate's unique value proposition and demonstrate genuine interest in the specific role and company.
 
 INPUTS:
 - Resume
@@ -96,6 +118,7 @@ Candidate's Resume:
 ${resume}
 
 Please create a compelling cover letter that effectively connects the candidate's background to this specific opportunity.`
+      }
     } else {
       // Ask mode: Only provide advice, don't generate cover letter
       llmModel = "openai/gpt-4o-mini"
@@ -167,7 +190,15 @@ Please create a compelling cover letter that effectively connects the candidate'
     }
     
     if (mode === "agent") {
-      // Parse the AI response to extract cover letter and summary
+      if (existingCoverLetter) {
+        // When editing, the entire response is the cover letter
+        return NextResponse.json({ 
+          coverLetter: aiResponse.trim(),
+          reply: "I have updated the cover letter with your changes.", // A simple confirmation
+        })
+      }
+
+      // Parse the AI response to extract cover letter and summary for generation
       const coverLetterMatch = aiResponse.match(/COVER_LETTER:\s*([\s\S]*?)\s*SUMMARY:/);
       const summaryMatch = aiResponse.match(/SUMMARY:\s*([\s\S]*?)$/);
       

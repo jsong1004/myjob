@@ -39,48 +39,91 @@ export default function CoverLetterPage({ params }: CoverLetterPageProps) {
   const [generateError, setGenerateError] = useState<string | null>(null)
   const [isEditMode, setIsEditMode] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isEdit, setIsEdit] = useState(false)
+  const [isReadyForGeneration, setIsReadyForGeneration] = useState(false)
   const { toast } = useToast()
 
-  // Fetch job data and default resume on mount
+  // Fetch data on mount
   useEffect(() => {
     const fetchData = async () => {
+      if (!user || !auth || !auth.currentUser) return;
+
       setLoading(true)
       setGenerateError(null)
+      const token = await auth.currentUser.getIdToken()
+
       try {
-        // Fetch job data directly from Firestore
-        let foundJob = null
-        console.log(`[CoverLetter][useEffect] Fetching job data for id: ${id}`)
-        const res = await fetch(`/api/jobs/${id}`)
-        if (res.ok) {
-          const data = await res.json()
-          foundJob = data.job || null
-        }
-        setJob(foundJob)
+        // First, try to fetch as a Cover Letter ID
+        const coverLetterRes = await fetch(`/api/cover-letters/${id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
 
-        // Set letter name to "Cover Letter - Company Name" format
-        if (foundJob) {
-          setLetterName(`Cover Letter - ${foundJob.company}`)
-        }
-
-        // Fetch default resume
-        if (user && auth?.currentUser) {
-          const token = await auth.currentUser.getIdToken()
-          const res = await fetch('/api/resumes', {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          })
+        if (coverLetterRes.ok) {
+          // EDIT MODE
+          setIsEdit(true)
+          const coverLetterData = await coverLetterRes.json()
+          
+          setCurrentCoverLetter(coverLetterData.content)
+          setLetterName(coverLetterData.name)
+          
+          // Fetch associated job data, but don't fail if it's not found
+          if (coverLetterData.jobId) {
+            const jobRes = await fetch(`/api/jobs/${coverLetterData.jobId}`, {
+               headers: { 'Authorization': `Bearer ${token}` }
+            })
+            if (jobRes.ok) {
+              const jobData = await jobRes.json()
+              setJob(jobData.job || null)
+            } else {
+              // Job not found is not a fatal error for editing an existing CL
+              console.warn(`Associated job with id ${coverLetterData.jobId} not found.`);
+              setJob(null); // Explicitly set to null
+            }
+          }
+        } else {
+          // GENERATION MODE
+          setIsEdit(false)
+          // Fetch job data directly using id as jobId
+          const res = await fetch(`/api/jobs/${id}`)
           if (res.ok) {
             const data = await res.json()
-            const defaultResume = data.resumes?.find((r: any) => r.isDefault) || data.resumes?.[0]
-            if (defaultResume) {
-              setDefaultResume(defaultResume.content)
+            const foundJob = data.job || null
+            setJob(foundJob)
+            if (foundJob) {
+              setLetterName(`Cover Letter - ${foundJob.company}`)
+            }
+          } else {
+             // If job isn't found in generation mode, it's a critical error
+             setJob(null)
+             // We will handle the display of "Job not found" in the render logic
+          }
+          
+          // Fetch default resume for generation (only if job was found)
+          if (res.ok) {
+            const resumeRes = await fetch('/api/resumes', {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            })
+            if (resumeRes.ok) {
+              const resumeData = await resumeRes.json()
+              const defaultResume = resumeData.resumes?.find((r: any) => r.isDefault) || resumeData.resumes?.[0]
+              if (defaultResume) {
+                setDefaultResume(defaultResume.content)
+                setIsReadyForGeneration(true) // Ready to generate now
+              } else {
+                  // No resume found, which is needed for generation
+                  setGenerateError("Could not find a default resume to use for generating the cover letter. Please create or set a default resume.");
+              }
+            } else {
+              throw new Error('Failed to fetch resume data.')
             }
           }
         }
       } catch (err) {
-        setGenerateError('Failed to load job or resume data.')
+        console.error("Error fetching data:", err)
+        setGenerateError('Failed to load required data. Please try again.')
       } finally {
         setLoading(false)
       }
@@ -88,10 +131,16 @@ export default function CoverLetterPage({ params }: CoverLetterPageProps) {
     fetchData()
   }, [id, user])
 
-  // Generate cover letter automatically when both job and defaultResume are loaded
+  // Generate cover letter automatically when in GENERATION mode
   useEffect(() => {
+    // Only run if we are NOT in edit mode and have the necessary data
+    if (!isReadyForGeneration || isEdit || !job || !defaultResume || !user) return
+
     const generateCoverLetter = async () => {
-      if (!job || !defaultResume || !user || !auth?.currentUser) return
+       if (!auth || !auth.currentUser) {
+         setGenerateError("User not authenticated.");
+         return;
+       }
       setGenerating(true)
       setGenerateError(null)
       try {
@@ -135,13 +184,13 @@ export default function CoverLetterPage({ params }: CoverLetterPageProps) {
       }
     }
     generateCoverLetter()
-  }, [job, defaultResume, user])
+  }, [job, defaultResume, user, isEdit, isReadyForGeneration])
 
 
 
   const handleSendMessage = async () => {
     console.log("handleSendMessage called", { newMessage, job });
-    if (!newMessage.trim() || !job || !user || !auth?.currentUser) return
+    if (!newMessage.trim() || !user) return
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -155,6 +204,9 @@ export default function CoverLetterPage({ params }: CoverLetterPageProps) {
     setIsProcessing(true)
 
     try {
+      if (!auth || !auth.currentUser) {
+        throw new Error("User not authenticated.");
+      }
       const token = await auth.currentUser.getIdToken()
       const res = await fetch("/api/openrouter/cover-letter", {
         method: "POST",
@@ -165,10 +217,11 @@ export default function CoverLetterPage({ params }: CoverLetterPageProps) {
         body: JSON.stringify({
           message: newMessage,
           resume: defaultResume,
-          jobTitle: job.title,
-          company: job.company,
-          jobDescription: job.fullDescription || job.description || "",
+          jobTitle: job?.title || 'N/A',
+          company: job?.company || 'N/A',
+          jobDescription: job?.fullDescription || job?.description || "",
           mode: mode,
+          coverLetter: currentCoverLetter,
         }),
       })
 
@@ -239,7 +292,7 @@ export default function CoverLetterPage({ params }: CoverLetterPageProps) {
   }
 
   const handleSaveCoverLetter = async () => {
-    if (!user || !auth?.currentUser || !currentCoverLetter || !letterName || !job) {
+    if (!user || !auth || !auth.currentUser || !currentCoverLetter || !letterName) {
       toast({
         title: "Save failed",
         description: "Please ensure all required information is available.",
@@ -251,42 +304,48 @@ export default function CoverLetterPage({ params }: CoverLetterPageProps) {
     setIsSaving(true)
     try {
       const token = await auth.currentUser.getIdToken()
-      const res = await fetch('/api/cover-letters', {
-        method: 'POST',
+      
+      const coverLetterData = {
+        name: letterName,
+        content: currentCoverLetter,
+        jobTitle: job?.title || 'N/A',
+        company: job?.company || 'N/A',
+        jobId: job?.id || (isEdit ? null : id),
+      }
+
+      // If we are in edit mode, we use PUT to update, otherwise POST to create
+      const url = isEdit ? `/api/cover-letters/${id}` : "/api/cover-letters"
+      const method = isEdit ? "PUT" : "POST"
+      
+      const res = await fetch(url, {
+        method: method,
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          name: letterName,
-          content: currentCoverLetter,
-          jobTitle: job.title,
-          company: job.company,
-          jobId: job.id || id,
-        })
+        body: JSON.stringify(coverLetterData)
       })
 
       if (res.ok) {
         toast({
-          title: "Saved successfully",
-          description: "Cover letter has been saved to your library.",
+          title: "Success!",
+          description: "Your cover letter has been saved.",
         })
-        // Add AI message to chat
-        setChatMessages((prev) => [...prev, {
-          id: Date.now().toString(),
-          type: "ai",
-          content: "✅ Cover letter saved successfully to your library!",
-          timestamp: new Date(),
-        }])
+        if (!isEdit) {
+            const newCoverLetter = await res.json();
+            // This is a bit complex, for now, we just update the state
+            setIsEdit(true);
+            // Ideally, we would redirect to the new URL:
+            window.history.replaceState(null, '', `/cover-letter/${newCoverLetter.id}`)
+        }
       } else {
-        const errorData = await res.json()
-        throw new Error(errorData.error || 'Failed to save cover letter')
+        const errorData = await res.json().catch(() => ({ error: 'Failed to save cover letter.' }))
+        throw new Error(errorData.error)
       }
-    } catch (err) {
-      console.error('Save error:', err)
+    } catch (err: any) {
       toast({
         title: "Save failed",
-        description: err instanceof Error ? err.message : "Please try again.",
+        description: err.message || 'An unexpected error occurred.',
         variant: "destructive",
       })
     } finally {
@@ -294,238 +353,232 @@ export default function CoverLetterPage({ params }: CoverLetterPageProps) {
     }
   }
 
-
-
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }
 
-
-
   if (loading) {
     return (
-      <AuthProvider>
+      <>
         <Header />
-        <main className="container mx-auto px-4 py-8">
-          <div className="flex justify-center items-center min-h-[400px]">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        </main>
-      </AuthProvider>
+        <div className="flex justify-center items-center h-screen">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </>
     )
   }
 
-  if (!job) {
+  // If in generation mode and job not found, show error.
+  // In edit mode, we can still proceed.
+  if (!isEdit && !job) {
     return (
-      <AuthProvider>
+      <>
         <Header />
-        <main className="container mx-auto px-4 py-8">
+        <main className="container mx-auto px-4 py-12 md:py-16">
           <div className="text-center">
-            <h1 className="text-2xl font-bold mb-4">Job Not Found</h1>
-            <p className="text-muted-foreground mb-4">The job you're looking for doesn't exist.</p>
-            <Button asChild>
+            <h1 className="text-3xl font-bold">Job Not Found</h1>
+            <p className="text-muted-foreground mt-2">The job you're looking for doesn't exist.</p>
+            <Button asChild className="mt-6">
               <Link href="/saved-jobs">Back to Saved Jobs</Link>
             </Button>
           </div>
         </main>
-      </AuthProvider>
+      </>
     )
   }
 
+
   return (
-    <AuthProvider>
+    <>
       <Header />
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="mb-6 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="outline" size="icon" asChild>
-                <Link href="/saved-jobs">
-                  <ArrowLeft className="h-4 w-4" />
+      <main className="h-screen bg-muted/20 flex flex-col">
+        <div className="flex-1 flex flex-col h-full">
+          <header className="p-6 border-b">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Link href="/cover-letters">
+                  <Button variant="outline" size="icon">
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
                 </Link>
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold">Cover Letter Generator</h1>
-                <p className="text-muted-foreground">
-                  {job.title} at {job.company}
-                </p>
+                <div>
+                  <h1 className="text-2xl font-bold tracking-tight">Cover Letter Generator</h1>
+                  {job && <p className="text-muted-foreground">{job.title} - {job.company}</p>}
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Input
-                placeholder="Letter name..."
+              <Input 
+                className="max-w-xs"
+                placeholder="Enter a name for this cover letter"
                 value={letterName}
                 onChange={(e) => setLetterName(e.target.value)}
-                className="w-64"
               />
             </div>
-          </div>
+          </header>
 
-          {/* Error State */}
-          {generateError && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-600">{generateError}</p>
-            </div>
-          )}
+          <div className="p-6 flex-1 overflow-y-auto">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+              
+              {/* Cover Letter Display */}
+              <div className="lg:col-span-2 h-full flex flex-col">
+                <Card className="flex-1 flex flex-col">
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" /> Cover Letter</CardTitle>
+                    <div className="flex items-center gap-2">
+                       <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="outline" size="icon" onClick={() => setIsEditMode(!isEditMode)}>
+                              <Edit3 className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent><p>Edit</p></TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Left Side - Cover Letter */}
-            <div className="space-y-4">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    Cover Letter
-                  </CardTitle>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsEditMode(!isEditMode)}
-                    >
-                      <Edit3 className="h-4 w-4 mr-2" />
-                      {isEditMode ? "Preview" : "Edit"}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleCopyCoverLetter}
-                      disabled={!currentCoverLetter}
-                    >
-                      <Copy className="h-4 w-4 mr-2" />
-                      Copy
-                    </Button>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleDownloadCoverLetter}
-                            disabled={!currentCoverLetter}
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Download Cover Letter</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={handleSaveCoverLetter}
-                      disabled={!currentCoverLetter || isSaving}
-                    >
-                      {isSaving ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <Save className="h-4 w-4 mr-2" />
-                      )}
-                      {isSaving ? "Saving..." : "Save"}
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {generating ? (
-                    <div className="flex items-center justify-center py-12">
-                      <div className="text-center">
-                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-4" />
-                        <p className="text-muted-foreground">Generating your cover letter...</p>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="outline" size="icon" onClick={handleCopyCoverLetter}>
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent><p>Copy</p></TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                             <Button variant="outline" size="icon" onClick={handleDownloadCoverLetter}>
+                                <Download className="h-4 w-4" />
+                              </Button>
+                          </TooltipTrigger>
+                          <TooltipContent><p>Download</p></TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+
+                      <Button onClick={handleSaveCoverLetter} disabled={isSaving}>
+                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                        Save
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <Separator />
+                  <CardContent className="p-6 flex-1">
+                    {generating ? (
+                      <div className="flex items-center justify-center h-full">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                        <p className="ml-4">Generating your cover letter...</p>
                       </div>
-                    </div>
-                  ) : isEditMode ? (
-                    <Textarea
-                      value={currentCoverLetter}
-                      onChange={(e) => setCurrentCoverLetter(e.target.value)}
-                      className="min-h-[400px] font-mono"
-                      placeholder="Your cover letter will appear here..."
-                    />
-                                     ) : (
-                     <div className="prose max-w-none whitespace-pre-wrap">
-                       <ReactMarkdown
-                         remarkPlugins={[remarkGfm]}
-                       >
-                         {currentCoverLetter || "Your cover letter will appear here..."}
-                       </ReactMarkdown>
-                     </div>
-                   )}
-                </CardContent>
-              </Card>
-            </div>
+                    ) : generateError ? (
+                      <div className="text-destructive text-center h-full flex flex-col items-center justify-center">
+                        <p className="mb-4">{generateError}</p>
+                         <Button onClick={() => window.location.reload()}>Try Again</Button>
+                      </div>
+                    ) : isEditMode ? (
+                      <Textarea
+                        className="w-full h-full min-h-[60vh] text-base"
+                        value={currentCoverLetter}
+                        onChange={(e) => setCurrentCoverLetter(e.target.value)}
+                      />
+                    ) : (
+                      <div className="prose prose-sm max-w-none">
+                        <ReactMarkdown 
+                          remarkPlugins={[remarkGfm]}
+                        >
+                          {currentCoverLetter}
+                        </ReactMarkdown>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
 
-            {/* Right Side - Chat */}
-            <div className="space-y-4">
-              {/* Chat */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MessageSquare className="h-5 w-5" />
-                    AI Assistant
-                  </CardTitle>
-                  <div className="flex items-center gap-2">
-                    <ToggleGroup type="single" value={mode} onValueChange={(value) => value && setMode(value as 'agent' | 'ask')}>
-                      <ToggleGroupItem value="agent" className="text-xs">
-                        Agent Mode
-                      </ToggleGroupItem>
-                      <ToggleGroupItem value="ask" className="text-xs">
-                        Ask Mode
-                      </ToggleGroupItem>
-                    </ToggleGroup>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {/* Messages */}
-                    <div className="h-64 overflow-y-auto space-y-3 p-3 bg-muted/50 rounded-lg">
-                      {chatMessages.map((msg) => (
-                        <div key={msg.id} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                          <div className={`max-w-[80%] rounded-lg px-3 py-2 ${
-                            msg.type === 'user' 
-                              ? 'bg-primary text-primary-foreground' 
-                              : 'bg-background border'
-                          }`}>
-                            <p className="text-sm">{msg.content}</p>
-                            <p className="text-xs opacity-70 mt-1">{formatTime(msg.timestamp)}</p>
-                          </div>
-                        </div>
-                      ))}
-                      {isProcessing && (
-                        <div className="flex justify-start">
-                          <div className="bg-background border rounded-lg px-3 py-2">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          </div>
+              {/* AI Assistant Chat */}
+              <div className="h-full flex flex-col">
+                <Card className="flex-1 flex flex-col">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><MessageSquare className="h-5 w-5" /> AI Assistant</CardTitle>
+                     <ToggleGroup 
+                        type="single" 
+                        defaultValue="agent"
+                        value={mode}
+                        onValueChange={(value) => setMode(value as 'agent' | 'ask')}
+                        className="mt-2"
+                      >
+                        <ToggleGroupItem value="agent" aria-label="Agent Mode">Agent Mode</ToggleGroupItem>
+                        <ToggleGroupItem value="ask" aria-label="Ask Mode">Ask Mode</ToggleGroupItem>
+                      </ToggleGroup>
+                  </CardHeader>
+                  <Separator />
+                  <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
+                     {chatMessages.length === 0 && !generating && (
+                        <div className="text-center text-muted-foreground pt-8">
+                          {isEdit 
+                            ? "You can ask the assistant to make changes to your cover letter."
+                            : "Your generated cover letter will appear here. You can then ask for edits."
+                          }
                         </div>
                       )}
-                    </div>
-
-                    {/* Input */}
-                    <div className="flex gap-2">
-                      <Input
+                    {chatMessages.map((message) => (
+                      <div
+                        key={message.id}
+                        className={`flex items-start gap-3 ${
+                          message.type === "user" ? "justify-end" : ""
+                        }`}
+                      >
+                        <div
+                          className={`rounded-lg px-4 py-2 max-w-[80%] ${
+                            message.type === "user"
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted"
+                          }`}
+                        >
+                          <p className="text-sm">{message.content}</p>
+                          <p className="text-xs text-muted-foreground/80 mt-1 text-right">
+                            {formatTime(message.timestamp)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                     {isProcessing && (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span>Assistant is typing...</span>
+                        </div>
+                    )}
+                  </CardContent>
+                  <div className="p-4 border-t">
+                    <div className="relative">
+                      <Textarea
                         placeholder="Ask me to improve your cover letter..."
+                        className="pr-16"
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
-                        disabled={isProcessing}
-                        className="flex-1"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault()
+                            handleSendMessage()
+                          }
+                        }}
                       />
-                      <Button 
+                      <Button
+                        type="submit"
+                        size="icon"
+                        className="absolute top-1/2 -translate-y-1/2 right-3"
                         onClick={handleSendMessage}
                         disabled={isProcessing || !newMessage.trim()}
-                        size="icon"
                       >
                         <Send className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                </Card>
+              </div>
             </div>
           </div>
         </div>
       </main>
-    </AuthProvider>
+    </>
   )
 } 
