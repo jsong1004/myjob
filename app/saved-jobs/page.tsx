@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Bookmark, ExternalLink, Loader2, AlertCircle } from "lucide-react"
+import { Bookmark, ExternalLink, Loader2, AlertCircle, FileText } from "lucide-react"
 import Link from "next/link"
 import { Header } from "@/components/header"
 import { AuthProvider, useAuth } from "@/components/auth-provider"
@@ -215,6 +215,18 @@ function SavedJobsPageContent() {
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent><p>Tailor Resume</p></TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button asChild variant="ghost" size="icon">
+                                    <Link href={`/cover-letter/${job.jobId}`}>
+                                      <FileText className="h-5 w-5 text-muted-foreground" />
+                                    </Link>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent><p>Create Cover Letter</p></TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
                           </div>

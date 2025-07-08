@@ -20,6 +20,10 @@ MyJob is a modern, AI-driven platform designed to streamline the job search proc
     - View, edit (with or without AI), and delete any resume.
     - Set a default resume for job matching and download your resumes in markdown format at any time.
     - Save tailored resumes directly from the AI tailoring page.
+- **💌 AI-Powered Cover Letter Management:**
+    - Automatically generate compelling cover letters tailored to a specific job and your resume.
+    - Interactively refine and edit the cover letter with an AI chat assistant.
+    - Save, view, download, and delete cover letters from your personal library.
 - **🧭 Intuitive Navigation:**
     - Profile, Resume, and Saved Jobs links in the header for easy access.
 

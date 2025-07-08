@@ -66,8 +66,8 @@ export function Header() {
                   <Link href="/resumes" className="text-muted-foreground hover:text-foreground transition-colors">
                     My Resumes
                   </Link>
-                  <Link href="/my-activities" className="text-muted-foreground hover:text-foreground transition-colors">
-                    My Activities
+                  <Link href="/cover-letters" className="text-muted-foreground hover:text-foreground transition-colors">
+                    My Cover Letters
                   </Link>
                 </>
               )}
@@ -108,6 +108,13 @@ export function Header() {
                         <span>Profile</span>
                       </Link>
                     </DropdownMenuItem>
+
+                    <DropdownMenuItem asChild>
+                      <Link href="/saved-jobs" className="flex items-center">
+                        <Bookmark className="mr-2 h-4 w-4" />
+                        <span>Saved Jobs</span>
+                      </Link>
+                    </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/resumes" className="flex items-center">
                         <FileText className="mr-2 h-4 w-4" />
@@ -115,11 +122,19 @@ export function Header() {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href="/saved-jobs" className="flex items-center">
-                        <Bookmark className="mr-2 h-4 w-4" />
-                        <span>Saved Jobs</span>
+                      <Link href="/cover-letters" className="flex items-center">
+                        <FileText className="mr-2 h-4 w-4" />
+                        <span>Cover Letters</span>
                       </Link>
                     </DropdownMenuItem>
+
+                    <DropdownMenuItem asChild>
+                      <Link href="/my-activities" className="flex items-center">
+                        <FileText className="mr-2 h-4 w-4" />
+                        <span>My Activities</span>
+                      </Link>
+                    </DropdownMenuItem>
+
                     <DropdownMenuItem asChild>
                       <Link href="/feedback" className="flex items-center">
                         <Github className="mr-2 h-4 w-4" />

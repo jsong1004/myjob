@@ -25,6 +25,19 @@ export interface Resume {
   updatedAt: Timestamp
 }
 
+// Cover letter document interface
+export interface CoverLetter {
+  id: string
+  userId: string
+  name: string
+  content: string
+  jobTitle: string
+  company: string
+  jobId: string
+  createdAt: Timestamp
+  updatedAt: Timestamp
+}
+
 // Saved job document interface
 export interface SavedJob {
   id: string
