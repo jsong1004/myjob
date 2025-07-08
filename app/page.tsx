@@ -36,6 +36,7 @@ interface Resume {
 function HomePage() {
   const [searchResults, setSearchResults] = useState<Job[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [hasSearched, setHasSearched] = useState(false)
   const [defaultResume, setDefaultResume] = useState<Resume | null>(null)
   const [resumeLoading, setResumeLoading] = useState(true)
   const { user } = useAuth()
@@ -80,6 +81,7 @@ function HomePage() {
   const handleSearch = async (query: string, location: string) => {
     setIsLoading(true)
     setSearchResults([])
+    setHasSearched(true)
     
     try {
       const searchPayload = {
@@ -147,7 +149,11 @@ function HomePage() {
           
           {!isLoading && searchResults.length === 0 && (
             <div className="mt-10 text-center text-muted-foreground">
-              <p>Your job search results will appear here.</p>
+              <p>
+                {hasSearched 
+                  ? "No new jobs are found. Please search again later." 
+                  : "Your job search results will appear here."}
+              </p>
             </div>
           )}
         </div>
