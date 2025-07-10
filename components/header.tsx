@@ -30,6 +30,16 @@ export function Header() {
   const handleSignOut = async () => {
     try {
       await signOut()
+      
+      // Check if on protected route and redirect with clean page reload
+      const protectedRoutes = ['/profile', '/resumes', '/saved-jobs', '/cover-letters', '/my-activities', '/admin']
+      const currentPath = window.location.pathname
+      const isOnProtectedRoute = protectedRoutes.some(route => currentPath.startsWith(route))
+      
+      if (isOnProtectedRoute) {
+        // Use replace to avoid back button issues and ensure clean reload
+        window.location.replace('/')
+      }
     } catch (error) {
       console.error('Failed to sign out:', error)
     }
