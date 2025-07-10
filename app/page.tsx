@@ -5,6 +5,7 @@ import { JobSearch } from "@/components/job-search"
 import { JobResults } from "@/components/job-results"
 import { Header } from "@/components/header"
 import { AuthProvider, useAuth } from "@/components/auth-provider"
+import { AuthModal } from "@/components/auth-modal"
 import { auth } from "@/lib/firebase"
 
 interface Job {
@@ -39,6 +40,8 @@ function HomePage() {
   const [hasSearched, setHasSearched] = useState(false)
   const [defaultResume, setDefaultResume] = useState<Resume | null>(null)
   const [resumeLoading, setResumeLoading] = useState(true)
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signup')
   const { user } = useAuth()
 
   useEffect(() => {
@@ -77,6 +80,11 @@ function HomePage() {
 
     fetchDefaultResume()
   }, [user])
+
+  const handleAuthRequired = () => {
+    setAuthMode('signup')
+    setShowAuthModal(true)
+  }
 
   const handleSearch = async (query: string, location: string) => {
     setIsLoading(true)
@@ -133,7 +141,12 @@ function HomePage() {
             </p>
           </div>
           
-          <JobSearch onSearch={handleSearch} isLoading={isLoading} />
+          <JobSearch 
+            onSearch={handleSearch} 
+            isLoading={isLoading} 
+            onAuthRequired={handleAuthRequired}
+            isAuthenticated={!!user}
+          />
           
           {isLoading && (
             <div className="mt-8 text-center">
@@ -158,6 +171,13 @@ function HomePage() {
           )}
         </div>
       </main>
+
+      <AuthModal 
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        mode={authMode}
+        onModeChange={setAuthMode}
+      />
     </>
   )
 }
