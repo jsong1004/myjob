@@ -13,6 +13,7 @@ MyJob is a modern, AI-driven platform designed to streamline the job search proc
 - **👤 Profile Management:**
     - Manage your account information, professional bio, social links, skills, and preferences.
     - Set your default resume for job applications.
+- **📌 Applied Job Tracking:** Mark any saved job as "Applied" with a single click and visually track your application progress.
 - **🔍 Advanced Job Search:** Leverages the SerpApi to search for jobs based on keywords and location.
 - **🔐 User Authentication:** Secure sign-up and sign-in with Email/Password or Google OAuth, powered by Firebase Authentication.
 - **📂 Comprehensive Resume Management:**

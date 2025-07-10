@@ -168,18 +168,24 @@ export async function POST(request: NextRequest) {
       await userRef.update({ defaultResumeId: null });
     }
 
-    // Create new resume
-    const resumeData: Omit<Resume, 'id'> = {
+    // Create new resume - filter out undefined values for Firestore
+    const resumeData: Omit<Resume, 'id'> & Record<string, any> = {
       userId: authResult.uid,
       name,
       content,
       isDefault: makeDefault,
       type,
-      jobTitle,
-      jobId,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     };
+
+    // Only add jobTitle and jobId if they are defined
+    if (jobTitle !== undefined) {
+      resumeData.jobTitle = jobTitle;
+    }
+    if (jobId !== undefined) {
+      resumeData.jobId = jobId;
+    }
 
     const docRef = await db.collection('resumes').add(resumeData);
 

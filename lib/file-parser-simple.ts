@@ -4,20 +4,44 @@ export interface ParsedFileResult {
 }
 
 /**
- * Simple PDF parser - returns placeholder content
- * TODO: Replace with working PDF parser once Next.js issues are resolved
+ * Parse PDF file buffer to extract text content
  */
 export async function parsePDF(buffer: Buffer): Promise<ParsedFileResult> {
   try {
+    // Dynamic import to avoid Next.js build issues.
+    // We import the internal module directly to bypass the debug mode check
+    // in the main export of `pdf-parse` which causes issues in a Next.js environment.
+    const pdfParse = await import('pdf-parse/lib/pdf-parse.js');
+    const pdf = pdfParse.default || pdfParse;
+
+    const data = await pdf(buffer);
+
+    if (!data || !data.text || data.text.trim().length === 0) {
+      return {
+        content: '',
+        error:
+          'PDF appears to be empty or contains no readable text. Please check if the PDF has text content.',
+      };
+    }
+
     return {
-      content: '[PDF content extraction temporarily disabled due to Next.js compatibility issues. Please use text input or try a different file format.]',
-      error: 'PDF parsing is temporarily disabled. Please paste your resume content manually or upload a DOCX/Markdown file.'
+      content: data.text.trim(),
     };
   } catch (error) {
     console.error('PDF parsing error:', error);
+
+    if (error instanceof Error && error.message.includes('Invalid PDF')) {
+      return {
+        content: '',
+        error:
+          'The uploaded file appears to be corrupted or is not a valid PDF. Please try a different file.',
+      };
+    }
+
     return {
       content: '',
-      error: 'Failed to parse PDF file. Please ensure it contains readable text.'
+      error:
+        'Failed to parse PDF file. Please ensure it contains readable text, or try uploading a DOCX file instead.',
     };
   }
 }
@@ -28,9 +52,8 @@ export async function parsePDF(buffer: Buffer): Promise<ParsedFileResult> {
 export async function parseDOCX(buffer: Buffer): Promise<ParsedFileResult> {
   try {
     // Dynamic import to avoid Next.js build issues
-    const mammoth = await import('mammoth');
-    const mammothModule = mammoth.default || mammoth;
-    const result = await mammothModule.extractRawText({ buffer });
+    const mammoth = (await import('mammoth')).default;
+    const result = await mammoth.extractRawText({ buffer });
     return {
       content: result.value.trim()
     };
