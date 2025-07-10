@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -20,13 +21,16 @@ import Link from "next/link"
 export default function ResumesPage() {
   return (
     <AuthProvider>
-      <ResumesPageContent />
+      <Suspense fallback={<div>Loading...</div>}>
+        <ResumesPageContent />
+      </Suspense>
     </AuthProvider>
   )
 }
 
 function ResumesPageContent() {
   const { user } = useAuth()
+  const searchParams = useSearchParams()
   const [resumes, setResumes] = useState<Resume[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
@@ -36,6 +40,7 @@ function ResumesPageContent() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploadMethod, setUploadMethod] = useState<'file' | 'text'>('file')
   const [error, setError] = useState<string | null>(null)
+  const [redirectMessage, setRedirectMessage] = useState<string | null>(null)
 
   useEffect(() => {
     if (user) {
@@ -44,6 +49,16 @@ function ResumesPageContent() {
       setLoading(false)
     }
   }, [user])
+
+  useEffect(() => {
+    // Check for redirect message from URL parameters
+    const message = searchParams.get('message')
+    if (message) {
+      setRedirectMessage(message)
+      // Auto-open the upload dialog if user was redirected here
+      setIsUploadDialogOpen(true)
+    }
+  }, [searchParams])
 
   const getAuthToken = async () => {
     if (!auth?.currentUser) return null
@@ -252,6 +267,13 @@ function ResumesPageContent() {
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {redirectMessage && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{redirectMessage}</AlertDescription>
             </Alert>
           )}
 

@@ -1,6 +1,7 @@
 "use client"
 
 import { use, useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -24,6 +25,7 @@ interface TailorResumePageProps {
 export default function TailorResumePage({ params }: TailorResumePageProps) {
   const { id } = use(params)
   const { user } = useAuth()
+  const router = useRouter()
 
   const [job, setJob] = useState<any | null>(null)
   const [currentResume, setCurrentResume] = useState<string>("")
@@ -39,6 +41,7 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([])
   const [isSaving, setIsSaving] = useState(false)
   const [isEditMode, setIsEditMode] = useState(false)
+  const [hasNoResume, setHasNoResume] = useState(false)
 
   // Fetch job data and default resume on mount
   useEffect(() => {
@@ -72,10 +75,21 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
           })
           if (res.ok) {
             const data = await res.json()
-            const defaultResume = data.resumes?.find((r: any) => r.isDefault) || data.resumes?.[0]
+            const resumes = data.resumes || []
+            
+            if (resumes.length === 0) {
+              // User has no resumes - redirect to resume upload page
+              setHasNoResume(true)
+              return
+            }
+            
+            const defaultResume = resumes.find((r: any) => r.isDefault) || resumes[0]
             if (defaultResume) {
               setDefaultResume(defaultResume.content)
             }
+          } else {
+            // If we can't fetch resumes, assume user has no resumes
+            setHasNoResume(true)
           }
         }
       } catch (err) {
@@ -86,6 +100,13 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
     }
     fetchData()
   }, [id, user])
+
+  // Redirect to resume upload page if user has no resumes
+  useEffect(() => {
+    if (hasNoResume) {
+      router.push('/resumes?message=Please upload a resume first to tailor it for this job.')
+    }
+  }, [hasNoResume, router])
 
   // Tailor the resume automatically when both job and defaultResume are loaded
   useEffect(() => {
