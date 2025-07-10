@@ -14,19 +14,40 @@ MyJob is a modern, AI-driven platform designed to streamline the job search proc
     - Manage your account information, professional bio, social links, skills, and preferences.
     - Set your default resume for job applications.
 - **📌 Applied Job Tracking:** Mark any saved job as "Applied" with a single click and visually track your application progress.
-- **🔍 Advanced Job Search:** Leverages the SerpApi to search for jobs based on keywords and location.
-- **🔐 User Authentication:** Secure sign-up and sign-in with Email/Password or Google OAuth, powered by Firebase Authentication.
+- **🔍 Advanced Job Search:** 
+    - Leverages the SerpApi to search for jobs based on keywords and location.
+    - Complete job data storage from SerpAPI for richer job information.
+    - Enhanced job retrieval with fallback mechanisms for backward compatibility.
+- **🔐 User Authentication:** 
+    - Secure sign-up and sign-in with Email/Password or Google OAuth, powered by Firebase Authentication.
+    - Smart authentication flow that redirects unauthenticated users to sign-up when attempting to search.
+    - Automatic redirect to main page after sign-out from protected areas with proper page refresh.
 - **📂 Comprehensive Resume Management:**
-    - Upload and store multiple resumes in various formats (DOCX, Markdown).
+    - Upload and store multiple resumes in various formats (PDF, DOCX, Markdown).
+    - Advanced PDF text extraction with proper error handling and compatibility.
     - View, edit (with or without AI), and delete any resume.
     - Set a default resume for job matching and download your resumes in markdown format at any time.
     - Save tailored resumes directly from the AI tailoring page.
+    - Smart redirect to resume upload for users without resumes when trying to tailor.
 - **💌 AI-Powered Cover Letter Management:**
     - Automatically generate compelling cover letters tailored to a specific job and your resume.
     - Interactively refine and edit the cover letter with an AI chat assistant.
     - Save, view, download, and delete cover letters from your personal library.
 - **🧭 Intuitive Navigation:**
     - Profile, Resume, and Saved Jobs links in the header for easy access.
+
+## 🔄 Recent Improvements
+
+### Authentication & User Experience
+- **Smart Sign-Up Flow (Issue #15):** Unauthenticated users are automatically prompted to sign up when attempting to search for jobs, improving user onboarding.
+- **Enhanced Sign-Out (Issue #19):** Users are properly redirected to the main page after signing out from protected areas with clean page refresh and proper styling.
+
+### Resume Management
+- **PDF Upload Support (Issue #16):** Full PDF resume upload functionality with advanced text extraction using pdf-parse library and proper error handling.
+- **Resume Requirement Flow (Issue #17):** Users without resumes are intelligently redirected to upload a resume when trying to tailor, with helpful messaging and auto-opened upload dialog.
+
+### Data Architecture
+- **Complete Job Data Storage (Issue #18):** Enhanced job search results storage to save complete SerpAPI data in jobs collection while maintaining user-specific scoring in savedJobs collection for better data separation and richer job information.
 
 ## 🛠️ Technology Stack
 
@@ -84,10 +105,11 @@ This project requires a Firebase project to handle authentication and data stora
 4.  **Create Firestore Index:** The application requires a composite index for querying resumes. Go to the Firestore `Indexes` tab and create a new composite index for the `resumes` collection with the following fields:
       * `userId` (Ascending)
       * `createdAt` (Descending)
-5.  **Generate Service Account Key:** For backend services to work locally, you need a service account key.
+5.  **Generate Service Account Key:** For backend services (resume upload, PDF parsing) to work locally, you need a service account key.
       * In the Firebase Console, go to **Project Settings** > **Service accounts**.
       * Click "Generate new private key".
       * Save the downloaded JSON file as `service-account-key.json` in the root of the project directory. This file is included in `.gitignore` and will not be committed.
+      * Note: The service account key is required for PDF/DOCX resume uploads to function properly.
 
 ### 6. Run the Development Server
 
