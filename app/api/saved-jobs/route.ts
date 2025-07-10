@@ -68,6 +68,7 @@ export async function POST(req: NextRequest) {
       matchingSummary: matchingSummary || "",
       scoreDetails: scoreDetails || {},
       savedAt: new Date(),
+      appliedAt: null, // Initialize as null, can be updated later
       originalData: originalData || {},
     })
     const doc = await docRef.get()

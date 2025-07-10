@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Bookmark, ExternalLink, Loader2, AlertCircle, FileText } from "lucide-react"
+import { Bookmark, ExternalLink, Loader2, AlertCircle, FileText, CheckCircle } from "lucide-react"
 import Link from "next/link"
 import { Header } from "@/components/header"
 import { AuthProvider, useAuth } from "@/components/auth-provider"
@@ -79,6 +79,35 @@ function SavedJobsPageContent() {
     }
   }
 
+  const handleToggleApplied = async (jobId: string, currentlyApplied: boolean) => {
+    if (!user || !auth?.currentUser) return
+    try {
+      const token = await auth.currentUser.getIdToken()
+      const response = await fetch(`/api/saved-jobs/${jobId}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ applied: !currentlyApplied }),
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setSavedJobs((prev) => 
+          prev.map((job) => 
+            job.jobId === jobId 
+              ? { ...job, appliedAt: data.appliedAt }
+              : job
+          )
+        )
+      } else {
+        alert("Failed to update applied status.")
+      }
+    } catch {
+      alert("Error updating applied status.")
+    }
+  }
+
   const getScoreColor = (score: number) => {
     if (score >= 90) return "text-green-600 bg-green-100 border-green-200"
     if (score >= 80) return "text-blue-600 bg-blue-100 border-blue-200"
@@ -89,7 +118,7 @@ function SavedJobsPageContent() {
     <>
       <Header />
       <main className="container mx-auto px-4 py-12 md:py-16">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <div className="mb-8">
             <h1 className="text-3xl font-bold tracking-tight">Saved Jobs</h1>
             <p className="text-muted-foreground">Review and manage the jobs you've saved.</p>
@@ -126,7 +155,7 @@ function SavedJobsPageContent() {
                       <TableHead>Details</TableHead>
                       <TableHead className="text-center">Score</TableHead>
                       <TableHead>Matching Summary</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead className="min-w-[160px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -189,7 +218,28 @@ function SavedJobsPageContent() {
                           </TooltipProvider>
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
+                          <div className="flex items-center justify-end gap-1">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleToggleApplied(job.jobId, !!job.appliedAt)}
+                                    className={`${
+                                      job.appliedAt 
+                                        ? "text-green-600 hover:text-green-700" 
+                                        : "text-muted-foreground hover:text-green-600"
+                                    }`}
+                                  >
+                                                                         <CheckCircle className={`h-4 w-4 ${job.appliedAt ? 'fill-current' : ''}`} />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{job.appliedAt ? 'Mark as Not Applied' : 'Mark as Applied'}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -199,7 +249,7 @@ function SavedJobsPageContent() {
                                     onClick={() => handleUnsaveJob(job.jobId)}
                                     className="text-muted-foreground hover:text-destructive"
                                   >
-                                    <Bookmark className="h-5 w-5 fill-current text-primary" />
+                                    <Bookmark className="h-4 w-4 fill-current text-primary" />
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent><p>Unsave Job</p></TooltipContent>
@@ -210,7 +260,7 @@ function SavedJobsPageContent() {
                                 <TooltipTrigger asChild>
                                   <Button asChild variant="ghost" size="icon">
                                     <Link href={`/tailor-resume/${job.jobId}`}>
-                                      <ExternalLink className="h-5 w-5 text-muted-foreground" />
+                                      <ExternalLink className="h-4 w-4 text-muted-foreground" />
                                     </Link>
                                   </Button>
                                 </TooltipTrigger>
@@ -222,7 +272,7 @@ function SavedJobsPageContent() {
                                 <TooltipTrigger asChild>
                                   <Button asChild variant="ghost" size="icon">
                                     <Link href={`/cover-letter/${job.jobId}`}>
-                                      <FileText className="h-5 w-5 text-muted-foreground" />
+                                      <FileText className="h-4 w-4" />
                                     </Link>
                                   </Button>
                                 </TooltipTrigger>

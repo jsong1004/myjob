@@ -50,6 +50,7 @@ export interface SavedJob {
   salary: string
   matchingScore: number
   savedAt: Timestamp
+  appliedAt?: Timestamp // Optional field to track when user applied
   originalData: JobSearchResult // Full job data from SerpApi
 }
 

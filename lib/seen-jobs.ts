@@ -2,13 +2,13 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { initFirebaseAdmin } from './firebase-admin-init';
 import { JobSearchResult } from './types';
 
-initFirebaseAdmin();
-const db = getFirestore();
-
 export async function filterExistingJobs(jobs: JobSearchResult[]): Promise<JobSearchResult[]> {
   if (!jobs || jobs.length === 0) {
     return [];
   }
+
+  initFirebaseAdmin();
+  const db = getFirestore();
 
   const jobIdsFromSerp = jobs.map(job => job.id);
   const existingJobIds = new Set<string>();
@@ -33,6 +33,9 @@ export async function saveJobsIfNotExist(jobs: JobSearchResult[], userId: string
   if (!jobs || jobs.length === 0) {
     return;
   }
+
+  initFirebaseAdmin();
+  const db = getFirestore();
 
   const batch = db.batch();
 
