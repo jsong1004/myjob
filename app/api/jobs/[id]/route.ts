@@ -16,13 +16,23 @@ export async function GET(
     const decodedJobId = decodeURIComponent(id);
     console.log(`[JobById][GET] Decoded jobId: ${decodedJobId}`);
 
-  
-    const snapshot = await db.collection('savedJobs').where('jobId', '==', decodedJobId).limit(1).get();
-    if (snapshot.empty) {
+    // First, try to get the complete job data from the jobs collection
+    const jobDoc = await db.collection('jobs').doc(decodedJobId).get();
+    if (jobDoc.exists) {
+      const jobData = jobDoc.data();
+      console.log(`[JobById][GET] Found job in jobs collection`);
+      return NextResponse.json({ job: jobData });
+    }
+
+    // Fallback: check savedJobs collection for backward compatibility
+    console.log(`[JobById][GET] Job not found in jobs collection, checking savedJobs...`);
+    const savedJobSnapshot = await db.collection('savedJobs').where('jobId', '==', decodedJobId).limit(1).get();
+    if (savedJobSnapshot.empty) {
       return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     }
-    const doc = snapshot.docs[0];
-    const savedJobData = doc.data();
+    
+    const savedJobDoc = savedJobSnapshot.docs[0];
+    const savedJobData = savedJobDoc.data();
     
     // Combine the top-level saved job data with the nested original data
     // to ensure all fields, especially the description, are present.
@@ -31,6 +41,7 @@ export async function GET(
       ...savedJobData,
     };
 
+    console.log(`[JobById][GET] Found job in savedJobs collection (fallback)`);
     return NextResponse.json({ job: jobData });
   } catch (error) {
     console.error('[JobById][GET] Error:', error);

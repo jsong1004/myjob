@@ -41,12 +41,13 @@ export async function saveJobsIfNotExist(jobs: JobSearchResult[], userId: string
 
   for (const job of jobs) {
     const docRef = db.collection('jobs').doc(job.id);
-    // Use a transaction to avoid overwriting existing jobs
+    // Save complete job data (excluding score and matching summary which are user-specific)
+    const { matchingScore, matchingSummary, ...jobDataWithoutScoring } = job;
+    
     batch.set(docRef, {
-      job_id: job.id,
-      title: job.title,
-      company_name: job.company,
-      location: job.location,
+      ...jobDataWithoutScoring,
+      job_id: job.id, // Keep job_id for backward compatibility
+      company_name: job.company, // Keep company_name for backward compatibility
       userId,
       seenAt: FieldValue.serverTimestamp(),
     }, { merge: true });
