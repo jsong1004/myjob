@@ -83,7 +83,7 @@ COPY --from=builder /app/hooks ./hooks
 COPY --from=builder /app/styles ./styles
 
 # Use a non-root user for security
-RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001 -G nodejs
+RUN groupadd --gid 1001 nodejs && useradd --uid 1001 --gid nodejs --shell /bin/bash --create-home nextjs
 USER nextjs
 
 # Expose port 3000
