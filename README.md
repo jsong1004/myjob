@@ -33,6 +33,12 @@ MyJob is a modern, AI-driven platform designed to streamline the job search proc
     - Automatically generate compelling cover letters tailored to a specific job and your resume.
     - Interactively refine and edit the cover letter with an AI chat assistant.
     - Save, view, download, and delete cover letters from your personal library.
+    - Download cover letters in professional Markdown format with proper structure and metadata.
+- **📄 Markdown to PDF Converter:**
+    - Convert Markdown resume files to professionally formatted PDF documents.
+    - Drag-and-drop file upload with validation and error handling.
+    - Professional styling optimized for resumes with clean typography.
+    - Support for all standard Markdown elements (headers, lists, bold, links, tables, etc.).
 - **🧭 Intuitive Navigation:**
     - Profile, Resume, and Saved Jobs links in the header for easy access.
 
@@ -46,8 +52,14 @@ MyJob is a modern, AI-driven platform designed to streamline the job search proc
 - **PDF Upload Support (Issue #16):** Full PDF resume upload functionality with advanced text extraction using pdf-parse library and proper error handling.
 - **Resume Requirement Flow (Issue #17):** Users without resumes are intelligently redirected to upload a resume when trying to tailor, with helpful messaging and auto-opened upload dialog.
 
-### Data Architecture
+### Data Architecture & AI Features
 - **Complete Job Data Storage (Issue #18):** Enhanced job search results storage to save complete SerpAPI data in jobs collection while maintaining user-specific scoring in savedJobs collection for better data separation and richer job information.
+- **Session Timeout & Security (Issue #20):** Implemented 15-minute idle timeout with automatic logout and redirect to main page for enhanced security.
+- **Saved Jobs Date Sorting (Issue #21):** Saved jobs are now sorted by date with most recently added jobs appearing first.
+- **Company Detail Pages (Issue #22):** Comprehensive company information pages using The Companies API with business metrics, employee data, and social links.
+- **AI Job Summaries (Issue #23):** All new job postings now include AI-generated summaries highlighting key responsibilities and requirements.
+- **Markdown to PDF Converter (Issue #24):** Professional PDF generation from Markdown resumes with clean styling and proper formatting.
+- **Cover Letter Markdown Downloads (Issue #25):** Cover letters now download in Markdown format with professional structure and metadata.
 
 ## 🛠️ Technology Stack
 
@@ -61,6 +73,9 @@ The project is built with a modern, robust technology stack:
 - **Database:** [Cloud Firestore](https://firebase.google.com/docs/firestore) for storing user data, resumes, and saved jobs
 - **AI Services:** [OpenRouter API](https://openrouter.ai/) (`openai/gpt-4o-mini`) for matching, summarization, and resume editing
 - **Job Search Data:** [SerpApi](https://serpapi.com/) for fetching job listings
+- **Company Data:** [The Companies API](https://thecompaniesapi.com/) for comprehensive company information
+- **PDF Generation:** [Puppeteer](https://pptr.dev/) for Markdown to PDF conversion
+- **Markdown Processing:** [Marked](https://marked.js.org/) for Markdown parsing and HTML conversion
 - **Package Manager:** [pnpm](https://pnpm.io/)
 
 ## 🚀 Getting Started

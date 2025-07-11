@@ -59,16 +59,67 @@ function CoverLettersPageContent() {
     fetchCoverLetters()
   }, [user])
 
+  const formatCoverLetterAsMarkdown = (coverLetter: CoverLetter): string => {
+    const currentDate = new Date().toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
+
+    // Create markdown formatted content
+    const markdownContent = `# Cover Letter
+
+**Date:** ${currentDate}
+
+**To:** ${coverLetter.company}  
+**Position:** ${coverLetter.jobTitle}
+
+---
+
+${coverLetter.content}
+
+---
+
+*Generated from MyJob Application Platform*`
+
+    return markdownContent
+  }
+
   const handleDownloadCoverLetter = (coverLetter: CoverLetter) => {
     try {
+      const markdownContent = formatCoverLetterAsMarkdown(coverLetter)
+      
+      // Clean the filename to ensure proper extension
+      const sanitizedName = coverLetter.name.replace(/[^a-zA-Z0-9\s-_]/g, '').trim()
+      const filename = `${sanitizedName}.md`
+      
+      console.log("Downloading cover letter as:", filename)
+      console.log("Content preview:", markdownContent.substring(0, 100))
+      
       const element = document.createElement("a")
-      const file = new Blob([coverLetter.content], { type: 'text/plain' })
+      const file = new Blob([markdownContent], { 
+        type: 'text/markdown;charset=utf-8'
+      })
       element.href = URL.createObjectURL(file)
-      element.download = `${coverLetter.name}.txt`
+      element.download = filename
+      
+      // Ensure the element is properly configured
+      element.style.display = 'none'
       document.body.appendChild(element)
       element.click()
-      document.body.removeChild(element)
+      
+      // Clean up after a short delay
+      setTimeout(() => {
+        document.body.removeChild(element)
+        URL.revokeObjectURL(element.href)
+      }, 100)
+      
+      toast({
+        title: "Download successful",
+        description: `Cover letter downloaded as ${filename}`,
+      })
     } catch (err) {
+      console.error("Download error:", err)
       toast({
         title: "Download failed",
         description: "Please try again.",
@@ -183,7 +234,7 @@ function CoverLettersPageContent() {
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>Download</p>
+                                  <p>Download as Markdown</p>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
