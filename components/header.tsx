@@ -142,6 +142,13 @@ export function Header() {
                     </DropdownMenuItem>
 
                     <DropdownMenuItem asChild>
+                      <Link href="/md-to-pdf" className="flex items-center">
+                        <FileText className="mr-2 h-4 w-4" />
+                        <span>MD to PDF</span>
+                      </Link>
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem asChild>
                       <Link href="/my-activities" className="flex items-center">
                         <FileText className="mr-2 h-4 w-4" />
                         <span>My Activities</span>

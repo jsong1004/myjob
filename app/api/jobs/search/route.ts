@@ -159,20 +159,25 @@ export async function POST(req: NextRequest) {
     const newJobs = await filterExistingJobs(unfilteredJobs);
     console.log(`[JobSearch] Found ${newJobs.length} new jobs after filtering.`);
 
+    // Generate summaries for new jobs before saving
+    console.log(`[JobSearch] Generating summaries for ${newJobs.length} new jobs`);
+    const jobsWithSummaries = await generateJobSummaries(newJobs);
+    console.log(`[JobSearch] Generated summaries for jobs.`);
+
     // Save new jobs to jobs collection with userId
-    await saveJobsIfNotExist(newJobs, userId);
-    console.log(`[JobSearch] Saved ${newJobs.length} new jobs to jobs collection.`);
+    await saveJobsIfNotExist(jobsWithSummaries, userId);
+    console.log(`[JobSearch] Saved ${jobsWithSummaries.length} new jobs to jobs collection.`);
 
     let jobsToReturn: JobSearchResult[] = [];
 
-    if (newJobs.length > 0) {
+    if (jobsWithSummaries.length > 0) {
       if (resume) {
         try {
-          console.log(`[JobSearch] Scoring ${newJobs.length} new jobs.`);
-          jobsToReturn = await getMatchingScores(newJobs, resume);
+          console.log(`[JobSearch] Scoring ${jobsWithSummaries.length} new jobs.`);
+          jobsToReturn = await getMatchingScores(jobsWithSummaries, resume);
         } catch (error) {
           console.error("[JobSearch] Error getting matching scores:", error);
-          jobsToReturn = newJobs.map(job => ({
+          jobsToReturn = jobsWithSummaries.map(job => ({
             ...job,
             matchingScore: 0,
             matchingSummary: "AI analysis failed for this job.",
@@ -180,7 +185,7 @@ export async function POST(req: NextRequest) {
         }
       } else {
         // No resume, just return new jobs with default empty summary/score
-        jobsToReturn = newJobs.map(job => ({
+        jobsToReturn = jobsWithSummaries.map(job => ({
           ...job,
           matchingScore: 0,
           matchingSummary: "Resume not provided for matching.",
@@ -275,4 +280,94 @@ async function getMatchingScores(jobs: JobSearchResult[], resume: string): Promi
   }
 
   return allScoredJobs;
+}
+
+async function generateJobSummaries(jobs: JobSearchResult[]): Promise<JobSearchResult[]> {
+  const openrouterApiKey = process.env.OPENROUTER_API_KEY;
+  if (!openrouterApiKey) {
+    console.warn("[JobSearch] Missing OpenRouter API key, skipping summary generation");
+    return jobs; // Return jobs without summaries if no API key
+  }
+
+  const allJobsWithSummaries: JobSearchResult[] = [];
+  const batchSize = 5; // Process 5 jobs at a time for summaries
+
+  for (let i = 0; i < jobs.length; i += batchSize) {
+    const batchJobs = jobs.slice(i, i + batchSize);
+    console.log(`[JobSearch] Generating summaries for batch starting at index ${i}: ${batchJobs.length} jobs`);
+
+    try {
+      const jobsForPrompt = batchJobs.map((job: JobSearchResult) => 
+        `ID: ${job.id}\nJob Title: ${job.title}\nCompany: ${job.company}\nLocation: ${job.location}\nDescription: ${job.description}\nQualifications: ${job.qualifications.join(', ')}\nResponsibilities: ${job.responsibilities.join(', ')}`
+      ).join("\n---\n");
+          
+      const prompt = `Please create concise summaries for the following job postings. Each summary should be 2-3 sentences highlighting the key role responsibilities and requirements.\n\nJobs:\n${jobsForPrompt}`;
+          
+      const openrouterRequestBody = {
+        model: "openai/gpt-4o-mini",
+        messages: [
+          { 
+            role: "system", 
+            content: `You are a professional job summary writer. Create concise, informative summaries for job postings.\n\nGuidelines:\n- Keep summaries to 2-3 sentences\n- Focus on key responsibilities and requirements\n- Use professional, clear language\n- Highlight the most important aspects of each role\n\nIMPORTANT: You must return ONLY a valid JSON array. Do not include any explanatory text, markdown formatting, or code blocks. Your response should start with [ and end with ].\n\nReturn format:\n[\n  {\n    "id": "job_id_here",\n    "summary": "Concise 2-3 sentence summary of the job posting highlighting key responsibilities and requirements."\n  }\n]\n\nCreate informative summaries for each job.`
+          },
+          { role: "user", content: prompt },
+        ],
+      };
+          
+      const openrouterRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${openrouterApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(openrouterRequestBody),
+      });
+
+      if (!openrouterRes.ok) {
+        const errorText = await openrouterRes.text();
+        console.error("OpenRouter API error for summaries:", errorText);
+        throw new Error(`OpenRouter API error for summary batch starting at index ${i}`);
+      }
+
+      const data = await openrouterRes.json();
+      const aiResponse = data.choices?.[0]?.message?.content || "";
+      
+      try {
+        const jobSummaries: { id: string, summary: string }[] = JSON.parse(aiResponse);
+        const summaryMap = new Map(jobSummaries.map((j: { id: string; summary: string; }) => [j.id, j.summary]));
+
+        const batchWithSummaries = batchJobs.map((job) => {
+          const summary = summaryMap.get(job.id);
+          return { 
+            ...job, 
+            summary: summary || "No summary available."
+          };
+        });
+        allJobsWithSummaries.push(...batchWithSummaries);
+
+      } catch (parseError) {
+        console.error(`[JobSearch] Failed to parse AI response for summary batch starting at ${i}:`, parseError);
+        console.error("[JobSearch] Raw AI response:", aiResponse);
+        const failedBatch = batchJobs.map((job) => ({ 
+          ...job, 
+          summary: "Could not generate summary."
+        }));
+        allJobsWithSummaries.push(...failedBatch);
+      }
+    } catch (batchError) {
+      console.error(`[JobSearch] Error processing summary batch starting at ${i}:`, batchError);
+      const failedBatch = batchJobs.map(job => ({ 
+        ...job, 
+        summary: "Summary generation failed."
+      }));
+      allJobsWithSummaries.push(...failedBatch);
+    }
+
+    // Add a small delay between batches to avoid rate limiting
+    if (i + batchSize < jobs.length) {
+      await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+    }
+  }
+
+  return allJobsWithSummaries;
 } 

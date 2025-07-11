@@ -33,6 +33,7 @@ This is a Next.js 15 job search application built with:
 - **Resume Tailoring**: Interactive AI chat for resume customization (app/tailor-resume/[id]/page.tsx)
 - **Job Management**: Save jobs and view detailed job pages (app/jobs/[id]/page.tsx)
 - **Company Details**: Comprehensive company information pages using The Companies API (app/companies/[name]/page.tsx)
+- **MD to PDF Converter**: Convert Markdown resume files to professionally formatted PDFs (app/md-to-pdf/page.tsx)
 - **User Authentication**: Firebase Auth with Google sign-in and email/password
 
 ### Project Structure
