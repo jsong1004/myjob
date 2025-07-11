@@ -76,47 +76,46 @@ function CoverLettersPageContent() {
 
 ---
 
-${coverLetter.content}
-
----
-
-*Generated from MyJob Application Platform*`
+${coverLetter.content}`
 
     return markdownContent
   }
 
-  const handleDownloadCoverLetter = (coverLetter: CoverLetter) => {
+  const handleDownloadCoverLetter = async (coverLetter: CoverLetter) => {
     try {
       const markdownContent = formatCoverLetterAsMarkdown(coverLetter)
       
-      // Clean the filename to ensure proper extension
-      const sanitizedName = coverLetter.name.replace(/[^a-zA-Z0-9\s-_]/g, '').trim()
-      const filename = `${sanitizedName}.md`
+      // Create a markdown file and convert to PDF
+      const markdownFile = new File([markdownContent], 'temp.md', { type: 'text/markdown' })
+      const formData = new FormData()
+      formData.append('file', markdownFile)
       
-      console.log("Downloading cover letter as:", filename)
-      console.log("Content preview:", markdownContent.substring(0, 100))
-      
-      const element = document.createElement("a")
-      const file = new Blob([markdownContent], { 
-        type: 'text/markdown;charset=utf-8'
+      const response = await fetch('/api/convert/md-to-pdf', {
+        method: 'POST',
+        body: formData,
       })
-      element.href = URL.createObjectURL(file)
-      element.download = filename
       
-      // Ensure the element is properly configured
-      element.style.display = 'none'
-      document.body.appendChild(element)
-      element.click()
+      if (!response.ok) {
+        throw new Error('PDF conversion failed')
+      }
       
-      // Clean up after a short delay
-      setTimeout(() => {
-        document.body.removeChild(element)
-        URL.revokeObjectURL(element.href)
-      }, 100)
+      // Get the PDF blob
+      const pdfBlob = await response.blob()
+      
+      // Create download link
+      const url = window.URL.createObjectURL(pdfBlob)
+      const link = document.createElement('a')
+      link.href = url
+      const sanitizedName = coverLetter.name.replace(/[^a-zA-Z0-9\s-_]/g, '').trim()
+      link.download = `${sanitizedName}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
       
       toast({
         title: "Download successful",
-        description: `Cover letter downloaded as ${filename}`,
+        description: "Cover letter downloaded as PDF.",
       })
     } catch (err) {
       console.error("Download error:", err)
@@ -234,7 +233,7 @@ ${coverLetter.content}
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>Download as Markdown</p>
+                                  <p>Download as PDF</p>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>

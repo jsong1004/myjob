@@ -260,16 +260,67 @@ export default function CoverLetterPage({ params }: CoverLetterPageProps) {
     }
   }
 
-  const handleDownloadCoverLetter = () => {
+  const handleDownloadCoverLetter = async () => {
     if (!currentCoverLetter) return
     
-    const element = document.createElement("a")
-    const file = new Blob([currentCoverLetter], { type: 'text/plain' })
-    element.href = URL.createObjectURL(file)
-    element.download = `${letterName || 'cover-letter'}.txt`
-    document.body.appendChild(element)
-    element.click()
-    document.body.removeChild(element)
+    try {
+      // Format cover letter content as markdown
+      const currentDate = new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long', 
+        day: 'numeric'
+      })
+
+      const markdownContent = `# Cover Letter
+
+**Date:** ${currentDate}
+
+**To:** ${job?.company || 'Company'}  
+**Position:** ${job?.title || 'Position'}
+
+---
+
+${currentCoverLetter}`
+
+      // Create a markdown file and convert to PDF
+      const markdownFile = new File([markdownContent], 'temp.md', { type: 'text/markdown' })
+      const formData = new FormData()
+      formData.append('file', markdownFile)
+      
+      const response = await fetch('/api/convert/md-to-pdf', {
+        method: 'POST',
+        body: formData,
+      })
+      
+      if (!response.ok) {
+        throw new Error('PDF conversion failed')
+      }
+      
+      // Get the PDF blob
+      const pdfBlob = await response.blob()
+      
+      // Create download link
+      const url = window.URL.createObjectURL(pdfBlob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${letterName || 'cover-letter'}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      
+      toast({
+        title: "Download successful",
+        description: "Cover letter downloaded as PDF.",
+      })
+    } catch (err) {
+      console.error('Download error:', err)
+      toast({
+        title: "Download failed", 
+        description: "Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleCopyCoverLetter = async () => {
