@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { useRouter } from 'next/navigation'
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -22,6 +23,7 @@ const googleProvider = new GoogleAuthProvider();
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   const signOut = async () => {
     if (!auth) throw new Error("Auth not initialized");
@@ -29,7 +31,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
-  useIdleTimeout({ user, signOut });
+  const signOutWithRedirect = async () => {
+    if (!auth) throw new Error("Auth not initialized");
+    await firebaseSignOut(auth);
+    setUser(null);
+    router.push('/'); // Redirect to main page after timeout
+  };
+
+  // Idle timeout hook - only active when user is logged in
+  useIdleTimeout({ 
+    onIdle: signOutWithRedirect, 
+    idleTime: 15, // 15 minutes idle timeout
+    enabled: !!user // Only enable when user is logged in
+  });
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {

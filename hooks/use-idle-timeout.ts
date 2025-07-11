@@ -3,9 +3,10 @@ import { useState, useEffect, useRef } from 'react';
 interface IdleTimeoutProps {
   onIdle: () => void;
   idleTime?: number;
+  enabled?: boolean;
 }
 
-export function useIdleTimeout({ onIdle, idleTime = 15 }: IdleTimeoutProps) {
+export function useIdleTimeout({ onIdle, idleTime = 15, enabled = true }: IdleTimeoutProps) {
   const [isIdle, setIsIdle] = useState(false);
   const timeoutId = useRef<number | null>(null);
 
@@ -20,6 +21,15 @@ export function useIdleTimeout({ onIdle, idleTime = 15 }: IdleTimeoutProps) {
   };
 
   useEffect(() => {
+    if (!enabled) {
+      // Clear any existing timeout when disabled
+      if (timeoutId.current) {
+        clearTimeout(timeoutId.current);
+        timeoutId.current = null;
+      }
+      return;
+    }
+
     const events = ['mousemove', 'keydown', 'mousedown', 'touchstart'];
 
     const handleEvent = () => {
@@ -41,7 +51,7 @@ export function useIdleTimeout({ onIdle, idleTime = 15 }: IdleTimeoutProps) {
         window.removeEventListener(event, handleEvent);
       });
     };
-  }, [idleTime, onIdle]);
+  }, [idleTime, onIdle, enabled]);
 
   return isIdle;
 } 

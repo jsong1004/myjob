@@ -17,7 +17,10 @@ export async function GET(req: NextRequest) {
     const decoded = await adminAuth.verifyIdToken(token)
     const userId = decoded.uid
 
-    const snapshot = await adminDb.collection("savedJobs").where("userId", "==", userId).get()
+    const snapshot = await adminDb.collection("savedJobs")
+      .where("userId", "==", userId)
+      .orderBy("savedAt", "desc")
+      .get()
     const savedJobs: SavedJob[] = []
     snapshot.forEach((doc: FirebaseFirestore.QueryDocumentSnapshot) => {
       savedJobs.push({ id: doc.id, ...doc.data() } as SavedJob)
