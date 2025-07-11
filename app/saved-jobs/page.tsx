@@ -178,7 +178,14 @@ function SavedJobsPageContent() {
                           </div>
                           <div className="text-sm text-muted-foreground">{job.location}</div>
                         </TableCell>
-                        <TableCell>{job.company}</TableCell>
+                        <TableCell>
+                          <Link 
+                            href={`/companies/${encodeURIComponent(job.company)}`}
+                            className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                          >
+                            {job.company}
+                          </Link>
+                        </TableCell>
                         <TableCell>
                           <TooltipProvider>
                             <Tooltip>

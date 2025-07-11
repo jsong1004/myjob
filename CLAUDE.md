@@ -32,6 +32,7 @@ This is a Next.js 15 job search application built with:
 - **Resume Management**: Full CRUD operations for resumes with default resume system (app/resumes/page.tsx)
 - **Resume Tailoring**: Interactive AI chat for resume customization (app/tailor-resume/[id]/page.tsx)
 - **Job Management**: Save jobs and view detailed job pages (app/jobs/[id]/page.tsx)
+- **Company Details**: Comprehensive company information pages using The Companies API (app/companies/[name]/page.tsx)
 - **User Authentication**: Firebase Auth with Google sign-in and email/password
 
 ### Project Structure
@@ -67,6 +68,7 @@ This is a Next.js 15 job search application built with:
 
 - **SerpApi**: Job search integration (requires SERPAPI_KEY environment variable)
 - **OpenRouter**: AI services for matching and resume tailoring (requires OPENROUTER_API_KEY)
+- **The Companies API**: Company information and details (requires THE_COMPANIES_API_TOKEN environment variable)
 - **Firebase**: Authentication and database (requires Firebase environment variables)
 
 ### Environment Variables Required
@@ -81,6 +83,7 @@ NEXT_PUBLIC_FIREBASE_APP_ID=
 FIREBASE_SERVICE_ACCOUNT_KEY= # JSON string of Firebase service account (required for resume upload)
 SERPAPI_KEY=
 OPENROUTER_API_KEY=
+THE_COMPANIES_API_TOKEN=
 ```
 
 ### Development Notes
