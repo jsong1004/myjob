@@ -211,17 +211,34 @@ function ResumesPageContent() {
     }
   }
 
-  const handleDownloadResume = (resume: Resume) => {
+  const handleDownloadResume = async (resume: Resume) => {
     try {
-      const blob = new Blob([resume.content || 'No content'], { type: 'text/plain' })
-      const url = URL.createObjectURL(blob)
+      // Create a markdown file and convert to PDF
+      const markdownFile = new File([resume.content || 'No content'], 'temp.md', { type: 'text/markdown' })
+      const formData = new FormData()
+      formData.append('file', markdownFile)
+      
+      const response = await fetch('/api/convert/md-to-pdf', {
+        method: 'POST',
+        body: formData,
+      })
+      
+      if (!response.ok) {
+        throw new Error('PDF conversion failed')
+      }
+      
+      // Get the PDF blob
+      const pdfBlob = await response.blob()
+      
+      // Create download link
+      const url = window.URL.createObjectURL(pdfBlob)
       const link = document.createElement('a')
       link.href = url
-      link.download = `${resume.name}.txt`
+      link.download = `${resume.name}.pdf`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
-      URL.revokeObjectURL(url)
+      window.URL.revokeObjectURL(url)
     } catch (error) {
       setError('Failed to download resume')
     }

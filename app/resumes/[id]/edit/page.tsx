@@ -226,19 +226,43 @@ export default function ResumeEditPage({ params }: ResumeEditPageProps) {
     }
   }
 
-  const handleDownloadResume = () => {
+  const handleDownloadResume = async () => {
     if (!currentResume || !resumeName) return
     
-    const markdownContent = `# ${resumeName}\n\n${currentResume}`
-    const blob = new Blob([markdownContent], { type: 'text/markdown' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `${resumeName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.md`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
+    try {
+      // Create markdown content with title
+      const markdownContent = `# ${resumeName}\n\n${currentResume}`
+      
+      // Create a markdown file and convert to PDF
+      const markdownFile = new File([markdownContent], 'temp.md', { type: 'text/markdown' })
+      const formData = new FormData()
+      formData.append('file', markdownFile)
+      
+      const response = await fetch('/api/convert/md-to-pdf', {
+        method: 'POST',
+        body: formData,
+      })
+      
+      if (!response.ok) {
+        throw new Error('PDF conversion failed')
+      }
+      
+      // Get the PDF blob
+      const pdfBlob = await response.blob()
+      
+      // Create download link
+      const url = window.URL.createObjectURL(pdfBlob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${resumeName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Download error:', error)
+      setError('Failed to download resume as PDF. Please try again.')
+    }
   }
 
   const formatTime = (date: Date) => {
