@@ -303,13 +303,12 @@ function SavedJobsPageContent() {
                                     variant="ghost"
                                     size="icon"
                                     onClick={() => handleToggleApplied(job.jobId, !!job.appliedAt)}
-                                    className={`${
-                                      job.appliedAt 
-                                        ? "text-green-600 hover:text-green-700" 
-                                        : "text-muted-foreground hover:text-green-600"
-                                    }`}
                                   >
-                                                                         <CheckCircle className={`h-4 w-4 ${job.appliedAt ? 'fill-current' : ''}`} />
+                                    <CheckCircle className={`h-4 w-4 ${
+                                      job.appliedAt 
+                                        ? 'text-green-600' 
+                                        : 'text-muted-foreground'
+                                    }`} />
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
