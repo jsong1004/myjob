@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Bookmark, ExternalLink, Loader2, AlertCircle, FileText, CheckCircle } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Header } from "@/components/header"
 import { AuthProvider, useAuth } from "@/components/auth-provider"
 import { auth } from "@/lib/firebase"
@@ -24,6 +25,7 @@ export default function SavedJobsPage() {
 
 function SavedJobsPageContent() {
   const { user } = useAuth()
+  const router = useRouter()
   const [savedJobs, setSavedJobs] = useState<SavedJob[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -106,6 +108,74 @@ function SavedJobsPageContent() {
     } catch {
       alert("Error updating applied status.")
     }
+  }
+
+  const handleTailorResume = async (job: SavedJob) => {
+    if (!user || !auth?.currentUser) return
+    
+    // Mark job as having resume tailored
+    try {
+      const token = await auth.currentUser.getIdToken()
+      await fetch(`/api/saved-jobs/${job.jobId}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          resumeTailored: true,
+        }),
+      })
+      
+      // Update local state
+      setSavedJobs((prev) => 
+        prev.map((savedJob) => 
+          savedJob.jobId === job.jobId 
+            ? { ...savedJob, resumeTailoredAt: new Date() }
+            : savedJob
+        )
+      )
+    } catch (err) {
+      // Don't block navigation if status update fails
+      console.error("Failed to update resume tailored status:", err)
+    }
+
+    // Navigate to tailor resume page
+    router.push(`/tailor-resume/${job.jobId}`)
+  }
+
+  const handleCreateCoverLetter = async (job: SavedJob) => {
+    if (!user || !auth?.currentUser) return
+    
+    // Mark job as having cover letter created
+    try {
+      const token = await auth.currentUser.getIdToken()
+      await fetch(`/api/saved-jobs/${job.jobId}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          coverLetterCreated: true,
+        }),
+      })
+      
+      // Update local state
+      setSavedJobs((prev) => 
+        prev.map((savedJob) => 
+          savedJob.jobId === job.jobId 
+            ? { ...savedJob, coverLetterCreatedAt: new Date() }
+            : savedJob
+        )
+      )
+    } catch (err) {
+      // Don't block navigation if status update fails
+      console.error("Failed to update cover letter created status:", err)
+    }
+
+    // Navigate to cover letter page
+    router.push(`/cover-letter/${job.jobId}`)
   }
 
   const getScoreColor = (score: number) => {
@@ -265,25 +335,41 @@ function SavedJobsPageContent() {
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Button asChild variant="ghost" size="icon">
-                                    <Link href={`/tailor-resume/${job.jobId}`}>
-                                      <ExternalLink className="h-4 w-4 text-muted-foreground" />
-                                    </Link>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon"
+                                    onClick={() => handleTailorResume(job)}
+                                  >
+                                    <ExternalLink className={`h-4 w-4 ${
+                                      job.resumeTailoredAt 
+                                        ? 'text-green-600' 
+                                        : 'text-muted-foreground'
+                                    }`} />
                                   </Button>
                                 </TooltipTrigger>
-                                <TooltipContent><p>Tailor Resume</p></TooltipContent>
+                                <TooltipContent>
+                                  <p>{job.resumeTailoredAt ? 'Resume Tailored ✓' : 'Tailor Resume'}</p>
+                                </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Button asChild variant="ghost" size="icon">
-                                    <Link href={`/cover-letter/${job.jobId}`}>
-                                      <FileText className="h-4 w-4" />
-                                    </Link>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon"
+                                    onClick={() => handleCreateCoverLetter(job)}
+                                  >
+                                    <FileText className={`h-4 w-4 ${
+                                      job.coverLetterCreatedAt 
+                                        ? 'text-blue-600' 
+                                        : 'text-muted-foreground'
+                                    }`} />
                                   </Button>
                                 </TooltipTrigger>
-                                <TooltipContent><p>Create Cover Letter</p></TooltipContent>
+                                <TooltipContent>
+                                  <p>{job.coverLetterCreatedAt ? 'Cover Letter Created ✓' : 'Create Cover Letter'}</p>
+                                </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
                           </div>

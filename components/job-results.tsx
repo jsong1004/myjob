@@ -167,6 +167,24 @@ export function JobResults({ results }: JobResultsProps) {
       }
     }
 
+    // Mark job as having resume tailored
+    try {
+      const token = await auth.currentUser.getIdToken()
+      await fetch(`/api/saved-jobs/${job.id}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          resumeTailored: true,
+        }),
+      })
+    } catch (err) {
+      // Don't block navigation if status update fails
+      console.error("Failed to update resume tailored status:", err)
+    }
+
     // Navigate to tailor resume page
     router.push(`/tailor-resume/${job.id}`)
   }

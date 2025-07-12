@@ -51,6 +51,8 @@ export interface SavedJob {
   matchingScore: number
   savedAt: Timestamp
   appliedAt?: Timestamp // Optional field to track when user applied
+  resumeTailoredAt?: Timestamp // Optional field to track when resume was tailored for this job
+  coverLetterCreatedAt?: Timestamp // Optional field to track when cover letter was created for this job
   originalData: JobSearchResult // Full job data from SerpApi
 }
 
