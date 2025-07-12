@@ -61,6 +61,7 @@ MyJob is a modern, AI-driven platform designed to streamline the job search proc
 - **Markdown to PDF Converter (Issue #24):** Professional PDF generation from Markdown resumes with clean styling and proper formatting.
 - **Cover Letter Markdown Downloads (Issue #25):** Cover letters now download in Markdown format with professional structure and metadata.
 - **Data Format Consistency (Issue #26):** Fixed markdown display inconsistency between resumes and cover letters. Resumes now properly render markdown instead of showing raw markdown tags, and AI-generated content no longer includes unwanted code fences.
+- **Auto-Save on Tailor Resume (Issue #28):** When users click "Tailor Resume" from job search results, the job is automatically saved to their saved jobs list before navigating to the tailor resume page, ensuring job data persistence and eliminating the need for manual saving.
 
 ## 🛠️ Technology Stack
 

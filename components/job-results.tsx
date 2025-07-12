@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Bookmark, ExternalLink, TrendingUp } from "lucide-react"
 import { MatchingScoreDialog } from "@/components/matching-score-dialog"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
 import { useAuth } from "@/components/auth-provider"
 import { auth } from "@/lib/firebase"
@@ -38,6 +39,7 @@ interface JobResultsProps {
 export function JobResults({ results }: JobResultsProps) {
   const { user } = useAuth()
   const { toast } = useToast()
+  const router = useRouter()
   const [savedJobs, setSavedJobs] = useState<Set<string>>(new Set())
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
   const [loadingSaved, setLoadingSaved] = useState(true)
@@ -118,6 +120,55 @@ export function JobResults({ results }: JobResultsProps) {
     } catch (err) {
       toast({ title: "Error saving job", variant: "destructive" })
     }
+  }
+
+  const handleTailorResume = async (job: Job) => {
+    if (!user || !auth?.currentUser) {
+      toast({ title: "Sign in required", description: "Please sign in to tailor resumes.", variant: "destructive" })
+      return
+    }
+
+    // Check if job is already saved
+    const isAlreadySaved = savedJobs.has(job.id)
+    
+    // If not saved, save it first
+    if (!isAlreadySaved) {
+      try {
+        const token = await auth.currentUser.getIdToken()
+        const response = await fetch("/api/saved-jobs", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            jobId: job.id,
+            title: job.title,
+            company: job.company,
+            location: job.location,
+            summary: job.matchingSummary || job.description?.slice(0, 200) || "",
+            salary: job.salary || "",
+            matchingScore: job.matchingScore ?? 0,
+            originalData: job,
+          }),
+        })
+
+        if (response.ok) {
+          // Update saved jobs state
+          setSavedJobs(prev => new Set(prev).add(job.id))
+          toast({ title: "Job saved automatically" })
+        } else {
+          // Continue to tailor resume even if save fails
+          toast({ title: "Failed to save job, but continuing to tailor resume", variant: "destructive" })
+        }
+      } catch (err) {
+        // Continue to tailor resume even if save fails
+        toast({ title: "Error saving job, but continuing to tailor resume", variant: "destructive" })
+      }
+    }
+
+    // Navigate to tailor resume page
+    router.push(`/tailor-resume/${job.id}`)
   }
 
   const getScoreColor = (score: number) => {
@@ -246,11 +297,13 @@ export function JobResults({ results }: JobResultsProps) {
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Link href={`/tailor-resume/${job.id}`} passHref>
-                              <Button asChild variant="ghost" size="icon">
-                                <a><ExternalLink className="h-5 w-5 text-muted-foreground" /></a>
-                              </Button>
-                            </Link>
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => handleTailorResume(job)}
+                            >
+                              <ExternalLink className="h-5 w-5 text-muted-foreground" />
+                            </Button>
                           </TooltipTrigger>
                           <TooltipContent side="top">
                             Tailor resume for this job
