@@ -91,9 +91,16 @@ export async function POST(req: NextRequest) {
         /CHANGE_SUMMARY:\s*([\s\S]*?)$/
       );
 
-      const updatedResume = updatedResumeMatch
+      let updatedResume = updatedResumeMatch
         ? updatedResumeMatch[1].trim()
         : resume;
+      
+      // Remove markdown code fences if present
+      const fenceRegex = /```\s*(?:markdown)?[^\n]*\n([\s\S]*?)\n```/i;
+      const fenceMatch = updatedResume.match(fenceRegex);
+      if (fenceMatch && fenceMatch[1]) {
+        updatedResume = fenceMatch[1].trim();
+      }
       const changeSummary = changeSummaryMatch
         ? changeSummaryMatch[1].trim()
         : "Changes have been made to your resume.";

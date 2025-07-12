@@ -14,6 +14,8 @@ import { AuthProvider, useAuth } from "@/components/auth-provider"
 import { ChatMessage, Resume } from "@/lib/types"
 import { auth } from "@/lib/firebase"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 
 interface ResumeEditPageProps {
   params: Promise<{ id: string }>
@@ -389,7 +391,11 @@ export default function ResumeEditPage({ params }: ResumeEditPageProps) {
                     />
                   ) : (
                     <div className="bg-white border rounded-lg p-6 max-h-[600px] overflow-y-auto">
-                      <pre className="whitespace-pre-wrap text-sm font-mono leading-relaxed">{currentResume}</pre>
+                      <div className="prose prose-sm max-w-none">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {currentResume}
+                        </ReactMarkdown>
+                      </div>
                     </div>
                   )}
                 </CardContent>

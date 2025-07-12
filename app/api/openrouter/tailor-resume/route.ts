@@ -166,12 +166,26 @@ Please make the requested changes to the resume and provide both the updated res
         // If the AI followed the format correctly
         updatedResume = updatedResumeMatch[1].trim();
         changeSummary = changeSummaryMatch[1].trim();
+        
+        // Remove markdown code fences if present
+        const fenceRegex = /```\s*(?:markdown)?[^\n]*\n([\s\S]*?)\n```/i;
+        const fenceMatch = updatedResume.match(fenceRegex);
+        if (fenceMatch && fenceMatch[1]) {
+          updatedResume = fenceMatch[1].trim();
+        }
       } else if (aiResponse.includes("UPDATED_RESUME:")) {
         // If partial format is found
         const resumeMatch = aiResponse.match(/UPDATED_RESUME:\s*([\s\S]*?)$/);
         if (resumeMatch) {
           updatedResume = resumeMatch[1].trim();
           changeSummary = "Resume has been updated according to your request.";
+          
+          // Remove markdown code fences if present
+          const fenceRegex = /```\s*(?:markdown)?[^\n]*\n([\s\S]*?)\n```/i;
+          const fenceMatch = updatedResume.match(fenceRegex);
+          if (fenceMatch && fenceMatch[1]) {
+            updatedResume = fenceMatch[1].trim();
+          }
         }
       } else {
         // Fallback: treat the entire response as the updated resume if it looks like resume content
@@ -179,6 +193,13 @@ Please make the requested changes to the resume and provide both the updated res
         if (hasResumeStructure && aiResponse.length > 100) {
           updatedResume = aiResponse.trim();
           changeSummary = "Resume has been updated according to your request.";
+          
+          // Remove markdown code fences if present
+          const fenceRegex = /```\s*(?:markdown)?[^\n]*\n([\s\S]*?)\n```/i;
+          const fenceMatch = updatedResume.match(fenceRegex);
+          if (fenceMatch && fenceMatch[1]) {
+            updatedResume = fenceMatch[1].trim();
+          }
         } else {
           // If it doesn't look like resume content, treat it as a message and keep original resume
           changeSummary = aiResponse;
