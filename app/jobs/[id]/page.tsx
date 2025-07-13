@@ -69,7 +69,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
         <div className="max-w-4xl mx-auto space-y-8">
           <div>
             <Button asChild variant="ghost" className="mb-4">
-              <Link href="/">
+              <Link href="/search">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Search
               </Link>

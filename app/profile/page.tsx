@@ -318,27 +318,6 @@ function ProfilePageContent() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>Skills</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-2">
-                <Input value={newSkill} onChange={(e) => setNewSkill(e.target.value)} placeholder="Add a skill..." onKeyPress={(e) => e.key === "Enter" && handleAddSkill()} />
-                <Button onClick={handleAddSkill} variant="outline">Add</Button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {profile.skills.map((skill, index) => (
-                  <Badge key={index} variant="secondary" className="text-sm font-medium">
-                    {skill}
-                    <button onClick={() => handleRemoveSkill(skill)} className="ml-2 rounded-full hover:bg-muted-foreground/20 p-0.5">
-                      <span className="sr-only">Remove {skill}</span>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl"><FileText className="h-5 w-5" />Default Resume</CardTitle>
             </CardHeader>

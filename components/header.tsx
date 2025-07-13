@@ -32,7 +32,7 @@ export function Header() {
       await signOut()
       
       // Check if on protected route and redirect with clean page reload
-      const protectedRoutes = ['/profile', '/resumes', '/saved-jobs', '/cover-letters', '/my-activities', '/admin']
+      const protectedRoutes = ['/profile', '/resumes', '/saved-jobs', '/cover-letters', '/my-activities', '/admin', '/search']
       const currentPath = window.location.pathname
       const isOnProtectedRoute = protectedRoutes.some(route => currentPath.startsWith(route))
       
@@ -67,13 +67,13 @@ export function Header() {
             </Link>
 
             <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
-              <Link href="/" className="text-muted-foreground hover:text-foreground transition-colors">
+              <Link href="/search" className="text-muted-foreground hover:text-foreground transition-colors">
                 Search Jobs
               </Link>
               {user && (
                 <>
                   <Link href="/saved-jobs" className="text-muted-foreground hover:text-foreground transition-colors">
-                    Saved Jobs
+                    My Jobs
                   </Link>
                   <Link href="/resumes" className="text-muted-foreground hover:text-foreground transition-colors">
                     My Resumes
@@ -81,7 +81,7 @@ export function Header() {
                   <Link href="/cover-letters" className="text-muted-foreground hover:text-foreground transition-colors">
                     My Cover Letters
                   </Link>
-                  {isAdmin && <Link href="/admin/activities" className="text-primary font-semibold">Admin</Link>}
+                  {isAdmin && <Link href="/admin" className="text-primary font-semibold">Admin</Link>}
                 </>
               )}
             </nav>
@@ -125,7 +125,7 @@ export function Header() {
                     <DropdownMenuItem asChild>
                       <Link href="/saved-jobs" className="flex items-center">
                         <Bookmark className="mr-2 h-4 w-4" />
-                        <span>Saved Jobs</span>
+                        <span>My Jobs</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
@@ -137,16 +137,10 @@ export function Header() {
                     <DropdownMenuItem asChild>
                       <Link href="/cover-letters" className="flex items-center">
                         <FileText className="mr-2 h-4 w-4" />
-                        <span>Cover Letters</span>
+                        <span>My Cover Letters</span>
                       </Link>
                     </DropdownMenuItem>
 
-                    <DropdownMenuItem asChild>
-                      <Link href="/md-to-pdf" className="flex items-center">
-                        <FileText className="mr-2 h-4 w-4" />
-                        <span>MD to PDF</span>
-                      </Link>
-                    </DropdownMenuItem>
 
                     <DropdownMenuItem asChild>
                       <Link href="/my-activities" className="flex items-center">

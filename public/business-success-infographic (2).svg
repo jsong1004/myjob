@@ -1,0 +1,141 @@
+<svg viewBox="0 0 800 1200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="800" height="1200" fill="#f8f9fa"/>
+  
+  <!-- Header -->
+  <rect width="800" height="120" fill="#2563eb"/>
+  <text x="400" y="50" text-anchor="middle" font-family="Arial, sans-serif" font-size="32" font-weight="bold" fill="white">Building Successful Digital Businesses</text>
+  <text x="400" y="85" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#93c5fd">A Customer-First Approach</text>
+  
+  <!-- Stats Section -->
+  <g transform="translate(0, 140)">
+    <text x="400" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#1e293b">The Reality Check</text>
+    
+    <!-- Stat boxes -->
+    <g transform="translate(50, 60)">
+      <!-- Box 1 -->
+      <rect x="0" y="0" width="210" height="100" rx="10" fill="#fee2e2"/>
+      <text x="105" y="40" text-anchor="middle" font-family="Arial, sans-serif" font-size="36" font-weight="bold" fill="#dc2626">90%</text>
+      <text x="105" y="65" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#7f1d1d">Businesses that fail</text>
+      <text x="105" y="85" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#7f1d1d">to reach success</text>
+      
+      <!-- Box 2 -->
+      <rect x="245" y="0" width="210" height="100" rx="10" fill="#fed7aa"/>
+      <text x="350" y="40" text-anchor="middle" font-family="Arial, sans-serif" font-size="36" font-weight="bold" fill="#ea580c">Many</text>
+      <text x="350" y="65" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#7c2d12">Can't even build</text>
+      <text x="350" y="85" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#7c2d12">an MVP</text>
+      
+      <!-- Box 3 -->
+      <rect x="490" y="0" width="210" height="100" rx="10" fill="#fef3c7"/>
+      <text x="595" y="40" text-anchor="middle" font-family="Arial, sans-serif" font-size="36" font-weight="bold" fill="#f59e0b">Some</text>
+      <text x="595" y="65" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#78350f">Get traction but</text>
+      <text x="595" y="85" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#78350f">fail to grow</text>
+    </g>
+  </g>
+  
+  <!-- Customer Obsession Section -->
+  <g transform="translate(0, 350)">
+    <rect width="800" height="200" fill="#eff6ff"/>
+    <text x="400" y="40" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#1e40af">The Secret: Customer Obsession</text>
+    
+    <!-- Amazon Example -->
+    <circle cx="400" cy="110" r="50" fill="#2563eb"/>
+    <text x="400" y="115" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white">AMAZON</text>
+    <text x="400" y="175" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#1e293b">Built an empire through customer obsession</text>
+  </g>
+  
+  <!-- Journey Steps -->
+  <g transform="translate(0, 580)">
+    <text x="400" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#1e293b">Customer-Centric Business Journey</text>
+    
+    <!-- Step circles -->
+    <g transform="translate(50, 90)">
+      <!-- Step 1: Idea (Yellow) -->
+      <circle cx="0" cy="0" r="40" fill="#fbbf24"/>
+      <text x="0" y="5" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="white">1</text>
+      <text x="0" y="60" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#92400e">Idea</text>
+      <text x="0" y="80" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#374151">The initial business</text>
+      <text x="0" y="95" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#374151">concept</text>
+      
+      <!-- Arrow -->
+      <path d="M 45 0 L 105 0" stroke="#cbd5e1" stroke-width="3" fill="none" marker-end="url(#arrowhead)"/>
+      
+      <!-- Step 2: Build (Orange) -->
+      <circle cx="150" cy="0" r="40" fill="#f97316"/>
+      <text x="150" y="5" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="white">2</text>
+      <text x="150" y="60" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#ea580c">Build</text>
+      <text x="150" y="80" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#374151">Developing the</text>
+      <text x="150" y="95" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#374151">product/service</text>
+      
+      <!-- Arrow -->
+      <path d="M 195 0 L 255 0" stroke="#cbd5e1" stroke-width="3" fill="none" marker-end="url(#arrowhead)"/>
+      
+      <!-- Step 3: Feedback (Purple) -->
+      <circle cx="300" cy="0" r="40" fill="#8b5cf6"/>
+      <text x="300" y="5" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="white">3</text>
+      <text x="300" y="60" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#7c3aed">Feedback</text>
+      <text x="300" y="80" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#374151">Listening to</text>
+      <text x="300" y="95" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#374151">customer input</text>
+      
+      <!-- Arrow -->
+      <path d="M 345 0 L 405 0" stroke="#cbd5e1" stroke-width="3" fill="none" marker-end="url(#arrowhead)"/>
+      
+      <!-- Step 4: Iterate (Blue) -->
+      <circle cx="450" cy="0" r="40" fill="#3b82f6"/>
+      <text x="450" y="5" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="white">4</text>
+      <text x="450" y="60" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#1d4ed8">Iterate</text>
+      <text x="450" y="80" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#374151">Improving based</text>
+      <text x="450" y="95" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#374151">on feedback</text>
+      
+      <!-- Arrow -->
+      <path d="M 495 0 L 555 0" stroke="#cbd5e1" stroke-width="3" fill="none" marker-end="url(#arrowhead)"/>
+      
+      <!-- Step 5: Grow (Green) -->
+      <circle cx="600" cy="0" r="40" fill="#10b981"/>
+      <text x="600" y="5" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="white">5</text>
+      <text x="600" y="60" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#047857">Grow</text>
+      <text x="600" y="80" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#374151">Scaling the</text>
+      <text x="600" y="95" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#374151">successful solution</text>
+    </g>
+  </g>
+  
+  <!-- Decision Flow -->
+  <g transform="translate(0, 780)">
+    <rect x="50" y="0" width="700" height="180" rx="15" fill="#fef3c7" stroke="#f59e0b" stroke-width="2"/>
+    <text x="400" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="#92400e">Continuous Adaptation Cycle</text>
+    
+    <!-- Feedback loop -->
+    <g transform="translate(200, 70)">
+      <rect x="0" y="0" width="140" height="60" rx="30" fill="#3b82f6"/>
+      <text x="70" y="35" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">Get Feedback</text>
+      
+      <path d="M 145 30 L 205 30" stroke="#6b7280" stroke-width="2" fill="none" marker-end="url(#arrowhead2)"/>
+      
+      <rect x="210" y="0" width="140" height="60" rx="30" fill="#8b5cf6"/>
+      <text x="280" y="35" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">Analyze &amp; Learn</text>
+      
+      <path d="M 280 65 L 280 85 L 70 85 L 70 65" stroke="#6b7280" stroke-width="2" fill="none" marker-end="url(#arrowhead2)"/>
+    </g>
+  </g>
+  
+  <!-- Success Formula -->
+  <g transform="translate(0, 980)">
+    <rect x="50" y="0" width="700" height="120" rx="15" fill="#10b981"/>
+    <text x="400" y="40" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="white">The Success Formula</text>
+    <rect x="150" y="60" width="500" height="40" rx="20" fill="white"/>
+    <text x="400" y="85" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#064e3b">Happy Customers + Real Solutions = Sustainable Growth</text>
+  </g>
+  
+  <!-- Footer -->
+  <text x="400" y="1160" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-style="italic" fill="#6b7280">"Your customers' success is your success"</text>
+  
+  <!-- Arrow markers -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#cbd5e1"/>
+    </marker>
+    <marker id="arrowhead2" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#6b7280"/>
+    </marker>
+  </defs>
+</svg>

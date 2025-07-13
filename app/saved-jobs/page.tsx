@@ -210,7 +210,7 @@ function SavedJobsPageContent() {
                 <h3 className="text-xl font-semibold mb-2">No Saved Jobs</h3>
                 <p className="text-muted-foreground mb-4">You haven't saved any jobs yet.</p>
                 <Button asChild>
-                  <Link href="/">Find Jobs</Link>
+                  <Link href="/search">Find Jobs</Link>
                 </Button>
               </CardContent>
             </Card>
