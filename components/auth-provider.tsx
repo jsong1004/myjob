@@ -63,6 +63,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           };
           await setDoc(userDocRef, newUser);
           setUser(newUser);
+          
+          // Redirect new Google users to resume upload page for onboarding
+          router.push('/resumes?onboarding=true');
         }
       } else {
         setUser(null);
@@ -71,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
   const signIn = async (email: string, password: string) => {
     if (!auth) throw new Error("Auth not initialized");
@@ -92,6 +95,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           updatedAt: serverTimestamp(),
         };
         await setDoc(doc(db, "users", result.user.uid), newUser);
+        
+        // Redirect new users to resume upload page for onboarding
+        router.push('/resumes?onboarding=true');
     }
   };
 

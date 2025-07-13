@@ -64,6 +64,7 @@ MyJob is a modern, AI-driven platform designed to streamline the job search proc
 - **Auto-Save on Tailor Resume (Issue #28):** When users click "Tailor Resume" from job search results, the job is automatically saved to their saved jobs list before navigating to the tailor resume page, ensuring job data persistence and eliminating the need for manual saving.
 - **Visual Status Indicators (Issue #29):** Added color-coded visual indicators for "Tailor Resume" and "Create Cover Letter" buttons that change color when actions are completed. Green icons indicate resume tailoring is done, blue icons indicate cover letter creation is done, with updated tooltips showing completion status.
 - **Consistent Icon Styling (Issue #30):** Updated "Mark as Applied" button to use consistent icon color styling instead of solid background fill. Now matches the visual style of other status indicators with clean icon-only color changes (green when applied, gray when not applied).
+- **User Onboarding Process (Issue #31):** Implemented streamlined onboarding flow for new users. After sign-up (either via email/password or Google OAuth), users are automatically redirected to the resume upload page with a welcome message and the upload dialog pre-opened. This ensures all users have the required resume to use the job matching features from the start.
 
 ## 🛠️ Technology Stack
 

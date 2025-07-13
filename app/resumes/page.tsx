@@ -53,9 +53,17 @@ function ResumesPageContent() {
   useEffect(() => {
     // Check for redirect message from URL parameters
     const message = searchParams.get('message')
+    const onboarding = searchParams.get('onboarding')
+    
     if (message) {
       setRedirectMessage(message)
       // Auto-open the upload dialog if user was redirected here
+      setIsUploadDialogOpen(true)
+    }
+    
+    // Auto-open upload dialog for new users during onboarding
+    if (onboarding === 'true') {
+      setRedirectMessage('Welcome! To get started with job matching, please upload your resume.')
       setIsUploadDialogOpen(true)
     }
   }, [searchParams])
