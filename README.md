@@ -23,8 +23,9 @@ MyJob is a modern, AI-driven platform designed to streamline the job search proc
     - Smart authentication flow that redirects unauthenticated users to sign-up when attempting to search.
     - Automatic redirect to main page after sign-out from protected areas with proper page refresh.
 - **📂 Comprehensive Resume Management:**
-    - Upload and store multiple resumes in various formats (PDF, DOCX, Markdown).
-    - Advanced PDF text extraction with proper error handling and compatibility.
+    - Upload and store multiple resumes in various formats (PDF, DOCX, TXT, Markdown).
+    - Advanced text extraction with intelligent formatting preservation that converts plain text to structured markdown.
+    - Smart formatting detection for headers, contact information, job titles, dates, and bullet points.
     - View, edit (with or without AI), and delete any resume.
     - Set a default resume for job matching and download your resumes in markdown format at any time.
     - Save tailored resumes directly from the AI tailoring page.
@@ -65,6 +66,7 @@ MyJob is a modern, AI-driven platform designed to streamline the job search proc
 - **Visual Status Indicators (Issue #29):** Added color-coded visual indicators for "Tailor Resume" and "Create Cover Letter" buttons that change color when actions are completed. Green icons indicate resume tailoring is done, blue icons indicate cover letter creation is done, with updated tooltips showing completion status.
 - **Consistent Icon Styling (Issue #30):** Updated "Mark as Applied" button to use consistent icon color styling instead of solid background fill. Now matches the visual style of other status indicators with clean icon-only color changes (green when applied, gray when not applied).
 - **User Onboarding Process (Issue #31):** Implemented streamlined onboarding flow for new users. After sign-up (either via email/password or Google OAuth), users are automatically redirected to the resume upload page with a welcome message and the upload dialog pre-opened. This ensures all users have the required resume to use the job matching features from the start.
+- **Improved Resume Format Processing (Issue #32):** Enhanced file upload processing to preserve document formatting when converting resumes to markdown. Added intelligent text parsing that detects resume structure including headers, contact information, job titles, dates, and bullet points. Supports PDF, DOCX, TXT, and Markdown files with automatic formatting enhancement for better readability and AI processing.
 
 ## 🛠️ Technology Stack
 
