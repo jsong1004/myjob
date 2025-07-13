@@ -69,7 +69,7 @@ function AdminPageContent() {
   return (
     <>
       <Header />
-      <main className="container mx-auto px-4 py-12 md:py-16">
+      <main className="container mx-auto px-4 py-6 md:py-8">
         <div className="max-w-7xl mx-auto">
           <div className="mb-4">
             <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">

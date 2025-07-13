@@ -46,37 +46,65 @@ export async function GET(req: NextRequest) {
       ...doc.data() 
     } as UserData & { id: string }))
 
+    console.log(`[Admin][Users] Fetched ${usersData.length} users`)
+
     // Get additional data for each user (resume count, saved jobs count, etc.)
     const enrichedUsers = await Promise.all(
       usersData.map(async (user) => {
         try {
+          // Determine the correct user identifier - try both uid and userId fields
+          const userId = user.uid || user.userId || user.id
+          
+          if (!userId) {
+            console.warn(`User has no valid identifier:`, user)
+            return {
+              ...user,
+              resumeCount: 0,
+              savedJobsCount: 0,
+              coverLettersCount: 0,
+              createdAt: user.createdAt?.toDate ? user.createdAt.toDate().toISOString() : new Date().toISOString(),
+              updatedAt: user.updatedAt?.toDate ? user.updatedAt.toDate().toISOString() : new Date().toISOString(),
+            }
+          }
+
           // Count resumes
           const resumesSnapshot = await adminDb.collection("resumes")
-            .where("userId", "==", user.uid)
+            .where("userId", "==", userId)
             .get()
           
           // Count saved jobs
           const savedJobsSnapshot = await adminDb.collection("savedJobs")
-            .where("userId", "==", user.uid)
+            .where("userId", "==", userId)
             .get()
           
           // Count cover letters
-          const coverLettersSnapshot = await adminDb.collection("cover-letters")
-            .where("userId", "==", user.uid)
+          const coverLettersSnapshot = await adminDb.collection("coverLetters")
+            .where("userId", "==", userId)
             .get()
 
-          return {
-            ...user,
+          const counts = {
             resumeCount: resumesSnapshot.size,
             savedJobsCount: savedJobsSnapshot.size,
             coverLettersCount: coverLettersSnapshot.size,
+          }
+
+          // Log for debugging
+          if (counts.resumeCount > 0 || counts.savedJobsCount > 0 || counts.coverLettersCount > 0) {
+            console.log(`[Admin][Users] User ${user.name || user.email} (${userId}): resumes=${counts.resumeCount}, savedJobs=${counts.savedJobsCount}, coverLetters=${counts.coverLettersCount}`)
+          }
+
+          return {
+            ...user,
+            userId: userId, // Ensure we have a consistent userId field
+            ...counts,
             createdAt: user.createdAt?.toDate ? user.createdAt.toDate().toISOString() : new Date().toISOString(),
             updatedAt: user.updatedAt?.toDate ? user.updatedAt.toDate().toISOString() : new Date().toISOString(),
           }
         } catch (error) {
-          console.error(`Error fetching additional data for user ${user.uid}:`, error)
+          console.error(`Error fetching additional data for user ${user.uid || user.userId || user.id}:`, error)
           return {
             ...user,
+            userId: user.uid || user.userId || user.id,
             resumeCount: 0,
             savedJobsCount: 0,
             coverLettersCount: 0,
