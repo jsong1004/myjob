@@ -11,12 +11,13 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
-import { AlertCircle, User, FileText, Settings, Star, Upload, Save, Loader2, CheckCircle } from "lucide-react"
+import { AlertCircle, User, FileText, Settings, Star, Upload, Save, Loader2, CheckCircle, Camera } from "lucide-react"
 import { Header } from "@/components/header"
 import { AuthProvider, useAuth } from "@/components/auth-provider"
 import { Resume } from "@/lib/types"
-import { auth } from "@/lib/firebase"
+import { auth, storage } from "@/lib/firebase"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 
 interface UserProfile {
   displayName: string
@@ -33,6 +34,7 @@ interface UserProfile {
   defaultResumeId: string
   emailNotifications: boolean
   jobAlerts: boolean
+  photoURL: string
 }
 
 export default function ProfilePage() {
@@ -60,6 +62,7 @@ function ProfilePageContent() {
     defaultResumeId: "",
     emailNotifications: true,
     jobAlerts: true,
+    photoURL: "",
   })
   const [resumes, setResumes] = useState<Resume[]>([])
   const [loading, setLoading] = useState(true)
@@ -67,6 +70,7 @@ function ProfilePageContent() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [newSkill, setNewSkill] = useState("")
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -104,6 +108,7 @@ function ProfilePageContent() {
           ...prev,
           displayName: user?.displayName || "",
           email: user?.email || "",
+          photoURL: user?.photoURL || "",
         }))
       }
     } catch (error) {
@@ -185,6 +190,73 @@ function ProfilePageContent() {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
   }
 
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    
+    if (!user?.uid) {
+      setError('User not authenticated.')
+      return
+    }
+    
+    if (!storage) {
+      setError('Storage not available. Please check your Firebase configuration.')
+      return
+    }
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+    if (!allowedTypes.includes(file.type)) {
+      setError('Please upload a JPEG, PNG, or WebP image.')
+      return
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024
+    if (file.size > maxSize) {
+      setError('Image size must be less than 5MB.')
+      return
+    }
+
+    setUploadingPhoto(true)
+    setError(null)
+
+    try {
+      console.log('Starting photo upload...', { fileSize: file.size, fileType: file.type })
+      
+      // Create a storage reference
+      const storageRef = ref(storage, `profile-photos/${user.uid}/${Date.now()}-${file.name}`)
+      console.log('Storage reference created:', storageRef)
+      
+      // Upload the file
+      console.log('Uploading file...')
+      const snapshot = await uploadBytes(storageRef, file)
+      console.log('Upload completed:', snapshot)
+      
+      // Get the download URL
+      console.log('Getting download URL...')
+      const downloadURL = await getDownloadURL(snapshot.ref)
+      console.log('Download URL obtained:', downloadURL)
+      
+      // Update profile state
+      setProfile(prev => ({ ...prev, photoURL: downloadURL }))
+      
+      setSuccess('Photo uploaded successfully!')
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (error) {
+      console.error('Error uploading photo:', error)
+      if (error instanceof Error) {
+        setError(`Upload failed: ${error.message}`)
+      } else {
+        setError('Failed to upload photo. Please check your internet connection and try again.')
+      }
+    } finally {
+      setUploadingPhoto(false)
+      // Clear the file input
+      event.target.value = ''
+    }
+  }
+
   if (loading) {
     return (
       <>
@@ -241,18 +313,41 @@ function ProfilePageContent() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center gap-6">
-                <Avatar className="h-24 w-24">
-                  <AvatarImage src={user?.photoURL || ""} />
-                  <AvatarFallback className="text-2xl">
-                    {getInitials(profile.displayName || user?.displayName || "U")}
-                  </AvatarFallback>
-                </Avatar>
+                <div className="relative">
+                  <Avatar className="h-24 w-24">
+                    <AvatarImage src={profile.photoURL || user?.photoURL || ""} />
+                    <AvatarFallback className="text-2xl">
+                      {getInitials(profile.displayName || user?.displayName || "U")}
+                    </AvatarFallback>
+                  </Avatar>
+                  {uploadingPhoto && (
+                    <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+                      <Loader2 className="h-6 w-6 text-white animate-spin" />
+                    </div>
+                  )}
+                </div>
                 <div className="space-y-2">
-                  <Button variant="outline" disabled>
-                    <Upload className="mr-2 h-4 w-4" />
-                    Change Photo
-                  </Button>
-                  <p className="text-sm text-muted-foreground">Photo upload coming soon.</p>
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png,image/webp"
+                      onChange={handlePhotoUpload}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      disabled={uploadingPhoto}
+                    />
+                    <Button variant="outline" disabled={uploadingPhoto}>
+                      {uploadingPhoto ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Camera className="mr-2 h-4 w-4" />
+                      )}
+                      {uploadingPhoto ? "Uploading..." : "Change Photo"}
+                    </Button>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    JPEG, PNG, or WebP. Max 5MB.
+                    {uploadingPhoto && <span className="block text-blue-600 mt-1">Upload in progress...</span>}
+                  </p>
                 </div>
               </div>
 

@@ -77,6 +77,19 @@ export async function POST(request: NextRequest) {
 
     await userRef.set(profileToSave, { merge: true });
 
+    // If photoURL is provided, also update the Firebase Auth user profile
+    if (profileData.photoURL) {
+      try {
+        const auth = getAuth();
+        await auth.updateUser(authResult.uid, {
+          photoURL: profileData.photoURL
+        });
+      } catch (error) {
+        console.error('Failed to update Firebase Auth photo:', error);
+        // Don't fail the entire request if auth update fails
+      }
+    }
+
     return NextResponse.json({ 
       message: 'Profile saved successfully',
       profile: profileToSave 

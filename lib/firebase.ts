@@ -2,6 +2,7 @@
 import { initializeApp, getApps } from 'firebase/app'
 import { getAuth, connectAuthEmulator } from 'firebase/auth'
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore'
+import { getStorage, connectStorageEmulator } from 'firebase/storage'
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -72,8 +73,11 @@ export const auth = firebaseApp ? getAuth(firebaseApp) : null
 // Initialize Cloud Firestore (only if app exists)
 export const db = firebaseApp ? getFirestore(firebaseApp) : null
 
-// Connect to emulators in development (only if we have auth and db)
-if (process.env.NODE_ENV === 'development' && auth && db && typeof window !== 'undefined') {
+// Initialize Firebase Storage (only if app exists)
+export const storage = firebaseApp ? getStorage(firebaseApp) : null
+
+// Connect to emulators in development (only if we have auth, db, and storage)
+if (process.env.NODE_ENV === 'development' && auth && db && storage && typeof window !== 'undefined') {
   // Only connect if not already connected and we're in the browser
   try {
     if (!auth.app.options.projectId?.includes('demo-')) {

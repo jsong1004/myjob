@@ -71,6 +71,7 @@ MyJob is a modern, AI-driven platform designed to streamline the job search proc
 - **Admin Page Layout Improvement (Issue #34):** Updated admin interface from two-column layout to a cleaner stacked card design. Admin Actions are now displayed as compact navigation links in a minimal card at the top, followed by the content card below. Removed unnecessary descriptive text and reduced whitespace for a more streamlined interface with better space utilization and improved mobile responsiveness.
 - **Admin Users API Bug Fixes (Issue #35):** Fixed critical bugs in the admin users data fetching that caused "undefined" errors and incorrect data counts. Resolved undefined uid handling in Firestore queries, fixed cover letters collection name mismatch (cover-letters vs coverLetters), and improved error handling with proper fallback logic. Added debugging logs and reduced admin page top margin for better layout.
 - **Landing Page and Authentication Flow (Issue #36):** Created an attractive landing page for unauthenticated users that showcases the platform's features and benefits. The home page now acts as a marketing and onboarding page for new users, while authenticated users are automatically redirected to the job search functionality. Moved the original job search UI to a dedicated `/search` route with updated navigation links throughout the application. The landing page includes hero section, feature highlights, benefits overview, success stories, and call-to-action buttons.
+- **Profile Photo Upload (Issue #37):** Implemented complete photo upload functionality in the profile page using Firebase Storage. Users can now upload and change their profile photos with support for JPEG, PNG, and WebP formats up to 5MB. Features include real-time upload progress, comprehensive file validation, error handling, and automatic synchronization with Firebase Auth user profile. The uploaded photo appears throughout the application including the header navigation and profile pages.
 
 ## 🛠️ Technology Stack
 
@@ -82,6 +83,7 @@ The project is built with a modern, robust technology stack:
 - **UI Components:** [shadcn/ui](https://ui.shadcn.com/) built on Radix UI primitives
 - **Authentication:** [Firebase Authentication](https://firebase.google.com/docs/auth)
 - **Database:** [Cloud Firestore](https://firebase.google.com/docs/firestore) for storing user data, resumes, and saved jobs
+- **File Storage:** [Firebase Storage](https://firebase.google.com/docs/storage) for profile photos and file uploads
 - **AI Services:** [OpenRouter API](https://openrouter.ai/) (`openai/gpt-4o-mini`) for matching, summarization, and resume editing
 - **Job Search Data:** [SerpApi](https://serpapi.com/) for fetching job listings
 - **Company Data:** [The Companies API](https://thecompaniesapi.com/) for comprehensive company information
