@@ -138,9 +138,6 @@ export function AdminUserManagement() {
           <Users className="h-5 w-5" />
           User Management
         </CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Manage users and view their account information and activity.
-        </p>
       </CardHeader>
       <CardContent>
         {/* Filtering Controls */}

@@ -141,9 +141,6 @@ export function AdminActivities() {
           <Activity className="h-5 w-5" />
           All User Activities
         </CardTitle>
-        <p className="text-sm text-muted-foreground">
-          A comprehensive log of all activities across the platform.
-        </p>
       </CardHeader>
       <CardContent>
         {/* Filtering Controls */}
