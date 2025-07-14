@@ -11,7 +11,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
-import { FileText, Upload, Star, Edit, Trash2, Plus, Calendar, Download, Loader2, AlertCircle, MoreVertical } from "lucide-react"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { FileText, Upload, Star, Edit, Trash2, Plus, Calendar, Download, Loader2, AlertCircle, MoreVertical, ChevronUp, ChevronDown } from "lucide-react"
 import { Header } from "@/components/header"
 import { AuthProvider, useAuth } from "@/components/auth-provider"
 import { Resume } from "@/lib/types"
@@ -41,6 +43,8 @@ function ResumesPageContent() {
   const [uploadMethod, setUploadMethod] = useState<'file' | 'text'>('file')
   const [error, setError] = useState<string | null>(null)
   const [redirectMessage, setRedirectMessage] = useState<string | null>(null)
+  const [sortField, setSortField] = useState<'name' | 'createdAt'>('createdAt')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
 
   useEffect(() => {
     if (user) {
@@ -272,6 +276,57 @@ function ResumesPageContent() {
     return new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
   }
 
+  const handleSort = (field: 'name' | 'createdAt') => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortDirection('asc')
+    }
+  }
+
+  const sortedResumes = [...resumes].sort((a, b) => {
+    // Always put default resume on top, regardless of sort
+    if (a.isDefault && !b.isDefault) return -1
+    if (!a.isDefault && b.isDefault) return 1
+
+    let aValue: any
+    let bValue: any
+
+    switch (sortField) {
+      case 'name':
+        aValue = a.name.toLowerCase()
+        bValue = b.name.toLowerCase()
+        break
+      case 'createdAt':
+        aValue = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt.seconds * 1000)
+        bValue = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt.seconds * 1000)
+        break
+      default:
+        return 0
+    }
+
+    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
+    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
+    return 0
+  })
+
+  const SortableHeader = ({ field, children }: { field: 'name' | 'createdAt', children: React.ReactNode }) => (
+    <TableHead 
+      className="cursor-pointer hover:bg-muted/50 select-none"
+      onClick={() => handleSort(field)}
+    >
+      <div className="flex items-center gap-1">
+        {children}
+        {sortField === field && (
+          sortDirection === 'asc' ? 
+            <ChevronUp className="h-4 w-4" /> : 
+            <ChevronDown className="h-4 w-4" />
+        )}
+      </div>
+    </TableHead>
+  )
+
   if (loading) {
     return (
       <>
@@ -286,8 +341,8 @@ function ResumesPageContent() {
   return (
     <>
       <Header />
-      <main className="container mx-auto px-4 py-12 md:py-16">
-        <div className="max-w-6xl mx-auto space-y-8">
+      <main className="container mx-auto px-4 py-6">
+        <div className="max-w-6xl mx-auto space-y-4">
           {error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
@@ -304,8 +359,7 @@ function ResumesPageContent() {
 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">My Resumes</h1>
-              <p className="text-muted-foreground">Manage your resumes and create tailored versions for specific jobs.</p>
+              <h1 className="text-2xl font-bold tracking-tight">My Resumes</h1>
             </div>
             <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
               <DialogTrigger asChild>
@@ -353,87 +407,118 @@ function ResumesPageContent() {
           </div>
 
           {resumes.length > 0 ? (
-            <div className="space-y-8">
-              {resumes.filter(r => r.isDefault).map(resume => (
-                <div key={resume.id}>
-                  <h2 className="text-xl font-semibold mb-4">Default Resume</h2>
-                  <Card className="border-2 border-primary/50 bg-primary/5">
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <CardTitle className="flex items-center gap-3 text-lg">
-                          <FileText className="h-5 w-5" />
-                          {resume.name}
-                          <Badge className={getTypeUI(resume.type).className}>{getTypeUI(resume.type).label}</Badge>
-                        </CardTitle>
-                        <Star className="h-5 w-5 fill-yellow-400 text-yellow-500" />
-                      </div>
-                      {resume.jobTitle && <p className="text-sm text-muted-foreground pt-1">For: {resume.jobTitle}</p>}
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <p className="text-sm text-muted-foreground line-clamp-3 bg-background p-3 rounded-md border">{resume.content || 'No content available.'}</p>
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs text-muted-foreground"><Calendar className="inline h-3 w-3 mr-1.5" />Created {formatDate(resume.createdAt)}</p>
-                        <div className="flex gap-2">
-                          <Button asChild variant="default" size="sm"><Link href={`/resumes/${resume.id}/edit`}><Edit className="mr-2 h-4 w-4" />Edit</Link></Button>
-                          <Button variant="outline" size="sm" onClick={() => handleDownloadResume(resume)}><Download className="mr-2 h-4 w-4" />Download</Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              ))}
-
-              {resumes.filter(r => !r.isDefault).length > 0 && (
-                <div>
-                  <h2 className="text-xl font-semibold mb-4">Other Resumes</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {resumes.filter(r => !r.isDefault).map(resume => (
-                      <Card key={resume.id}>
-                        <CardHeader>
-                          <div className="flex items-start justify-between">
-                            <CardTitle className="flex items-center gap-2 text-base">
-                              <FileText className="h-5 w-5" />
-                              {resume.name}
-                            </CardTitle>
-                            <Badge variant="secondary" className={getTypeUI(resume.type).className}>{getTypeUI(resume.type).label}</Badge>
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <SortableHeader field="name">Resume Name</SortableHeader>
+                      <TableHead>Job Title</TableHead>
+                      <TableHead>Content Preview</TableHead>
+                      <SortableHeader field="createdAt">Created</SortableHeader>
+                      <TableHead className="min-w-[200px]">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedResumes.map((resume) => (
+                      <TableRow key={resume.id} className={resume.isDefault ? "bg-primary/5" : ""}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                            <div className="font-medium">{resume.name}</div>
+                            {resume.isDefault && (
+                              <Star className="h-4 w-4 fill-yellow-400 text-yellow-500" />
+                            )}
                           </div>
-                          {resume.jobTitle && <p className="text-sm text-muted-foreground pt-1">For: {resume.jobTitle}</p>}
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          <p className="text-sm text-muted-foreground line-clamp-3 bg-muted/50 p-3 rounded-md">{resume.content || 'No content available.'}</p>
-                          <div className="flex items-center justify-between">
-                            <p className="text-xs text-muted-foreground"><Calendar className="inline h-3 w-3 mr-1.5" />{formatDate(resume.createdAt)}</p>
-                            <div className="flex gap-2">
-                              <Button asChild variant="default" size="sm"><Link href={`/resumes/${resume.id}/edit`}><Edit className="mr-2 h-4 w-4" />Edit</Link></Button>
-                              <Button variant="outline" size="sm" onClick={() => handleDownloadResume(resume)}><Download className="mr-2 h-4 w-4" />Download</Button>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="outline" size="sm"><MoreVertical className="h-4 w-4" /></Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => handleSetDefault(resume.id)}>
-                                    <Star className="mr-2 h-4 w-4" />Set as Default
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => handleDeleteResume(resume.id)} className="text-destructive">
-                                    <Trash2 className="mr-2 h-4 w-4" />Delete
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm text-muted-foreground">
+                            {resume.jobTitle || "—"}
                           </div>
-                        </CardContent>
-                      </Card>
+                        </TableCell>
+                        <TableCell>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="max-w-xs">
+                                  <p className="text-sm text-muted-foreground line-clamp-2 cursor-help">
+                                    {resume.content ? resume.content.substring(0, 100) + (resume.content.length > 100 ? "..." : "") : "No content available."}
+                                  </p>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-md p-4 whitespace-pre-line">
+                                <p>{resume.content || "No content available."}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <Calendar className="h-3 w-3" />
+                            {formatDate(resume.createdAt)}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button asChild variant="ghost" size="icon">
+                                    <Link href={`/resumes/${resume.id}/edit`}>
+                                      <Edit className="h-4 w-4" />
+                                    </Link>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Edit Resume</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="icon" onClick={() => handleDownloadResume(resume)}>
+                                    <Download className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Download PDF</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {!resume.isDefault && (
+                                  <>
+                                    <DropdownMenuItem onClick={() => handleSetDefault(resume.id)}>
+                                      <Star className="mr-2 h-4 w-4" />Set as Default
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                  </>
+                                )}
+                                <DropdownMenuItem onClick={() => handleDeleteResume(resume.id)} className="text-destructive">
+                                  <Trash2 className="mr-2 h-4 w-4" />Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </div>
-                </div>
-              )}
-            </div>
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
           ) : (
-            <Card className="text-center py-16">
+            <Card className="text-center py-12">
               <CardContent>
-                <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">No Resumes Yet</h3>
+                <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                <h3 className="text-lg font-semibold mb-2">No Resumes Yet</h3>
                 <p className="text-muted-foreground mb-4">Upload your first resume to get started.</p>
                 <Button onClick={() => setIsUploadDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />Add Resume</Button>
               </CardContent>

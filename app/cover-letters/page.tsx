@@ -169,7 +169,6 @@ ${coverLetter.content}`
         <div className="max-w-6xl mx-auto">
           <div className="mb-8">
             <h1 className="text-3xl font-bold tracking-tight">My Cover Letters</h1>
-            <p className="text-muted-foreground">View and manage your saved cover letters.</p>
           </div>
 
           {loading ? (
