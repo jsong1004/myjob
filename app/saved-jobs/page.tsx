@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Bookmark, ExternalLink, Loader2, AlertCircle, FileText, Edit, Calendar, StickyNote, ChevronUp, ChevronDown, Search, X } from "lucide-react"
+import { Bookmark, ExternalLink, Loader2, AlertCircle, FileText, Edit, Calendar, StickyNote, ChevronUp, ChevronDown, Search, X, Plus } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Header } from "@/components/header"
@@ -46,6 +46,14 @@ function SavedJobsPageContent() {
   const [titleFilter, setTitleFilter] = useState('')
   const [companyFilter, setCompanyFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus | 'all'>('all')
+  const [isAddJobDialogOpen, setIsAddJobDialogOpen] = useState(false)
+  const [newJobTitle, setNewJobTitle] = useState('')
+  const [newJobCompany, setNewJobCompany] = useState('')
+  const [newJobLocation, setNewJobLocation] = useState('')
+  const [newJobDescription, setNewJobDescription] = useState('')
+  const [newJobApplyUrl, setNewJobApplyUrl] = useState('')
+  const [newJobSalary, setNewJobSalary] = useState('')
+  const [isAddingJob, setIsAddingJob] = useState(false)
 
   useEffect(() => {
     const fetchSavedJobs = async () => {
@@ -309,13 +317,154 @@ function SavedJobsPageContent() {
     return "text-amber-600 bg-amber-100 border-amber-200"
   }
 
+  const handleAddJob = async () => {
+    if (!newJobTitle || !newJobCompany) {
+      setError('Title and company are required')
+      return
+    }
+
+    setIsAddingJob(true)
+    setError(null)
+
+    try {
+      const token = await auth?.currentUser?.getIdToken()
+      if (!token) {
+        setError('Authentication required. Please log in.')
+        return
+      }
+
+      const response = await fetch('/api/saved-jobs/add-manual', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: newJobTitle,
+          company: newJobCompany,
+          location: newJobLocation,
+          description: newJobDescription,
+          applyUrl: newJobApplyUrl,
+          salary: newJobSalary,
+        }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setSavedJobs([data.savedJob, ...savedJobs])
+        setIsAddJobDialogOpen(false)
+        // Reset form
+        setNewJobTitle('')
+        setNewJobCompany('')
+        setNewJobLocation('')
+        setNewJobDescription('')
+        setNewJobApplyUrl('')
+        setNewJobSalary('')
+      } else {
+        const errorData = await response.json()
+        setError(errorData.error || 'Failed to add job')
+      }
+    } catch (err) {
+      setError('Failed to add job')
+    } finally {
+      setIsAddingJob(false)
+    }
+  }
+
   return (
     <>
       <Header />
       <main className="container mx-auto px-4 py-6">
         <div className="max-w-6xl mx-auto">
-          <div className="mb-4">
-            <h1 className="text-2xl font-bold tracking-tight">MyJobs</h1>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">MyJobs</h1>
+            </div>
+            <Dialog open={isAddJobDialogOpen} onOpenChange={setIsAddJobDialogOpen}>
+              <DialogTrigger asChild>
+                <Button><Plus className="mr-2 h-4 w-4" />Add Job</Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader><DialogTitle>Add New Job</DialogTitle></DialogHeader>
+                <div className="space-y-4 py-4">
+                  {error && <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>}
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="job-title">Job Title *</Label>
+                      <Input 
+                        id="job-title" 
+                        placeholder="e.g., Software Engineer" 
+                        value={newJobTitle} 
+                        onChange={(e) => setNewJobTitle(e.target.value)} 
+                        disabled={isAddingJob} 
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="job-company">Company *</Label>
+                      <Input 
+                        id="job-company" 
+                        placeholder="e.g., Google" 
+                        value={newJobCompany} 
+                        onChange={(e) => setNewJobCompany(e.target.value)} 
+                        disabled={isAddingJob} 
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="job-location">Location</Label>
+                      <Input 
+                        id="job-location" 
+                        placeholder="e.g., San Francisco, CA" 
+                        value={newJobLocation} 
+                        onChange={(e) => setNewJobLocation(e.target.value)} 
+                        disabled={isAddingJob} 
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="job-salary">Salary</Label>
+                      <Input 
+                        id="job-salary" 
+                        placeholder="e.g., $120,000 - $150,000" 
+                        value={newJobSalary} 
+                        onChange={(e) => setNewJobSalary(e.target.value)} 
+                        disabled={isAddingJob} 
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="job-apply-url">Apply URL</Label>
+                    <Input 
+                      id="job-apply-url" 
+                      placeholder="https://company.com/jobs/123" 
+                      value={newJobApplyUrl} 
+                      onChange={(e) => setNewJobApplyUrl(e.target.value)} 
+                      disabled={isAddingJob} 
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="job-description">Job Description</Label>
+                    <Textarea 
+                      id="job-description" 
+                      placeholder="Enter job description, requirements, and other details..." 
+                      value={newJobDescription} 
+                      onChange={(e) => setNewJobDescription(e.target.value)} 
+                      rows={6} 
+                      disabled={isAddingJob} 
+                    />
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Button onClick={handleAddJob} disabled={isAddingJob || !newJobTitle || !newJobCompany}>
+                      {isAddingJob ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+                      {isAddingJob ? 'Adding...' : 'Add Job'}
+                    </Button>
+                    <Button variant="outline" onClick={() => setIsAddJobDialogOpen(false)} disabled={isAddingJob}>Cancel</Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
 
           {/* Filters */}
