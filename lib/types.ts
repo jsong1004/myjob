@@ -38,6 +38,9 @@ export interface CoverLetter {
   updatedAt: Timestamp
 }
 
+// Application status enum
+export type ApplicationStatus = 'saved' | 'applied' | 'interviewing' | 'offer' | 'rejected' | 'withdrawn'
+
 // Saved job document interface
 export interface SavedJob {
   id: string
@@ -53,6 +56,11 @@ export interface SavedJob {
   appliedAt?: Timestamp // Optional field to track when user applied
   resumeTailoredAt?: Timestamp // Optional field to track when resume was tailored for this job
   coverLetterCreatedAt?: Timestamp // Optional field to track when cover letter was created for this job
+  // New application tracking fields
+  status: ApplicationStatus // Current application status
+  notes?: string // User notes about the application
+  reminderDate?: Timestamp // Date for follow-up reminder
+  reminderNote?: string // Note for the reminder
   originalData: JobSearchResult // Full job data from SerpApi
 }
 

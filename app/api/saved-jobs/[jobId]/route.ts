@@ -51,7 +51,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
     const userId = decoded.uid
     const { jobId } = await params
     const body = await req.json()
-    const { applied, resumeTailored, coverLetterCreated } = body
+    const { applied, resumeTailored, coverLetterCreated, status, notes, reminderDate, reminderNote } = body
 
     // Validate inputs
     if (applied !== undefined && typeof applied !== 'boolean') {
@@ -62,6 +62,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
     }
     if (coverLetterCreated !== undefined && typeof coverLetterCreated !== 'boolean') {
       return NextResponse.json({ error: "Cover letter created status must be a boolean" }, { status: 400 })
+    }
+    if (status !== undefined && !['saved', 'applied', 'interviewing', 'offer', 'rejected', 'withdrawn'].includes(status)) {
+      return NextResponse.json({ error: "Invalid status value" }, { status: 400 })
+    }
+    if (notes !== undefined && typeof notes !== 'string') {
+      return NextResponse.json({ error: "Notes must be a string" }, { status: 400 })
+    }
+    if (reminderNote !== undefined && typeof reminderNote !== 'string') {
+      return NextResponse.json({ error: "Reminder note must be a string" }, { status: 400 })
     }
 
     const querySnapshot = await adminDb
@@ -109,6 +118,27 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
         updateData.coverLetterCreatedAt = null
         message += "Cover letter status removed. "
       }
+    }
+
+    // Handle application tracking fields
+    if (status !== undefined) {
+      updateData.status = status
+      message += `Status updated to ${status}. `
+    }
+    
+    if (notes !== undefined) {
+      updateData.notes = notes || null
+      message += notes ? "Notes updated. " : "Notes removed. "
+    }
+    
+    if (reminderDate !== undefined) {
+      updateData.reminderDate = reminderDate ? new Date(reminderDate) : null
+      message += reminderDate ? "Reminder date set. " : "Reminder date removed. "
+    }
+    
+    if (reminderNote !== undefined) {
+      updateData.reminderNote = reminderNote || null
+      message += reminderNote ? "Reminder note updated. " : "Reminder note removed. "
     }
 
     await doc.ref.update(updateData)

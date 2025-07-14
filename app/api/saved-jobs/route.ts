@@ -72,6 +72,11 @@ export async function POST(req: NextRequest) {
       scoreDetails: scoreDetails || {},
       savedAt: new Date(),
       appliedAt: null, // Initialize as null, can be updated later
+      // New application tracking fields
+      status: 'saved', // Default status
+      notes: null,
+      reminderDate: null,
+      reminderNote: null,
       originalData: originalData || {},
     })
     const doc = await docRef.get()

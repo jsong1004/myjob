@@ -13,7 +13,7 @@ MyJob is a modern, AI-driven platform designed to streamline the job search proc
 - **👤 Profile Management:**
     - Manage your account information, professional bio, social links, skills, and preferences.
     - Set your default resume for job applications.
-- **📌 Applied Job Tracking:** Mark any saved job as "Applied" with a single click and visually track your application progress.
+- **📌 Advanced Application Tracking:** Comprehensive job application management system with custom status tracking (Saved, Applied, Interviewing, Offer, Rejected, Withdrawn), personal notes, reminder system with notifications, and powerful filtering and sorting capabilities.
 - **🔍 Advanced Job Search:** 
     - Leverages the SerpApi to search for jobs based on keywords and location.
     - Complete job data storage from SerpAPI for richer job information.
@@ -72,6 +72,7 @@ MyJob is a modern, AI-driven platform designed to streamline the job search proc
 - **Admin Users API Bug Fixes (Issue #35):** Fixed critical bugs in the admin users data fetching that caused "undefined" errors and incorrect data counts. Resolved undefined uid handling in Firestore queries, fixed cover letters collection name mismatch (cover-letters vs coverLetters), and improved error handling with proper fallback logic. Added debugging logs and reduced admin page top margin for better layout.
 - **Landing Page and Authentication Flow (Issue #36):** Created an attractive landing page for unauthenticated users that showcases the platform's features and benefits. The home page now acts as a marketing and onboarding page for new users, while authenticated users are automatically redirected to the job search functionality. Moved the original job search UI to a dedicated `/search` route with updated navigation links throughout the application. The landing page includes hero section, feature highlights, benefits overview, success stories, and call-to-action buttons.
 - **Profile Photo Upload (Issue #37):** Implemented complete photo upload functionality in the profile page using Firebase Storage. Users can now upload and change their profile photos with support for JPEG, PNG, and WebP formats up to 5MB. Features include real-time upload progress, comprehensive file validation, error handling, and automatic synchronization with Firebase Auth user profile. The uploaded photo appears throughout the application including the header navigation and profile pages.
+- **Advanced Application Tracking (Issue #38):** Enhanced the saved jobs functionality with comprehensive application tracking features. Users can now set custom statuses (Saved, Applied, Interviewing, Offer, Rejected, Withdrawn) with color-coded badges, add personal notes to each application, set reminder dates with custom notes for follow-ups, and receive notifications for upcoming reminders. The interface includes powerful filtering by job title, company, and status, plus sortable columns for better organization. The page layout has been optimized with reduced whitespace for improved usability.
 
 ## 🛠️ Technology Stack
 

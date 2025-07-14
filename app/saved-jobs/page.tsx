@@ -4,13 +4,19 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Bookmark, ExternalLink, Loader2, AlertCircle, FileText, CheckCircle } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Bookmark, ExternalLink, Loader2, AlertCircle, FileText, Edit, Calendar, StickyNote, ChevronUp, ChevronDown, Search, X } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Header } from "@/components/header"
 import { AuthProvider, useAuth } from "@/components/auth-provider"
 import { auth } from "@/lib/firebase"
-import type { SavedJob } from "@/lib/types"
+import type { SavedJob, ApplicationStatus } from "@/lib/types"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
 import { MatchingScoreDialog } from "@/components/matching-score-dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -30,6 +36,16 @@ function SavedJobsPageContent() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedJob, setSelectedJob] = useState<SavedJob | null>(null)
+  const [editingJob, setEditingJob] = useState<SavedJob | null>(null)
+  const [notes, setNotes] = useState('')
+  const [status, setStatus] = useState<ApplicationStatus>('saved')
+  const [reminderDate, setReminderDate] = useState('')
+  const [reminderNote, setReminderNote] = useState('')
+  const [sortField, setSortField] = useState<'title' | 'company' | 'status' | 'savedAt' | 'matchingScore'>('savedAt')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
+  const [titleFilter, setTitleFilter] = useState('')
+  const [companyFilter, setCompanyFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState<ApplicationStatus | 'all'>('all')
 
   useEffect(() => {
     const fetchSavedJobs = async () => {
@@ -81,32 +97,141 @@ function SavedJobsPageContent() {
     }
   }
 
-  const handleToggleApplied = async (jobId: string, currentlyApplied: boolean) => {
+
+  const handleUpdateJobTracking = async (jobId: string, updates: Partial<SavedJob>) => {
     if (!user || !auth?.currentUser) return
     try {
       const token = await auth.currentUser.getIdToken()
       const response = await fetch(`/api/saved-jobs/${jobId}`, {
-        method: "PATCH",
+        method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ applied: !currentlyApplied }),
+        body: JSON.stringify(updates),
       })
       if (response.ok) {
         const data = await response.json()
         setSavedJobs((prev) => 
           prev.map((job) => 
             job.jobId === jobId 
-              ? { ...job, appliedAt: data.appliedAt }
+              ? { ...job, ...updates }
               : job
           )
         )
+        setEditingJob(null)
+        setNotes('')
+        setReminderDate('')
+        setReminderNote('')
       } else {
-        alert("Failed to update applied status.")
+        alert('Failed to update job tracking.')
       }
     } catch {
-      alert("Error updating applied status.")
+      alert('Error updating job tracking.')
+    }
+  }
+
+  const handleSort = (field: 'title' | 'company' | 'status' | 'savedAt' | 'matchingScore') => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortDirection('asc')
+    }
+  }
+
+  const filteredJobs = savedJobs.filter((job) => {
+    const titleMatch = job.title.toLowerCase().includes(titleFilter.toLowerCase())
+    const companyMatch = job.company.toLowerCase().includes(companyFilter.toLowerCase())
+    const statusMatch = statusFilter === 'all' || (job.status || 'saved') === statusFilter
+    
+    return titleMatch && companyMatch && statusMatch
+  })
+
+  const sortedJobs = [...filteredJobs].sort((a, b) => {
+    let aValue: any
+    let bValue: any
+
+    switch (sortField) {
+      case 'title':
+        aValue = a.title.toLowerCase()
+        bValue = b.title.toLowerCase()
+        break
+      case 'company':
+        aValue = a.company.toLowerCase()
+        bValue = b.company.toLowerCase()
+        break
+      case 'status':
+        aValue = a.status || 'saved'
+        bValue = b.status || 'saved'
+        break
+      case 'savedAt':
+        aValue = a.savedAt instanceof Date ? a.savedAt : new Date(a.savedAt.seconds * 1000)
+        bValue = b.savedAt instanceof Date ? b.savedAt : new Date(b.savedAt.seconds * 1000)
+        break
+      case 'matchingScore':
+        aValue = a.matchingScore || 0
+        bValue = b.matchingScore || 0
+        break
+      default:
+        return 0
+    }
+
+    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
+    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
+    return 0
+  })
+
+  const SortableHeader = ({ field, children }: { field: 'title' | 'company' | 'status' | 'savedAt' | 'matchingScore', children: React.ReactNode }) => (
+    <TableHead 
+      className="cursor-pointer hover:bg-muted/50 select-none"
+      onClick={() => handleSort(field)}
+    >
+      <div className="flex items-center gap-1">
+        {children}
+        {sortField === field && (
+          sortDirection === 'asc' ? 
+            <ChevronUp className="h-4 w-4" /> : 
+            <ChevronDown className="h-4 w-4" />
+        )}
+      </div>
+    </TableHead>
+  )
+
+  const openEditDialog = (job: SavedJob) => {
+    setEditingJob(job)
+    setStatus(job.status || 'saved')
+    setNotes(job.notes || '')
+    setReminderNote(job.reminderNote || '')
+    if (job.reminderDate) {
+      const date = job.reminderDate instanceof Date ? job.reminderDate : new Date(job.reminderDate.seconds * 1000)
+      setReminderDate(date.toISOString().split('T')[0])
+    } else {
+      setReminderDate('')
+    }
+  }
+
+  const getStatusColor = (status: ApplicationStatus): string => {
+    switch (status) {
+      case 'saved': return 'bg-gray-100 text-gray-800'
+      case 'applied': return 'bg-blue-100 text-blue-800'
+      case 'interviewing': return 'bg-yellow-100 text-yellow-800'
+      case 'offer': return 'bg-green-100 text-green-800'
+      case 'rejected': return 'bg-red-100 text-red-800'
+      case 'withdrawn': return 'bg-gray-100 text-gray-600'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getStatusLabel = (status: ApplicationStatus): string => {
+    switch (status) {
+      case 'saved': return 'Saved'
+      case 'applied': return 'Applied'
+      case 'interviewing': return 'Interviewing'
+      case 'offer': return 'Offer'
+      case 'rejected': return 'Rejected'
+      case 'withdrawn': return 'Withdrawn'
+      default: return 'Saved'
     }
   }
 
@@ -187,16 +312,129 @@ function SavedJobsPageContent() {
   return (
     <>
       <Header />
-      <main className="container mx-auto px-4 py-12 md:py-16">
+      <main className="container mx-auto px-4 py-6">
         <div className="max-w-6xl mx-auto">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold tracking-tight">Saved Jobs</h1>
-            <p className="text-muted-foreground">Review and manage the jobs you've saved.</p>
+          <div className="mb-4">
+            <h1 className="text-2xl font-bold tracking-tight">MyJobs</h1>
           </div>
 
+          {/* Filters */}
+          <Card className="mb-4">
+            <CardContent className="p-3">
+              <div className="flex flex-col md:flex-row gap-3">
+                <div className="flex-1">
+                  <Label htmlFor="titleFilter" className="text-sm font-medium">Job Title</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="titleFilter"
+                      placeholder="Search by job title..."
+                      value={titleFilter}
+                      onChange={(e) => setTitleFilter(e.target.value)}
+                      className="pl-10 pr-10"
+                    />
+                    {titleFilter && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                        onClick={() => setTitleFilter('')}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <Label htmlFor="companyFilter" className="text-sm font-medium">Company</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="companyFilter"
+                      placeholder="Search by company..."
+                      value={companyFilter}
+                      onChange={(e) => setCompanyFilter(e.target.value)}
+                      className="pl-10 pr-10"
+                    />
+                    {companyFilter && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                        onClick={() => setCompanyFilter('')}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <div className="flex-1 md:max-w-48">
+                  <Label htmlFor="statusFilter" className="text-sm font-medium">Status</Label>
+                  <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as ApplicationStatus | 'all')}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="saved">Saved</SelectItem>
+                      <SelectItem value="applied">Applied</SelectItem>
+                      <SelectItem value="interviewing">Interviewing</SelectItem>
+                      <SelectItem value="offer">Offer</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                      <SelectItem value="withdrawn">Withdrawn</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {(titleFilter || companyFilter || statusFilter !== 'all') && (
+                  <div className="flex items-end">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setTitleFilter('')
+                        setCompanyFilter('')
+                        setStatusFilter('all')
+                      }}
+                      className="whitespace-nowrap"
+                    >
+                      Clear Filters
+                    </Button>
+                  </div>
+                )}
+              </div>
+              {(titleFilter || companyFilter || statusFilter !== 'all') && (
+                <div className="mt-2 text-sm text-muted-foreground">
+                  Showing {filteredJobs.length} of {savedJobs.length} jobs
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Reminder notifications */}
+          {savedJobs.filter(job => job.reminderDate && new Date(job.reminderDate instanceof Date ? job.reminderDate : job.reminderDate.seconds * 1000) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)).length > 0 && (
+            <Alert className="mb-4 border-blue-200 bg-blue-50">
+              <Calendar className="h-4 w-4 text-blue-600" />
+              <AlertDescription>
+                <div className="font-medium text-blue-800 mb-2">Upcoming Reminders</div>
+                <div className="space-y-1">
+                  {savedJobs
+                    .filter(job => job.reminderDate && new Date(job.reminderDate instanceof Date ? job.reminderDate : job.reminderDate.seconds * 1000) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))
+                    .map(job => (
+                      <div key={job.id} className="text-sm text-blue-700">
+                        <strong>{job.title}</strong> at {job.company} - {job.reminderNote || 'Follow up'} 
+                        <span className="text-blue-600 ml-2">
+                          ({new Date(job.reminderDate instanceof Date ? job.reminderDate : job.reminderDate.seconds * 1000).toLocaleDateString()})
+                        </span>
+                      </div>
+                    ))
+                  }
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {loading ? (
-            <div className="flex justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : error ? (
             <Alert variant="destructive">
@@ -204,13 +442,31 @@ function SavedJobsPageContent() {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : savedJobs.length === 0 ? (
-            <Card className="text-center py-16">
+            <Card className="text-center py-12">
               <CardContent>
-                <Bookmark className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">No Saved Jobs</h3>
+                <Bookmark className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                <h3 className="text-lg font-semibold mb-2">No Saved Jobs</h3>
                 <p className="text-muted-foreground mb-4">You haven't saved any jobs yet.</p>
                 <Button asChild>
                   <Link href="/search">Find Jobs</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : filteredJobs.length === 0 ? (
+            <Card className="text-center py-12">
+              <CardContent>
+                <Search className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                <h3 className="text-lg font-semibold mb-2">No Jobs Match Your Filters</h3>
+                <p className="text-muted-foreground mb-4">Try adjusting your search criteria or clear the filters.</p>
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    setTitleFilter('')
+                    setCompanyFilter('')
+                    setStatusFilter('all')
+                  }}
+                >
+                  Clear Filters
                 </Button>
               </CardContent>
             </Card>
@@ -220,16 +476,19 @@ function SavedJobsPageContent() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Job Title</TableHead>
-                      <TableHead>Company</TableHead>
+                      <SortableHeader field="title">Job Title</SortableHeader>
+                      <SortableHeader field="company">Company</SortableHeader>
+                      <SortableHeader field="status">Status</SortableHeader>
                       <TableHead>Details</TableHead>
-                      <TableHead className="text-center">Score</TableHead>
-                      <TableHead>Matching Summary</TableHead>
-                      <TableHead className="min-w-[160px]">Actions</TableHead>
+                      <SortableHeader field="matchingScore">
+                        <div className="text-center">Score</div>
+                      </SortableHeader>
+                      <TableHead>Notes</TableHead>
+                      <TableHead className="min-w-[200px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {savedJobs.map((job) => (
+                    {sortedJobs.map((job) => (
                       <TableRow key={job.id}>
                         <TableCell>
                           <div className="font-medium">
@@ -257,6 +516,19 @@ function SavedJobsPageContent() {
                           </Link>
                         </TableCell>
                         <TableCell>
+                          <Badge className={getStatusColor(job.status || 'saved')}>
+                            {getStatusLabel(job.status || 'saved')}
+                          </Badge>
+                          {job.reminderDate && (
+                            <div className="flex items-center gap-1 mt-1">
+                              <Calendar className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(job.reminderDate instanceof Date ? job.reminderDate : job.reminderDate.seconds * 1000).toLocaleDateString()}
+                              </span>
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -281,18 +553,27 @@ function SavedJobsPageContent() {
                           </Button>
                         </TableCell>
                         <TableCell>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <p className="text-sm text-muted-foreground line-clamp-2 cursor-help">
-                                  {job.summary || "No matching summary."}
-                                </p>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" className="max-w-md p-4 whitespace-pre-line">
-                                <p>{job.summary || "No matching summary available."}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
+                          <div className="max-w-xs">
+                            {job.notes ? (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="flex items-center gap-2 cursor-help">
+                                      <StickyNote className="h-4 w-4 text-blue-600" />
+                                      <p className="text-sm text-muted-foreground line-clamp-2">
+                                        {job.notes}
+                                      </p>
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-md p-4 whitespace-pre-line">
+                                    <p>{job.notes}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : (
+                              <span className="text-sm text-muted-foreground italic">No notes</span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
@@ -302,17 +583,13 @@ function SavedJobsPageContent() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    onClick={() => handleToggleApplied(job.jobId, !!job.appliedAt)}
+                                    onClick={() => openEditDialog(job)}
                                   >
-                                    <CheckCircle className={`h-4 w-4 ${
-                                      job.appliedAt 
-                                        ? 'text-green-600' 
-                                        : 'text-muted-foreground'
-                                    }`} />
+                                    <Edit className="h-4 w-4 text-muted-foreground" />
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>{job.appliedAt ? 'Mark as Not Applied' : 'Mark as Applied'}</p>
+                                  <p>Edit Application Details</p>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
@@ -379,6 +656,75 @@ function SavedJobsPageContent() {
                 </Table>
               </CardContent>
             </Card>
+          )}
+
+          {editingJob && (
+            <Dialog open={!!editingJob} onOpenChange={(open) => !open && setEditingJob(null)}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Edit Application Details</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="status">Status</Label>
+                    <Select value={status} onValueChange={(value) => setStatus(value as ApplicationStatus)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="saved">Saved</SelectItem>
+                        <SelectItem value="applied">Applied</SelectItem>
+                        <SelectItem value="interviewing">Interviewing</SelectItem>
+                        <SelectItem value="offer">Offer</SelectItem>
+                        <SelectItem value="rejected">Rejected</SelectItem>
+                        <SelectItem value="withdrawn">Withdrawn</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="notes">Notes</Label>
+                    <Textarea
+                      id="notes"
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Add notes about this application..."
+                      rows={3}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="reminderDate">Reminder Date</Label>
+                    <Input
+                      id="reminderDate"
+                      type="date"
+                      value={reminderDate}
+                      onChange={(e) => setReminderDate(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="reminderNote">Reminder Note</Label>
+                    <Input
+                      id="reminderNote"
+                      value={reminderNote}
+                      onChange={(e) => setReminderNote(e.target.value)}
+                      placeholder="What to follow up on..."
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setEditingJob(null)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={() => handleUpdateJobTracking(editingJob.jobId, {
+                      status,
+                      notes: notes || undefined,
+                      reminderDate: reminderDate ? new Date(reminderDate) : undefined,
+                      reminderNote: reminderNote || undefined,
+                    })}>
+                      Save Changes
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           )}
 
           {selectedJob && (
