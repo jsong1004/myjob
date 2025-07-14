@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Bookmark, ExternalLink, Loader2, AlertCircle, FileText, Edit, Calendar, StickyNote, ChevronUp, ChevronDown, Search, X, Plus } from "lucide-react"
+import { Bookmark, ExternalLink, Loader2, AlertCircle, FileText, Edit, Calendar, StickyNote, ChevronUp, ChevronDown, Search, X, Plus, RefreshCw } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Header } from "@/components/header"
@@ -54,6 +54,7 @@ function SavedJobsPageContent() {
   const [newJobApplyUrl, setNewJobApplyUrl] = useState('')
   const [newJobSalary, setNewJobSalary] = useState('')
   const [isAddingJob, setIsAddingJob] = useState(false)
+  const [rescoringJobId, setRescoringJobId] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchSavedJobs = async () => {
@@ -368,6 +369,111 @@ function SavedJobsPageContent() {
       setError('Failed to add job')
     } finally {
       setIsAddingJob(false)
+    }
+  }
+
+  const handleRescoreJob = async (job: SavedJob) => {
+    if (!user || !auth?.currentUser) return
+
+    setRescoringJobId(job.jobId)
+    setError(null)
+
+    try {
+      const token = await auth.currentUser.getIdToken()
+      
+      // First get the user's default resume
+      const resumeResponse = await fetch('/api/resumes', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!resumeResponse.ok) {
+        setError('Failed to fetch resume for scoring')
+        return
+      }
+
+      const resumeData = await resumeResponse.json()
+      const defaultResume = resumeData.resumes?.find((r: any) => r.isDefault) || resumeData.resumes?.[0]
+      
+      if (!defaultResume || !defaultResume.content) {
+        setError('No resume available for scoring. Please upload a resume first.')
+        return
+      }
+
+      // Score the job
+      const jobToScore = {
+        id: job.jobId,
+        title: job.title,
+        company: job.company,
+        location: job.location,
+        description: job.originalData?.description || job.summary || '',
+        qualifications: job.originalData?.qualifications || [],
+        responsibilities: job.originalData?.responsibilities || [],
+        benefits: job.originalData?.benefits || [],
+        salary: job.salary,
+        postedAt: job.originalData?.postedAt || '',
+        applyUrl: job.originalData?.applyUrl || '',
+        source: job.originalData?.source || 'manual',
+        matchingScore: 0,
+        matchingSummary: '',
+        summary: job.originalData?.summary || job.summary || ''
+      }
+
+      const scoreResponse = await fetch('/api/jobs/score', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          jobs: [jobToScore],
+          resume: defaultResume.content,
+        }),
+      })
+
+      if (scoreResponse.ok) {
+        const scoreData = await scoreResponse.json()
+        const scoredJob = scoreData.jobs[0]
+        
+        // Update the saved job with new score
+        const updateResponse = await fetch(`/api/saved-jobs/${job.jobId}`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            matchingScore: scoredJob.matchingScore,
+            matchingSummary: scoredJob.matchingSummary,
+          }),
+        })
+
+        if (updateResponse.ok) {
+          // Update local state
+          setSavedJobs((prev) => 
+            prev.map((savedJob) => 
+              savedJob.jobId === job.jobId 
+                ? { 
+                    ...savedJob, 
+                    matchingScore: scoredJob.matchingScore,
+                    matchingSummary: scoredJob.matchingSummary
+                  }
+                : savedJob
+            )
+          )
+        } else {
+          setError('Failed to update job score')
+        }
+      } else {
+        const errorData = await scoreResponse.json()
+        setError(errorData.error || 'Failed to score job')
+      }
+    } catch (err) {
+      setError('Error rescoring job')
+    } finally {
+      setRescoringJobId(null)
     }
   }
 
@@ -692,14 +798,40 @@ function SavedJobsPageContent() {
                           </TooltipProvider>
                         </TableCell>
                         <TableCell className="text-center">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className={`font-bold ${getScoreColor(job.matchingScore ?? 0)}`}
-                            onClick={() => setSelectedJob(job)}
-                          >
-                            {job.matchingScore ?? "-"}%
-                          </Button>
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className={`font-bold ${getScoreColor(job.matchingScore ?? 0)}`}
+                              onClick={() => setSelectedJob(job)}
+                            >
+                              {job.matchingScore ?? "-"}%
+                            </Button>
+                            {(job.matchingScore === 0 || job.matchingScore === null || job.originalData?.source === 'manual') && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleRescoreJob(job)}
+                                      disabled={rescoringJobId === job.jobId}
+                                      className="p-1 h-auto"
+                                    >
+                                      {rescoringJobId === job.jobId ? (
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                      ) : (
+                                        <RefreshCw className="h-3 w-3" />
+                                      )}
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Generate Match Score</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <div className="max-w-xs">
