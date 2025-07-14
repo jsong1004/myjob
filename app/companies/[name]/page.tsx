@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -73,10 +73,16 @@ export default function CompanyDetailPage() {
 
 function CompanyDetailContent() {
   const params = useParams()
+  const searchParams = useSearchParams()
   const companyName = params.name as string
   const [company, setCompany] = useState<CompanyData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  // Determine where user came from
+  const referrer = searchParams.get('from')
+  const backUrl = referrer === 'cover-letters' ? '/cover-letters' : '/saved-jobs'
+  const backText = referrer === 'cover-letters' ? 'Back to My Cover Letters' : 'Back to My Jobs'
 
   useEffect(() => {
     const fetchCompanyData = async () => {
@@ -134,9 +140,9 @@ function CompanyDetailContent() {
         <div className="max-w-6xl mx-auto">
           <div className="mb-8">
             <Button variant="ghost" asChild className="mb-4">
-              <Link href="/saved-jobs">
+              <Link href={backUrl}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Saved Jobs
+                {backText}
               </Link>
             </Button>
             

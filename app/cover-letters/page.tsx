@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { FileText, Loader2, Download, Eye, AlertCircle, Trash2 } from "lucide-react"
+import { FileText, Loader2, Download, Eye, AlertCircle, Trash2, ChevronUp, ChevronDown } from "lucide-react"
 import { Header } from "@/components/header"
 import { AuthProvider, useAuth } from "@/components/auth-provider"
 import { auth } from "@/lib/firebase"
@@ -28,6 +28,8 @@ function CoverLettersPageContent() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
+  const [sortField, setSortField] = useState<'name' | 'jobTitle' | 'company' | 'createdAt'>('createdAt')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
 
   useEffect(() => {
     const fetchCoverLetters = async () => {
@@ -162,18 +164,73 @@ ${coverLetter.content}`
     return new Date(date).toLocaleDateString()
   }
 
+  const handleSort = (field: 'name' | 'jobTitle' | 'company' | 'createdAt') => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortDirection('asc')
+    }
+  }
+
+  const sortedCoverLetters = [...coverLetters].sort((a, b) => {
+    let aValue: any
+    let bValue: any
+
+    switch (sortField) {
+      case 'name':
+        aValue = a.name.toLowerCase()
+        bValue = b.name.toLowerCase()
+        break
+      case 'jobTitle':
+        aValue = a.jobTitle.toLowerCase()
+        bValue = b.jobTitle.toLowerCase()
+        break
+      case 'company':
+        aValue = a.company.toLowerCase()
+        bValue = b.company.toLowerCase()
+        break
+      case 'createdAt':
+        aValue = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt.seconds * 1000)
+        bValue = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt.seconds * 1000)
+        break
+      default:
+        return 0
+    }
+
+    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
+    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
+    return 0
+  })
+
+  const SortableHeader = ({ field, children }: { field: 'name' | 'jobTitle' | 'company' | 'createdAt', children: React.ReactNode }) => (
+    <TableHead 
+      className="cursor-pointer hover:bg-muted/50 select-none"
+      onClick={() => handleSort(field)}
+    >
+      <div className="flex items-center gap-1">
+        {children}
+        {sortField === field && (
+          sortDirection === 'asc' ? 
+            <ChevronUp className="h-4 w-4" /> : 
+            <ChevronDown className="h-4 w-4" />
+        )}
+      </div>
+    </TableHead>
+  )
+
   return (
     <>
       <Header />
-      <main className="container mx-auto px-4 py-12 md:py-16">
+      <main className="container mx-auto px-4 py-6">
         <div className="max-w-6xl mx-auto">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold tracking-tight">My Cover Letters</h1>
+          <div className="mb-4">
+            <h1 className="text-2xl font-bold tracking-tight">My Cover Letters</h1>
           </div>
 
           {loading ? (
-            <div className="flex justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : error ? (
             <Alert variant="destructive">
@@ -181,10 +238,10 @@ ${coverLetter.content}`
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : coverLetters.length === 0 ? (
-            <Card className="text-center py-16">
+            <Card className="text-center py-12">
               <CardContent>
-                <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">No Cover Letters</h3>
+                <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                <h3 className="text-lg font-semibold mb-2">No Cover Letters</h3>
                 <p className="text-muted-foreground mb-4">You haven't saved any cover letters yet.</p>
                 <Button asChild>
                   <a href="/saved-jobs">Create Cover Letter</a>
@@ -197,15 +254,15 @@ ${coverLetter.content}`
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Cover Letter Name</TableHead>
-                      <TableHead>Job Title</TableHead>
-                      <TableHead>Company</TableHead>
-                      <TableHead>Created</TableHead>
+                      <SortableHeader field="name">Name</SortableHeader>
+                      <SortableHeader field="jobTitle">Job Title</SortableHeader>
+                      <SortableHeader field="company">Company</SortableHeader>
+                      <SortableHeader field="createdAt">Created</SortableHeader>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {coverLetters.map((coverLetter) => (
+                    {sortedCoverLetters.map((coverLetter) => (
                       <TableRow key={coverLetter.id}>
                         <TableCell>
                           <a
@@ -216,7 +273,14 @@ ${coverLetter.content}`
                           </a>
                         </TableCell>
                         <TableCell>{coverLetter.jobTitle}</TableCell>
-                        <TableCell>{coverLetter.company}</TableCell>
+                        <TableCell>
+                          <Link 
+                            href={`/companies/${encodeURIComponent(coverLetter.company)}?from=cover-letters`}
+                            className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                          >
+                            {coverLetter.company}
+                          </Link>
+                        </TableCell>
                         <TableCell>{formatDate(coverLetter.createdAt)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">

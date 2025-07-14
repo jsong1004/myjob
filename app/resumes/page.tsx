@@ -412,7 +412,7 @@ function ResumesPageContent() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <SortableHeader field="name">Resume Name</SortableHeader>
+                      <SortableHeader field="name">Name</SortableHeader>
                       <TableHead>Job Title</TableHead>
                       <TableHead>Content Preview</TableHead>
                       <SortableHeader field="createdAt">Created</SortableHeader>
