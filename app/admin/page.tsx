@@ -3,14 +3,15 @@
 import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ShieldCheck, AlertCircle, Activity, Users } from "lucide-react"
+import { ShieldCheck, AlertCircle, Activity, Users, GitBranch } from "lucide-react"
 import { Header } from "@/components/header"
 import { AuthProvider, useAuth } from "@/components/auth-provider"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AdminActivities } from "@/components/admin/admin-activities"
 import { AdminUserManagement } from "@/components/admin/admin-user-management"
+import { AdminGitHubIssues } from "@/components/admin/admin-github-issues"
 
-type AdminSection = 'activities' | 'users'
+type AdminSection = 'activities' | 'users' | 'issues'
 
 export default function AdminPage() {
   return (
@@ -52,6 +53,12 @@ function AdminPageContent() {
       title: 'User Management',
       icon: Users,
       description: 'Manage users and their data'
+    },
+    {
+      id: 'issues' as AdminSection,
+      title: 'GitHub Issues',
+      icon: GitBranch,
+      description: 'View and manage GitHub issues'
     }
   ]
 
@@ -61,6 +68,8 @@ function AdminPageContent() {
         return <AdminActivities />
       case 'users':
         return <AdminUserManagement />
+      case 'issues':
+        return <AdminGitHubIssues />
       default:
         return <AdminActivities />
     }
