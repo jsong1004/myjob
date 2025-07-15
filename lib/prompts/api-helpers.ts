@@ -290,16 +290,33 @@ export async function executeResumeTailoring(request: ResumeTailoringRequest): P
     // Choose the appropriate prompt based on mode
     const promptId = request.mode === 'agent' ? 'resume-tailoring-ats' : 'resume-tailoring-advisory'
     
+    // Debug logging for variables
+    const variables = {
+      resume: request.resume,
+      jobTitle: request.jobTitle,
+      company: request.company,
+      jobDescription: request.jobDescription,
+      userRequest: request.userRequest
+    }
+    
+    console.log('[ResumeTailoring] Variables debug:', {
+      promptId,
+      hasResume: !!variables.resume,
+      resumeLength: variables.resume?.length || 0,
+      resumeStart: variables.resume?.substring(0, 100) || 'EMPTY',
+      hasJobTitle: !!variables.jobTitle,
+      hasCompany: !!variables.company,
+      hasJobDescription: !!variables.jobDescription,
+      hasUserRequest: !!variables.userRequest,
+      variableKeys: Object.keys(variables),
+      resumeType: typeof variables.resume,
+      resumeContent: variables.resume === null ? 'NULL' : variables.resume === undefined ? 'UNDEFINED' : 'HAS_VALUE'
+    })
+    
     // Execute the tailoring prompt
     const response = await promptManager.executePrompt({
       promptId,
-      variables: {
-        resume: request.resume,
-        jobTitle: request.jobTitle,
-        company: request.company,
-        jobDescription: request.jobDescription,
-        userRequest: request.userRequest
-      },
+      variables,
       context: {
         metadata: {
           mode: request.mode,
