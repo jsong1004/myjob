@@ -189,8 +189,14 @@ export default function CoverLetterPage({ params }: CoverLetterPageProps) {
 
 
   const handleSendMessage = async () => {
-    console.log("handleSendMessage called", { newMessage, job });
-    if (!newMessage.trim() || !user) return
+    console.log("handleSendMessage called", { newMessage, job, user });
+    if (!newMessage.trim() || !user) {
+      console.log("Early return - missing requirements:", { 
+        hasMessage: !!newMessage.trim(), 
+        hasUser: !!user 
+      });
+      return;
+    }
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -545,9 +551,10 @@ ${currentCoverLetter}`
                 </Card>
               </div>
 
-              {/* AI Assistant Chat */}
-              <div className="h-full flex flex-col">
-                <Card className="flex-1 flex flex-col">
+              {/* AI Assistant Interface */}
+              <div className="h-full flex flex-col space-y-4">
+                {/* Mode Selection Card */}
+                <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2"><MessageSquare className="h-5 w-5" /> AI Assistant</CardTitle>
                      <ToggleGroup 
@@ -560,9 +567,17 @@ ${currentCoverLetter}`
                         <ToggleGroupItem value="agent" aria-label="Agent Mode">Agent Mode</ToggleGroupItem>
                         <ToggleGroupItem value="ask" aria-label="Ask Mode">Ask Mode</ToggleGroupItem>
                       </ToggleGroup>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        {mode === 'agent'
+                          ? 'Give instructions to edit your cover letter.'
+                          : 'Ask questions about your cover letter or the job.'}
+                      </p>
                   </CardHeader>
-                  <Separator />
-                  <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
+                </Card>
+
+                {/* Chat Interface Card */}
+                <Card className="flex-1 flex flex-col">
+                  <CardContent className="flex-1 overflow-y-auto overflow-x-hidden p-6 space-y-4">
                      {chatMessages.length === 0 && !generating && (
                         <div className="text-center text-muted-foreground pt-8">
                           {isEdit 
@@ -579,14 +594,22 @@ ${currentCoverLetter}`
                         }`}
                       >
                         <div
-                          className={`rounded-lg px-4 py-2 max-w-[80%] ${
+                          className={`rounded-lg px-4 py-2 max-w-[80%] break-words overflow-hidden ${
                             message.type === "user"
                               ? "bg-primary text-primary-foreground"
                               : "bg-muted"
                           }`}
                         >
-                          <p className="text-sm">{message.content}</p>
-                          <p className="text-xs text-muted-foreground/80 mt-1 text-right">
+                          <div className={`text-sm break-words whitespace-pre-wrap ${message.type === "user" ? "text-primary-foreground" : ""}`} style={{ overflowWrap: 'anywhere', wordWrap: 'break-word', wordBreak: 'break-word' }}>
+                            {message.type === "user" ? (
+                              <p>{message.content}</p>
+                            ) : (
+                              <div className="prose prose-sm max-w-none">
+                                <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                              </div>
+                            )}
+                          </div>
+                          <p className={`text-xs mt-1 text-right ${message.type === "user" ? "text-primary-foreground/80" : "text-muted-foreground/80"}`}>
                             {formatTime(message.timestamp)}
                           </p>
                         </div>
@@ -606,15 +629,9 @@ ${currentCoverLetter}`
                         className="pr-16"
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault()
-                            handleSendMessage()
-                          }
-                        }}
                       />
                       <Button
-                        type="submit"
+                        type="button"
                         size="icon"
                         className="absolute top-1/2 -translate-y-1/2 right-3"
                         onClick={handleSendMessage}

@@ -210,8 +210,16 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
   }, [job, user])
 
   const handleSendMessage = async () => {
-    console.log("handleSendMessage called", { newMessage, job });
-    if (!newMessage.trim() || !job || !user || !auth?.currentUser) return
+    console.log("handleSendMessage called", { newMessage, job, user });
+    if (!newMessage.trim() || !job || !user || !auth?.currentUser) {
+      console.log("Early return - missing requirements:", { 
+        hasMessage: !!newMessage.trim(), 
+        hasJob: !!job, 
+        hasUser: !!user, 
+        hasAuth: !!auth?.currentUser 
+      });
+      return;
+    }
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -434,7 +442,7 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Resume Preview */}
-            <Card className="h-fit">
+            <Card className="h-[856px] flex flex-col">
               <CardHeader>
                 <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
@@ -461,125 +469,128 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
                   <Badge variant="secondary">Draft</Badge>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex-1 overflow-hidden">
                 {isEditMode ? (
                   <Textarea
                     value={currentResume}
                     onChange={(e) => setCurrentResume(e.target.value)}
-                    className="min-h-[600px] font-mono text-sm"
+                    className="h-full font-mono text-sm resize-none"
                     placeholder="Edit your resume content here..."
                   />
                 ) : (
-                  <div className="bg-white border rounded-lg p-6 max-h-[600px] overflow-y-auto prose prose-sm max-w-none">
+                  <div className="bg-white border rounded-lg p-6 h-full overflow-y-auto prose prose-sm max-w-none">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{currentResume}</ReactMarkdown>
-                </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Chat Interface */}
-            <Card className="flex flex-col h-[700px]">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5" />
-                  AI Resume Assistant
-                </CardTitle>
-                <div className="flex items-center gap-4 mt-2">
-                  <span className="text-sm text-gray-600">Mode:</span>
-                  <ToggleGroup type="single" value={mode} onValueChange={v => v && setMode(v as 'agent' | 'ask')}>
-                    <ToggleGroupItem value="agent">Agent (Edit Resume)</ToggleGroupItem>
-                    <ToggleGroupItem value="ask">Ask (Q&A Only)</ToggleGroupItem>
-                  </ToggleGroup>
-                </div>
-                <p className="text-sm text-gray-600 mt-2">
-                  {mode === 'agent'
-                    ? 'Give instructions to edit your resume. Example: "Make the summary shorter".'
-                    : 'Ask questions about your resume or the job. Example: "What skills should I highlight?"'}
-                </p>
-              </CardHeader>
-
-              <CardContent className="flex-1 flex flex-col">
-                {/* Debug: Show job object */}
-                <div className="mb-2">
-                  <details>
-                    <summary className="text-xs text-gray-400 cursor-pointer">Debug: Job object</summary>
-                    <pre className="text-xs bg-gray-50 p-2 rounded border border-gray-100 max-h-40 overflow-auto">{JSON.stringify(job, null, 2)}</pre>
-                  </details>
-                </div>
-                {/* Chat Messages */}
-                <div className="flex-1 space-y-4 mb-4 overflow-y-auto">
-                  {chatMessages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`flex ${message.type === "user" ? "justify-end" : "justify-start"}`}
-                    >
-                      <div
-                        className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                          message.type === "user" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-900"
-                        }`}
-                      >
-                        <div className="prose prose-sm max-w-none">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
-                        </div>
-                        <p className={`text-xs mt-1 ${message.type === "user" ? "text-blue-100" : "text-gray-500"}`}>
-                          {formatTime(message.timestamp)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-
-                  {isProcessing && (
-                    <div className="flex justify-start">
-                      <div className="bg-gray-100 rounded-lg px-4 py-2">
-                        <div className="flex items-center gap-2">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span className="text-sm text-gray-600">AI is thinking...</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <Separator className="mb-4" />
-
-                {/* Message Input */}
-                {job ? (
-                <div className="flex gap-2">
-                  <Input
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="Ask me to modify your resume..."
-                    onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
-                    disabled={isProcessing}
-                  />
-                    <Button onClick={handleSendMessage} disabled={isProcessing || !newMessage.trim() || !job}>
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
-                ) : (
-                  <div className="text-sm text-red-500 bg-red-50 border border-red-200 rounded p-3 mt-2">
-                    Unable to load job information. Please return to the job search and try again.<br/>
-                    (The chat is disabled until a job is loaded.)
                   </div>
                 )}
-
-                {/* Quick Actions */}
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {aiSuggestions.map((suggestion, index) => (
-                  <Button
-                      key={index}
-                    variant="outline"
-                    size="sm"
-                      onClick={() => setNewMessage(suggestion)}
-                    disabled={isProcessing}
-                      className="text-left justify-start"
-                  >
-                      {suggestion.length > 30 ? suggestion.substring(0, 30) + '...' : suggestion}
-                  </Button>
-                  ))}
-                </div>
               </CardContent>
             </Card>
+
+            {/* AI Assistant Interface */}
+            <div className="space-y-4">
+              {/* Mode Selection Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5" />
+                    AI Resume Assistant
+                  </CardTitle>
+                  <div className="flex items-center gap-4 mt-2">
+                    <span className="text-sm text-gray-600">Mode:</span>
+                    <ToggleGroup type="single" value={mode} onValueChange={v => v && setMode(v as 'agent' | 'ask')}>
+                      <ToggleGroupItem value="agent">Agent (Edit Resume)</ToggleGroupItem>
+                      <ToggleGroupItem value="ask">Ask (Q&A Only)</ToggleGroupItem>
+                    </ToggleGroup>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-2">
+                    {mode === 'agent'
+                      ? 'Give instructions to edit your resume. Example: "Make the summary shorter".'
+                      : 'Ask questions about your resume or the job. Example: "What skills should I highlight?"'}
+                  </p>
+                </CardHeader>
+              </Card>
+
+              {/* Chat Interface Card */}
+              <Card className="flex flex-col h-[700px]">
+                <CardContent className="flex-1 flex flex-col overflow-hidden p-6">
+                  {/* Chat Messages */}
+                  <div className="flex-1 space-y-4 mb-4 overflow-y-auto overflow-x-hidden">
+                    {chatMessages.map((message) => (
+                      <div
+                        key={message.id}
+                        className={`flex ${message.type === "user" ? "justify-end" : "justify-start"}`}
+                      >
+                        <div
+                          className={`max-w-[80%] rounded-lg px-4 py-2 break-words overflow-hidden ${
+                            message.type === "user" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-900"
+                          }`}
+                        >
+                          <div className={`prose prose-sm max-w-none break-words ${message.type === "user" ? "text-white" : ""}`} style={{ overflowWrap: 'anywhere', wordWrap: 'break-word', wordBreak: 'break-word' }}>
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                          </div>
+                          <p className={`text-xs mt-1 ${message.type === "user" ? "text-blue-100" : "text-gray-500"}`}>
+                            {formatTime(message.timestamp)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+
+                    {isProcessing && (
+                      <div className="flex justify-start">
+                        <div className="bg-gray-100 rounded-lg px-4 py-2">
+                          <div className="flex items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span className="text-sm text-gray-600">AI is thinking...</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator className="mb-4" />
+
+                  {/* Message Input */}
+                  {job ? (
+                  <div className="flex gap-2">
+                    <Textarea
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      placeholder="Ask me to modify your resume..."
+                      disabled={isProcessing}
+                      className="min-h-[40px] resize-none"
+                    />
+                      <Button 
+                        type="button"
+                        onClick={handleSendMessage} 
+                        disabled={isProcessing || !newMessage.trim() || !job}
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
+                  </div>
+                  ) : (
+                    <div className="text-sm text-red-500 bg-red-50 border border-red-200 rounded p-3 mt-2">
+                      Unable to load job information. Please return to the job search and try again.<br/>
+                      (The chat is disabled until a job is loaded.)
+                    </div>
+                  )}
+
+                  {/* Quick Actions */}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {aiSuggestions.map((suggestion, index) => (
+                    <Button
+                        key={index}
+                      variant="outline"
+                      size="sm"
+                        onClick={() => setNewMessage(suggestion)}
+                      disabled={isProcessing}
+                        className="text-left justify-start"
+                    >
+                        {suggestion.length > 30 ? suggestion.substring(0, 30) + '...' : suggestion}
+                    </Button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
         </div>
