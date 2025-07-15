@@ -56,6 +56,7 @@ MyJob is a modern, AI-driven platform designed to streamline the job search proc
 ### Data Architecture & AI Features
 - **Complete Job Data Storage (Issue #18):** Enhanced job search results storage to save complete SerpAPI data in jobs collection while maintaining user-specific scoring in savedJobs collection for better data separation and richer job information.
 - **Session Timeout & Security (Issue #20):** Implemented 15-minute idle timeout with automatic logout and redirect to main page for enhanced security.
+- **Extended Session Timeout (Issue #47):** Increased session timeout from 15 minutes to 1 hour (60 minutes) for better user experience. Users will now be automatically logged out after 1 hour of inactivity and redirected to the home page.
 - **Saved Jobs Date Sorting (Issue #21):** Saved jobs are now sorted by date with most recently added jobs appearing first.
 - **Company Detail Pages (Issue #22):** Comprehensive company information pages using The Companies API with business metrics, employee data, and social links.
 - **AI Job Summaries (Issue #23):** All new job postings now include AI-generated summaries highlighting key responsibilities and requirements.

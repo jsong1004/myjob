@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Idle timeout hook - only active when user is logged in
   useIdleTimeout({ 
     onIdle: signOutWithRedirect, 
-    idleTime: 15, // 15 minutes idle timeout
+    idleTime: 60, // 60 minutes (1 hour) idle timeout
     enabled: !!user // Only enable when user is logged in
   });
 
