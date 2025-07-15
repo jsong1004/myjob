@@ -1,7 +1,7 @@
 // lib/prompts/index.ts
 import { PromptManager } from './manager'
 import { JOB_SCORING_PROMPTS, JOB_SUMMARY_PROMPTS, MULTI_AGENT_SCORING_PROMPTS } from './job-matching'
-import { RESUME_TAILORING_PROMPTS, RESUME_EDITING_PROMPTS } from './resume'
+import { RESUME_TAILORING_PROMPTS, RESUME_EDITING_PROMPTS, MULTI_AGENT_TAILORING_PROMPTS } from './resume'
 import { COVER_LETTER_GENERATION_PROMPTS, COVER_LETTER_EDITING_PROMPTS } from './cover-letter'
 
 // Initialize and configure the prompt manager
@@ -15,6 +15,7 @@ Object.values(MULTI_AGENT_SCORING_PROMPTS).forEach(prompt => promptManager.regis
 // Register all resume prompts
 Object.values(RESUME_TAILORING_PROMPTS).forEach(prompt => promptManager.registerPrompt(prompt))
 Object.values(RESUME_EDITING_PROMPTS).forEach(prompt => promptManager.registerPrompt(prompt))
+Object.values(MULTI_AGENT_TAILORING_PROMPTS).forEach(prompt => promptManager.registerPrompt(prompt))
 
 // Register all cover letter prompts
 Object.values(COVER_LETTER_GENERATION_PROMPTS).forEach(prompt => promptManager.registerPrompt(prompt))
@@ -31,3 +32,4 @@ export * from './resume'
 export * from './cover-letter'
 export * from './shared'
 export * from './utils'
+export * from './resume-tailoring-engine'

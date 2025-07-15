@@ -596,3 +596,62 @@ function transformBreakdownToScoreDetails(breakdown: any): {
     careerProgression: breakdown.careerProgression || defaultDetail
   }
 }
+
+/**
+ * Execute multi-agent resume tailoring
+ */
+export async function executeMultiAgentResumeTailoring(request: {
+  resume: string
+  jobDescription: string
+  scoringAnalysis?: any
+  userRequest: string
+}): Promise<{
+  reply: string
+  updatedResume?: string
+  agentResults?: any
+  executionSummary?: any
+}> {
+  try {
+    console.log('[MultiAgentTailoring] Starting multi-agent resume tailoring...')
+    
+    const openRouterApiKey = process.env.OPENROUTER_API_KEY
+    if (!openRouterApiKey) {
+      throw new Error('Missing OpenRouter API key for multi-agent tailoring')
+    }
+
+    // Import the multi-agent tailoring function
+    const { calculateMultiAgentTailoring } = await import('./resume-tailoring-engine')
+    
+    // Execute multi-agent tailoring
+    const tailoringResult = await calculateMultiAgentTailoring(
+      request.resume,
+      request.jobDescription,
+      request.scoringAnalysis || {},
+      request.userRequest,
+      openRouterApiKey
+    )
+    
+    console.log('[MultiAgentTailoring] Multi-agent tailoring completed successfully')
+    
+    return {
+      reply: tailoringResult.changeSummary,
+      updatedResume: tailoringResult.finalTailoredResume,
+      agentResults: tailoringResult.agentResults,
+      executionSummary: tailoringResult.executionSummary
+    }
+    
+  } catch (error) {
+    console.error('[MultiAgentTailoring] Error:', error)
+    
+    // Fallback to legacy tailoring
+    console.log('[MultiAgentTailoring] Falling back to legacy tailoring...')
+    return await executeResumeTailoring({
+      resume: request.resume,
+      jobTitle: 'Position',
+      company: 'Company',
+      jobDescription: request.jobDescription,
+      userRequest: request.userRequest,
+      mode: 'agent'
+    })
+  }
+}
