@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { executeJobScoring } from "@/lib/prompts/api-helpers";
+import { executeEnhancedJobScoring, executeMultiAgentJobScoring } from "@/lib/prompts/api-helpers";
 import { getJson } from "serpapi";
 
-import { logActivity } from "@/lib/activity-logger";
 import { initFirebaseAdmin } from "@/lib/firebase-admin-init";
 import { getAuth } from "firebase-admin/auth";
 import { filterExistingJobs, saveJobsIfNotExist } from "@/lib/seen-jobs";
@@ -10,12 +9,14 @@ import { JobSearchResult } from "@/lib/types";
 
 export async function POST(req: NextRequest) {
   try {
-    const { query, location, resume } = await req.json();
+    const { query, location, resume, useMultiAgent = true, forceLegacyScoring = false } = await req.json();
     console.log(`\n=== [JobSearch] Starting Job Search ===`);
     console.log(`[JobSearch] Query: "${query}"`);
     console.log(`[JobSearch] Location: "${location}"`);
     console.log(`[JobSearch] Resume provided: ${!!resume}`);
     console.log(`[JobSearch] Resume length: ${resume?.length || 0} characters`);
+    console.log(`[JobSearch] Multi-agent scoring: ${useMultiAgent}`);
+    console.log(`[JobSearch] Force legacy scoring: ${forceLegacyScoring}`);
     
     // Debug environment variables
     console.log(`[JobSearch] Environment check:`);
@@ -174,8 +175,16 @@ export async function POST(req: NextRequest) {
     if (jobsWithSummaries.length > 0) {
       if (resume) {
         try {
-          console.log(`[JobSearch] Scoring ${jobsWithSummaries.length} new jobs.`);
-          jobsToReturn = await executeJobScoring({ jobs: jobsWithSummaries, resume, userId });
+          if (forceLegacyScoring) {
+            console.log(`[JobSearch] Using legacy enhanced scoring for ${jobsWithSummaries.length} new jobs (forced).`);
+            jobsToReturn = await executeEnhancedJobScoring({ jobs: jobsWithSummaries, resume, userId });
+          } else if (useMultiAgent) {
+            console.log(`[JobSearch] Using multi-agent scoring for ${jobsWithSummaries.length} new jobs.`);
+            jobsToReturn = await executeMultiAgentJobScoring({ jobs: jobsWithSummaries, resume, userId });
+          } else {
+            console.log(`[JobSearch] Using enhanced scoring for ${jobsWithSummaries.length} new jobs.`);
+            jobsToReturn = await executeEnhancedJobScoring({ jobs: jobsWithSummaries, resume, userId });
+          }
         } catch (error) {
           console.error("[JobSearch] Error getting matching scores:", error);
           jobsToReturn = jobsWithSummaries.map(job => ({

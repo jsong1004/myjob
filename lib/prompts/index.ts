@@ -1,6 +1,6 @@
 // lib/prompts/index.ts
 import { PromptManager } from './manager'
-import { JOB_SCORING_PROMPTS, JOB_SUMMARY_PROMPTS } from './job-matching'
+import { JOB_SCORING_PROMPTS, JOB_SUMMARY_PROMPTS, MULTI_AGENT_SCORING_PROMPTS } from './job-matching'
 import { RESUME_TAILORING_PROMPTS, RESUME_EDITING_PROMPTS } from './resume'
 import { COVER_LETTER_GENERATION_PROMPTS, COVER_LETTER_EDITING_PROMPTS } from './cover-letter'
 
@@ -10,6 +10,7 @@ const promptManager = PromptManager.getInstance()
 // Register all job-matching prompts
 Object.values(JOB_SCORING_PROMPTS).forEach(prompt => promptManager.registerPrompt(prompt))
 Object.values(JOB_SUMMARY_PROMPTS).forEach(prompt => promptManager.registerPrompt(prompt))
+Object.values(MULTI_AGENT_SCORING_PROMPTS).forEach(prompt => promptManager.registerPrompt(prompt))
 
 // Register all resume prompts
 Object.values(RESUME_TAILORING_PROMPTS).forEach(prompt => promptManager.registerPrompt(prompt))

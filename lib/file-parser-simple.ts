@@ -132,7 +132,7 @@ export async function parsePDF(buffer: Buffer): Promise<ParsedFileResult> {
  */
 function convertHtmlToMarkdown(html: string): string {
   // Basic HTML to markdown conversion
-  let markdown = html
+  const markdown = html
     // Headers
     .replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n')
     .replace(/<h2[^>]*>(.*?)<\/h2>/gi, '## $1\n')

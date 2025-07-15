@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { initFirebaseAdmin } from "@/lib/firebase-admin-init"
 import { getAuth } from "firebase-admin/auth"
-import { logActivity } from "@/lib/activity-logger"
-import { JobSearchResult } from "@/lib/types"
-import { executeJobScoring } from "@/lib/prompts/api-helpers"
+import { executeJobScoring, executeEnhancedJobScoring, executeMultiAgentJobScoring } from "@/lib/prompts/api-helpers"
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,7 +15,7 @@ export async function POST(req: NextRequest) {
     const decoded = await adminAuth.verifyIdToken(token)
     const userId = decoded.uid
 
-    const { jobs, resume } = await req.json()
+    const { jobs, resume, enhanced = false, multiAgent = false } = await req.json()
     
     if (!jobs || !Array.isArray(jobs) || jobs.length === 0) {
       return NextResponse.json({ error: "Jobs array is required" }, { status: 400 })
@@ -27,14 +25,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Resume content is required" }, { status: 400 })
     }
 
-    console.log(`[JobScoring] Scoring ${jobs.length} jobs for user ${userId}`)
+    console.log(`[JobScoring] Scoring ${jobs.length} jobs for user ${userId} (enhanced: ${enhanced}, multiAgent: ${multiAgent})`)
 
-    // Score the jobs using the centralized prompt system
-    const scoredJobs = await executeJobScoring({ jobs, resume, userId })
+    // Score the jobs using the appropriate scoring system
+    let scoredJobs
+    if (multiAgent) {
+      scoredJobs = await executeMultiAgentJobScoring({ jobs, resume, userId })
+    } else if (enhanced) {
+      scoredJobs = await executeEnhancedJobScoring({ jobs, resume, userId })
+    } else {
+      scoredJobs = await executeJobScoring({ jobs, resume, userId })
+    }
 
     return NextResponse.json({ 
       message: `Successfully scored ${scoredJobs.length} jobs`,
-      jobs: scoredJobs 
+      jobs: scoredJobs,
+      enhanced: enhanced,
+      multiAgent: multiAgent,
+      scoringSystem: multiAgent ? 'multi-agent' : (enhanced ? 'enhanced' : 'basic')
     })
 
   } catch (error) {

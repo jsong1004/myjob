@@ -4,6 +4,82 @@ import { MODELS, TEMPERATURE, TAGS } from '../constants'
 import { SYSTEM_ROLES } from '../shared/system-roles'
 
 export const JOB_SCORING_PROMPTS: Record<string, PromptConfig> = {
+  ENHANCED_HIRING_MANAGER: {
+    id: 'job-scoring-enhanced-hiring-manager',
+    name: 'Enhanced Hiring Manager Scoring',
+    description: 'Thorough, detailed, and honest scoring system like a seasoned hiring manager',
+    systemRole: `You are a seasoned hiring manager. Score candidates honestly - most score 40-70%, only exceptional candidates score 80%+.
+
+Return ONLY valid JSON. No explanatory text or markdown.`,
+    userTemplate: `Score these jobs against the resume. Be honest with scores.
+
+Resume:
+{resume}
+
+Jobs:
+{jobs}
+
+Return JSON array:
+[
+  {
+    "id": "job_id",
+    "overallScore": 65,
+    "category": "fair",
+    "breakdown": {
+      "technicalSkills": {"score": 60, "reasoning": "Missing key tech", "weight": 0.25},
+      "experienceDepth": {"score": 70, "reasoning": "Good experience", "weight": 0.25},
+      "achievements": {"score": 50, "reasoning": "Limited metrics", "weight": 0.20},
+      "education": {"score": 80, "reasoning": "Meets requirements", "weight": 0.10},
+      "softSkills": {"score": 70, "reasoning": "Good communication", "weight": 0.10},
+      "careerProgression": {"score": 60, "reasoning": "Some gaps", "weight": 0.10}
+    },
+    "redFlags": ["Missing required skill X"],
+    "positiveIndicators": ["Strong in Y"],
+    "hiringRecommendation": "Consider for phone screen",
+    "keyStrengths": ["Strength 1", "Strength 2"],
+    "keyWeaknesses": [
+      {
+        "weakness": "Missing skill X",
+        "impact": "Cannot perform core duties",
+        "improvementPlan": {
+          "shortTerm": "Take online course",
+          "midTerm": "Build practice projects",
+          "longTerm": "Gain work experience"
+        }
+      }
+    ],
+    "interviewFocus": ["Technical skills"],
+    "summary": "Fair candidate with development needs"
+  }
+]`,
+    model: MODELS.GPT4O_MINI,
+    temperature: TEMPERATURE.PRECISE,
+    responseFormat: {
+      type: 'json',
+      schema: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            overallScore: { type: 'number' },
+            category: { type: 'string' },
+            breakdown: { type: 'object' },
+            redFlags: { type: 'array', items: { type: 'string' } },
+            positiveIndicators: { type: 'array', items: { type: 'string' } },
+            hiringRecommendation: { type: 'string' },
+            keyStrengths: { type: 'array', items: { type: 'string' } },
+            keyWeaknesses: { type: 'array', items: { type: 'object' } },
+            interviewFocus: { type: 'array', items: { type: 'string' } },
+            summary: { type: 'string' }
+          }
+        }
+      }
+    },
+    version: '2.0.0',
+    tags: [TAGS.SCORING, TAGS.PROFESSIONAL, 'job-matching', 'enhanced']
+  },
+
   PROFESSIONAL: {
     id: 'job-scoring-professional',
     name: 'Professional Hiring Manager Scoring',

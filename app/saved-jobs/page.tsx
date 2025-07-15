@@ -430,6 +430,7 @@ function SavedJobsPageContent() {
         body: JSON.stringify({
           jobs: [jobToScore],
           resume: defaultResume.content,
+          multiAgent: true,
         }),
       })
 
@@ -437,7 +438,16 @@ function SavedJobsPageContent() {
         const scoreData = await scoreResponse.json()
         const scoredJob = scoreData.jobs[0]
         
-        // Update the saved job with new score
+        // Debug logging for scored job data
+        console.log('🔍 [Rescore] Scored job data received:', {
+          scoredJobKeys: scoredJob ? Object.keys(scoredJob) : [],
+          scoredJobScore: scoredJob?.matchingScore,
+          hasEnhancedScoreDetails: !!scoredJob?.enhancedScoreDetails,
+          hasScoreDetails: !!scoredJob?.scoreDetails,
+          enhancedScoreDetails: scoredJob?.enhancedScoreDetails
+        })
+        
+        // Update the saved job with new score and enhanced details
         const updateResponse = await fetch(`/api/saved-jobs/${job.jobId}`, {
           method: 'PATCH',
           headers: {
@@ -447,18 +457,32 @@ function SavedJobsPageContent() {
           body: JSON.stringify({
             matchingScore: scoredJob.matchingScore,
             matchingSummary: scoredJob.matchingSummary,
+            originalData: {
+              ...(job.originalData || {}),
+              matchingScore: scoredJob.matchingScore,
+              matchingSummary: scoredJob.matchingSummary,
+              enhancedScoreDetails: scoredJob.enhancedScoreDetails,
+              scoreDetails: scoredJob.scoreDetails
+            }
           }),
         })
 
         if (updateResponse.ok) {
-          // Update local state
+          // Update local state with full scoring data
           setSavedJobs((prev) => 
             prev.map((savedJob) => 
               savedJob.jobId === job.jobId 
                 ? { 
                     ...savedJob, 
                     matchingScore: scoredJob.matchingScore,
-                    matchingSummary: scoredJob.matchingSummary
+                    matchingSummary: scoredJob.matchingSummary,
+                    originalData: {
+                      ...(savedJob.originalData || {}),
+                      matchingScore: scoredJob.matchingScore,
+                      matchingSummary: scoredJob.matchingSummary,
+                      enhancedScoreDetails: scoredJob.enhancedScoreDetails,
+                      scoreDetails: scoredJob.scoreDetails
+                    }
                   }
                 : savedJob
             )
@@ -1009,19 +1033,35 @@ function SavedJobsPageContent() {
           )}
 
           {selectedJob && (
-            <MatchingScoreDialog 
-              job={{
-                ...selectedJob.originalData,
-                id: selectedJob.jobId,
+            (() => {
+              // Debug logging for job data
+              console.log('🔍 [SavedJobs] Selected job data:', {
+                jobId: selectedJob.jobId,
                 title: selectedJob.title,
-                company: selectedJob.company,
-                matchingScore: selectedJob.matchingScore ?? 0,
-                matchingSummary: selectedJob.originalData?.matchingSummary || selectedJob.summary,
-                summary: selectedJob.originalData?.summary,
-              }} 
-              isOpen={!!selectedJob} 
-              onClose={() => setSelectedJob(null)} 
-            />
+                hasOriginalData: !!selectedJob.originalData,
+                originalDataKeys: selectedJob.originalData ? Object.keys(selectedJob.originalData) : [],
+                enhancedScoreDetails: selectedJob.originalData?.enhancedScoreDetails,
+                scoreDetails: selectedJob.originalData?.scoreDetails
+              })
+              
+              return (
+                <MatchingScoreDialog 
+                  job={{
+                    ...selectedJob.originalData,
+                    id: selectedJob.jobId,
+                    title: selectedJob.title,
+                    company: selectedJob.company,
+                    matchingScore: selectedJob.matchingScore ?? 0,
+                    matchingSummary: selectedJob.originalData?.matchingSummary || selectedJob.summary,
+                    summary: selectedJob.originalData?.summary,
+                    enhancedScoreDetails: selectedJob.originalData?.enhancedScoreDetails,
+                    scoreDetails: selectedJob.originalData?.scoreDetails,
+                  }} 
+                  isOpen={!!selectedJob} 
+                  onClose={() => setSelectedJob(null)} 
+                />
+              )
+            })()
           )}
         </div>
       </main>

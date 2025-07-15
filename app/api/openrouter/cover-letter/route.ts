@@ -7,7 +7,7 @@ import { executeCoverLetterGeneration } from "@/lib/prompts/api-helpers";
 
 // Helper function to extract applicant info from resume or profile
 async function getApplicantInfo(resume: string, token?: string) {
-  let applicantInfo = {
+  const applicantInfo = {
     name: '[Your Name]',
     email: '[Your Email]',
     phone: '[Your Phone]',

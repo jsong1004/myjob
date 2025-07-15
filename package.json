@@ -43,7 +43,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
-    "date-fns": "4.1.0",
+    "date-fns": "^3.6.0",
     "embla-carousel-react": "8.5.1",
     "firebase": "^11.10.0",
     "firebase-admin": "^13.4.0",
@@ -57,7 +57,7 @@
     "pdf-parse": "^1.1.1",
     "puppeteer": "^24.12.1",
     "react": "^19",
-    "react-day-picker": "8.10.1",
+    "react-day-picker": "^9.0.0",
     "react-dom": "^19",
     "react-hook-form": "^7.54.1",
     "react-markdown": "^10.1.0",
@@ -68,7 +68,7 @@
     "sonner": "^1.7.1",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
-    "vaul": "^0.9.6",
+    "vaul": "^1.0.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
@@ -76,6 +76,8 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.4.1",
     "postcss": "^8.5",
     "tailwindcss": "^3.4.17",
     "typescript": "^5"
