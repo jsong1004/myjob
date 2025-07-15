@@ -16,6 +16,27 @@ export async function POST(req: NextRequest) {
     scoringAnalysis 
   } = await req.json()
   
+  // Debug logging
+  console.log('[TailoringAPI] Request parameters:', {
+    hasMessage: !!message,
+    hasResume: !!resume,
+    resumeLength: resume?.length || 0,
+    hasJobTitle: !!jobTitle,
+    hasCompany: !!company,
+    hasJobDescription: !!jobDescription,
+    mode,
+    multiAgent,
+    hasScoring: !!scoringAnalysis
+  });
+  
+  if (!resume || !resume.trim()) {
+    console.error('[TailoringAPI] Resume is missing or empty');
+    return NextResponse.json({ 
+      error: "Resume content is required for tailoring", 
+      details: "The resume field is missing or empty" 
+    }, { status: 400 });
+  }
+  
   try {
     const startTime = Date.now();
     

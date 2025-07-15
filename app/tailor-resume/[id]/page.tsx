@@ -122,6 +122,7 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
         
         console.log(`[TailorResume] Using ${multiAgent ? 'multi-agent' : 'legacy'} tailoring system`)
         console.log(`[TailorResume] Has scoring analysis: ${!!hasScoring}`)
+        console.log(`[TailorResume] Default resume length: ${defaultResume?.length || 0}`)
         
         const res = await fetch("/api/openrouter/tailor-resume", {
           method: "POST",
@@ -232,6 +233,28 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
       return;
     }
 
+    // Check if currentResume is available
+    if (!currentResume || !currentResume.trim()) {
+      console.error("Current resume is missing or empty, cannot proceed with tailoring");
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          type: "user",
+          content: newMessage,
+          timestamp: new Date(),
+        },
+        {
+          id: (Date.now() + 1).toString(),
+          type: "ai",
+          content: "Sorry, I don't have access to your resume content. Please refresh the page to reload your resume.",
+          timestamp: new Date(),
+        },
+      ]);
+      setNewMessage("");
+      return;
+    }
+
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       type: "user",
@@ -248,6 +271,9 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
       // Check if we have scoring analysis for multi-agent chat
       const hasScoring = job.enhancedScoreDetails || job.originalData?.enhancedScoreDetails
       const useMultiAgent = mode === "agent" && !!hasScoring
+      
+      console.log(`[Chat] Current resume length: ${currentResume?.length || 0}`)
+      console.log(`[Chat] Using multi-agent: ${useMultiAgent}`)
       
       // Call OpenRouter API for AI resume tailoring or Q&A
       const res = await fetch("/api/openrouter/tailor-resume", {
