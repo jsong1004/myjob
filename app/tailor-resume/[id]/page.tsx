@@ -116,6 +116,9 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
       setTailorError(null)
       try {
         const token = await auth.currentUser.getIdToken()
+        console.log(`[TailorResume] Using legacy tailoring system`)
+        console.log(`[TailorResume] Default resume length: ${defaultResume?.length || 0}`)
+        
         const res = await fetch("/api/openrouter/tailor-resume", {
           method: "POST",
           headers: { 
@@ -123,12 +126,12 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
             "Authorization": `Bearer ${token}`
           },
           body: JSON.stringify({
-            message: "Tailor this resume for the following job. Do not change unless necessary.",
+            message: "Tailor this resume for the following job. Focus on relevant experience and skills.",
             resume: defaultResume,
             jobTitle: job.title,
             company: job.company,
             jobDescription: job.fullDescription || job.description || "",
-            mode: "agent",
+            mode: "agent"
           }),
         })
         if (!res.ok) {
@@ -221,6 +224,28 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
       return;
     }
 
+    // Check if currentResume is available
+    if (!currentResume || !currentResume.trim()) {
+      console.error("Current resume is missing or empty, cannot proceed with tailoring");
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          type: "user",
+          content: newMessage,
+          timestamp: new Date(),
+        },
+        {
+          id: (Date.now() + 1).toString(),
+          type: "ai",
+          content: "Sorry, I don't have access to your resume content. Please refresh the page to reload your resume.",
+          timestamp: new Date(),
+        },
+      ]);
+      setNewMessage("");
+      return;
+    }
+
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       type: "user",
@@ -234,6 +259,10 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
 
     try {
       const token = await auth.currentUser.getIdToken()
+      
+      console.log(`[Chat] Current resume length: ${currentResume?.length || 0}`)
+      console.log(`[Chat] Using legacy tailoring mode`)
+      
       // Call OpenRouter API for AI resume tailoring or Q&A
       const res = await fetch("/api/openrouter/tailor-resume", {
         method: "POST",
@@ -247,7 +276,7 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
           jobTitle: job.title,
           company: job.company,
           jobDescription: job.fullDescription || job.description || "",
-          mode, // pass mode to backend
+          mode // pass mode to backend
         }),
       })
       if (!res.ok) throw new Error("AI service error")
@@ -503,7 +532,7 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
                   </div>
                   <p className="text-sm text-gray-600 mt-2">
                     {mode === 'agent'
-                      ? 'Give instructions to edit your resume. Example: "Make the summary shorter".'
+                      ? 'Give instructions to edit your resume. Example: "Make the summary shorter" or "Add more technical skills".'
                       : 'Ask questions about your resume or the job. Example: "What skills should I highlight?"'}
                   </p>
                 </CardHeader>

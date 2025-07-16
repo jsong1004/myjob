@@ -97,8 +97,8 @@ export function AdminActivities() {
     
     if (sortConfig.key) {
       filtered.sort((a, b) => {
-        let aValue = a[sortConfig.key as keyof ActivityLog] ?? ''
-        let bValue = b[sortConfig.key as keyof ActivityLog] ?? ''
+        const aValue = a[sortConfig.key as keyof ActivityLog] ?? ''
+        const bValue = b[sortConfig.key as keyof ActivityLog] ?? ''
 
         if (aValue < bValue) {
           return sortConfig.direction === 'ascending' ? -1 : 1

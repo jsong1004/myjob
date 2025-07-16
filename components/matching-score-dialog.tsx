@@ -25,6 +25,20 @@ interface MatchingScoreDialogProps {
 export function MatchingScoreDialog({ job, isOpen, onClose }: MatchingScoreDialogProps) {
   // Use real score details if available, otherwise fall back to mock data
   const scoreDetails = job.scoreDetails
+  const enhancedScoreDetails = (job as any).enhancedScoreDetails
+  
+  // Debug logging
+  console.log('🔍 [Dialog] Job data received:', {
+    title: job.title,
+    hasScoreDetails: !!scoreDetails,
+    hasEnhancedScoreDetails: !!enhancedScoreDetails,
+    scoreDetailsKeys: scoreDetails ? Object.keys(scoreDetails) : [],
+    enhancedScoreDetailsKeys: enhancedScoreDetails ? Object.keys(enhancedScoreDetails) : [],
+    enhancedScoreDetails: enhancedScoreDetails
+  })
+  
+  // Check if we have multi-agent scoring data
+  const hasMultiAgentData = enhancedScoreDetails?.breakdown
   
   const mockData = {
     skills: {
@@ -50,8 +64,53 @@ export function MatchingScoreDialog({ job, isOpen, onClose }: MatchingScoreDialo
     },
   }
 
-  // If we have real score details, use them; otherwise use mock data
-  const matchingBreakdown = scoreDetails ? {
+  // Helper function to safely extract strings from objects or arrays
+  const extractStringArray = (data: any): string[] => {
+    if (!data) return []
+    if (Array.isArray(data)) {
+      return data.map(item => {
+        if (typeof item === 'string') return item
+        if (typeof item === 'object' && item !== null) {
+          // Handle objects with different structures
+          if (item.weakness) return item.weakness
+          if (item.strength) return item.strength
+          if (item.skill) return item.skill
+          if (item.name) return item.name
+          if (item.description) return item.description
+          return JSON.stringify(item)
+        }
+        return String(item)
+      })
+    }
+    if (typeof data === 'string') return [data]
+    return []
+  }
+
+  // If we have multi-agent scoring data, use it
+  const matchingBreakdown = hasMultiAgentData ? {
+    skills: {
+      score: enhancedScoreDetails.breakdown.technicalSkills?.score || 0,
+      matched: extractStringArray(enhancedScoreDetails.keyStrengths).filter((s: string) => s.toLowerCase().includes('skill') || s.toLowerCase().includes('technical')),
+      missing: extractStringArray(enhancedScoreDetails.redFlags).filter((f: string) => f.toLowerCase().includes('skill') || f.toLowerCase().includes('technical')),
+    },
+    experience: {
+      score: enhancedScoreDetails.breakdown.experienceDepth?.score || 0,
+      yearsRequired: 3, // Default as we don't have this in multi-agent
+      yearsHave: 2, // Default as we don't have this in multi-agent
+      relevantExperience: enhancedScoreDetails.breakdown.experienceDepth?.reasoning || "See detailed analysis",
+    },
+    education: {
+      score: enhancedScoreDetails.breakdown.education?.score || 0,
+      required: "See job requirements",
+      have: enhancedScoreDetails.breakdown.education?.reasoning || "See detailed analysis",
+    },
+    keywords: {
+      score: enhancedScoreDetails.breakdown.achievements?.score || 0,
+      matched: extractStringArray(enhancedScoreDetails.positiveIndicators),
+      total: extractStringArray(enhancedScoreDetails.positiveIndicators).length + extractStringArray(enhancedScoreDetails.redFlags).length,
+    },
+  } : scoreDetails ? {
+    // Legacy enhanced scoring format
     skills: {
       score: scoreDetails.skillsAndKeywords?.score || mockData.skills.score,
       matched: scoreDetails.skillsAndKeywords?.breakdown?.requiredSkills ? 
@@ -223,6 +282,81 @@ export function MatchingScoreDialog({ job, isOpen, onClose }: MatchingScoreDialo
                 <CheckCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-1" />
                 <p className="text-gray-800 text-sm leading-relaxed">{job.matchingSummary}</p>
               </div>
+            </div>
+          )}
+
+          {/* Multi-Agent Insights Section */}
+          {hasMultiAgentData && (
+            <div className="pt-4 border-t space-y-4">
+              <h3 className="text-lg font-semibold">AI Analysis Insights</h3>
+              
+              {/* Key Strengths */}
+              {extractStringArray(enhancedScoreDetails.keyStrengths).length > 0 && (
+                <div>
+                  <h4 className="font-medium text-green-700 mb-2">Key Strengths</h4>
+                  <ul className="space-y-1">
+                    {extractStringArray(enhancedScoreDetails.keyStrengths).map((strength: string, idx: number) => (
+                      <li key={idx} className="flex items-start gap-2 text-sm">
+                        <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                        <span>{strength}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Key Weaknesses */}
+              {extractStringArray(enhancedScoreDetails.keyWeaknesses).length > 0 && (
+                <div>
+                  <h4 className="font-medium text-orange-700 mb-2">Areas for Improvement</h4>
+                  <ul className="space-y-1">
+                    {extractStringArray(enhancedScoreDetails.keyWeaknesses).map((weakness: string, idx: number) => (
+                      <li key={idx} className="flex items-start gap-2 text-sm">
+                        <AlertCircle className="h-4 w-4 text-orange-500 flex-shrink-0 mt-0.5" />
+                        <span>{weakness}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Detailed Breakdown */}
+              <div>
+                <h4 className="font-medium text-gray-700 mb-2">Detailed Score Breakdown</h4>
+                <div className="space-y-2">
+                  {Object.entries(enhancedScoreDetails.breakdown || {}).map(([category, details]: [string, any]) => (
+                    <div key={category} className="bg-gray-50 p-3 rounded">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-sm font-medium capitalize">
+                          {category.replace(/([A-Z])/g, ' $1').trim()}
+                        </span>
+                        <span className={`text-sm font-bold ${getScoreColor(details.score)}`}>
+                          {details.score}%
+                        </span>
+                      </div>
+                      <Progress value={details.score} className="h-2 mb-2" />
+                      {details.reasoning && (
+                        <p className="text-xs text-gray-600">{details.reasoning}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Interview Focus Areas */}
+              {extractStringArray(enhancedScoreDetails.interviewFocus).length > 0 && (
+                <div>
+                  <h4 className="font-medium text-blue-700 mb-2">Interview Focus Areas</h4>
+                  <ul className="space-y-1">
+                    {extractStringArray(enhancedScoreDetails.interviewFocus).map((focus: string, idx: number) => (
+                      <li key={idx} className="flex items-start gap-2 text-sm">
+                        <span className="text-blue-500">•</span>
+                        <span>{focus}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
         </div>

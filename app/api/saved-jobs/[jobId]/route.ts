@@ -51,7 +51,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
     const userId = decoded.uid
     const { jobId } = await params
     const body = await req.json()
-    const { applied, resumeTailored, coverLetterCreated, status, notes, reminderDate, reminderNote } = body
+    const { applied, resumeTailored, coverLetterCreated, status, notes, reminderDate, reminderNote, matchingScore, matchingSummary } = body
+    
 
     // Validate inputs
     if (applied !== undefined && typeof applied !== 'boolean') {
@@ -72,6 +73,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
     if (reminderNote !== undefined && typeof reminderNote !== 'string') {
       return NextResponse.json({ error: "Reminder note must be a string" }, { status: 400 })
     }
+    if (matchingScore !== undefined && typeof matchingScore !== 'number') {
+      return NextResponse.json({ error: "Matching score must be a number" }, { status: 400 })
+    }
+    if (matchingSummary !== undefined && typeof matchingSummary !== 'string') {
+      return NextResponse.json({ error: "Matching summary must be a string" }, { status: 400 })
+    }
 
     const querySnapshot = await adminDb
       .collection("savedJobs")
@@ -84,7 +91,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
     }
 
     const doc = querySnapshot.docs[0]
-    const updateData: any = {}
+    const updateData: Record<string, any> = {}
     let message = ""
 
     // Handle applied status update
@@ -139,6 +146,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
     if (reminderNote !== undefined) {
       updateData.reminderNote = reminderNote || null
       message += reminderNote ? "Reminder note updated. " : "Reminder note removed. "
+    }
+    
+    if (matchingScore !== undefined) {
+      updateData.matchingScore = matchingScore
+      message += "Matching score updated. "
+    }
+    
+    if (matchingSummary !== undefined) {
+      updateData.matchingSummary = matchingSummary || null
+      message += "Matching summary updated. "
+    }
+
+    // Check if there are any fields to update
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: "No fields to update" }, { status: 400 })
     }
 
     await doc.ref.update(updateData)

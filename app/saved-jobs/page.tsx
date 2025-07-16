@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Bookmark, ExternalLink, Loader2, AlertCircle, FileText, Edit, Calendar, StickyNote, ChevronUp, ChevronDown, Search, X, Plus, RefreshCw } from "lucide-react"
+import { Bookmark, ExternalLink, Loader2, AlertCircle, FileText, Edit, Calendar, StickyNote, ChevronUp, ChevronDown, Search, X, Plus, RefreshCw, Sparkles, PenTool } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Header } from "@/components/header"
@@ -430,6 +430,7 @@ function SavedJobsPageContent() {
         body: JSON.stringify({
           jobs: [jobToScore],
           resume: defaultResume.content,
+          multiAgent: true,
         }),
       })
 
@@ -437,7 +438,16 @@ function SavedJobsPageContent() {
         const scoreData = await scoreResponse.json()
         const scoredJob = scoreData.jobs[0]
         
-        // Update the saved job with new score
+        // Debug logging for scored job data
+        console.log('🔍 [Rescore] Scored job data received:', {
+          scoredJobKeys: scoredJob ? Object.keys(scoredJob) : [],
+          scoredJobScore: scoredJob?.matchingScore,
+          hasEnhancedScoreDetails: !!scoredJob?.enhancedScoreDetails,
+          hasScoreDetails: !!scoredJob?.scoreDetails,
+          enhancedScoreDetails: scoredJob?.enhancedScoreDetails
+        })
+        
+        // Update the saved job with new score and enhanced details
         const updateResponse = await fetch(`/api/saved-jobs/${job.jobId}`, {
           method: 'PATCH',
           headers: {
@@ -447,18 +457,32 @@ function SavedJobsPageContent() {
           body: JSON.stringify({
             matchingScore: scoredJob.matchingScore,
             matchingSummary: scoredJob.matchingSummary,
+            originalData: {
+              ...(job.originalData || {}),
+              matchingScore: scoredJob.matchingScore,
+              matchingSummary: scoredJob.matchingSummary,
+              enhancedScoreDetails: scoredJob.enhancedScoreDetails,
+              scoreDetails: scoredJob.scoreDetails
+            }
           }),
         })
 
         if (updateResponse.ok) {
-          // Update local state
+          // Update local state with full scoring data
           setSavedJobs((prev) => 
             prev.map((savedJob) => 
               savedJob.jobId === job.jobId 
                 ? { 
                     ...savedJob, 
                     matchingScore: scoredJob.matchingScore,
-                    matchingSummary: scoredJob.matchingSummary
+                    matchingSummary: scoredJob.matchingSummary,
+                    originalData: {
+                      ...(savedJob.originalData || {}),
+                      matchingScore: scoredJob.matchingScore,
+                      matchingSummary: scoredJob.matchingSummary,
+                      enhancedScoreDetails: scoredJob.enhancedScoreDetails,
+                      scoreDetails: scoredJob.scoreDetails
+                    }
                   }
                 : savedJob
             )
@@ -728,31 +752,32 @@ function SavedJobsPageContent() {
           ) : (
             <Card>
               <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <SortableHeader field="title">Job Title</SortableHeader>
-                      <SortableHeader field="company">Company</SortableHeader>
-                      <SortableHeader field="status">Status</SortableHeader>
-                      <TableHead>Details</TableHead>
-                      <SortableHeader field="matchingScore">
-                        <div className="text-center">Score</div>
-                      </SortableHeader>
-                      <TableHead>Notes</TableHead>
-                      <TableHead className="min-w-[200px]">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
+                <div className="overflow-x-auto">
+                  <Table className="min-w-[1200px] table-fixed">
+                    <TableHeader>
+                      <TableRow>
+                        <SortableHeader field="title">Job Title</SortableHeader>
+                        <SortableHeader field="company">Company</SortableHeader>
+                        <TableHead>Details</TableHead>
+                        <SortableHeader field="matchingScore">
+                          <div className="text-center">Score</div>
+                        </SortableHeader>
+                        <TableHead className="w-[320px] text-left">Actions</TableHead>
+                        <SortableHeader field="status">Status</SortableHeader>
+                        <TableHead>Notes</TableHead>
+                      </TableRow>
+                    </TableHeader>
                   <TableBody>
                     {sortedJobs.map((job) => (
                       <TableRow key={job.id}>
-                        <TableCell>
+                        <TableCell className="px-3 py-2">
                           <div className="font-medium">
-                            {job.originalData?.applyUrl ? (
+                            {(job.originalData?.applyUrl || job.applyUrl) ? (
                               <a
-                                href={job.originalData.applyUrl}
+                                href={job.originalData?.applyUrl || job.applyUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="hover:underline"
+                                className="text-blue-600 hover:text-blue-800 hover:underline"
                               >
                                 {job.title}
                               </a>
@@ -762,7 +787,7 @@ function SavedJobsPageContent() {
                           </div>
                           <div className="text-sm text-muted-foreground">{job.location}</div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="px-3 py-2">
                           <Link 
                             href={`/companies/${encodeURIComponent(job.company)}`}
                             className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
@@ -770,20 +795,7 @@ function SavedJobsPageContent() {
                             {job.company}
                           </Link>
                         </TableCell>
-                        <TableCell>
-                          <Badge className={getStatusColor(job.status || 'saved')}>
-                            {getStatusLabel(job.status || 'saved')}
-                          </Badge>
-                          {job.reminderDate && (
-                            <div className="flex items-center gap-1 mt-1">
-                              <Calendar className="h-3 w-3 text-muted-foreground" />
-                              <span className="text-xs text-muted-foreground">
-                                {new Date(job.reminderDate instanceof Date ? job.reminderDate : job.reminderDate.seconds * 1000).toLocaleDateString()}
-                              </span>
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell>
+                        <TableCell className="px-3 py-2">
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -797,7 +809,7 @@ function SavedJobsPageContent() {
                             </Tooltip>
                           </TooltipProvider>
                         </TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="text-center px-3 py-2">
                           <div className="flex items-center justify-center gap-1">
                             <Button
                               variant="outline"
@@ -807,33 +819,118 @@ function SavedJobsPageContent() {
                             >
                               {job.matchingScore ?? "-"}%
                             </Button>
-                            {(job.matchingScore === 0 || job.matchingScore === null || job.originalData?.source === 'manual') && (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => handleRescoreJob(job)}
-                                      disabled={rescoringJobId === job.jobId}
-                                      className="p-1 h-auto"
-                                    >
-                                      {rescoringJobId === job.jobId ? (
-                                        <Loader2 className="h-3 w-3 animate-spin" />
-                                      ) : (
-                                        <RefreshCw className="h-3 w-3" />
-                                      )}
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Generate Match Score</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            )}
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleRescoreJob(job)}
+                                    disabled={rescoringJobId === job.jobId}
+                                    className="p-1 h-auto"
+                                  >
+                                    {rescoringJobId === job.jobId ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <RefreshCw className="h-3 w-3" />
+                                    )}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Generate Match Score</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-left px-2 py-2 w-[320px]">
+                          <div className="grid grid-cols-2 gap-1 w-[300px]">
+                            {/* Top Row - Primary Actions */}
+                            <Button 
+                              variant={job.resumeTailoredAt ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => handleTailorResume(job)}
+                              className={`flex items-center gap-1 text-xs px-2 py-1 h-7 relative w-full ${
+                                job.resumeTailoredAt 
+                                  ? 'bg-green-600 hover:bg-green-700 text-white' 
+                                  : (job.originalData?.enhancedScoreDetails)
+                                    ? 'border-blue-200 text-blue-600 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 bg-gradient-to-r from-blue-50 to-purple-50'
+                                    : 'border-blue-200 text-blue-600 hover:bg-blue-50'
+                              }`}
+                            >
+                              <Sparkles className="h-3 w-3 flex-shrink-0" />
+                              <span className="truncate">Resume</span>
+                              {job.originalData?.enhancedScoreDetails && !job.resumeTailoredAt && (
+                                <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full"></div>
+                              )}
+                            </Button>
+                            <Button 
+                              variant={job.coverLetterCreatedAt ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => handleCreateCoverLetter(job)}
+                              className={`flex items-center gap-1 text-xs px-2 py-1 h-7 w-full ${
+                                job.coverLetterCreatedAt 
+                                  ? 'bg-purple-600 hover:bg-purple-700 text-white' 
+                                  : 'border-purple-200 text-purple-600 hover:bg-purple-50'
+                              }`}
+                            >
+                              <PenTool className="h-3 w-3 flex-shrink-0" />
+                              <span className="truncate">Cover</span>
+                            </Button>
+                            
+                            {/* Bottom Row - Secondary Actions */}
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => openEditDialog(job)}
+                                    className="text-xs px-2 py-1 h-6 text-muted-foreground hover:text-foreground w-full"
+                                  >
+                                    <Edit className="h-3 w-3 mr-1 flex-shrink-0" />
+                                    <span className="truncate">Edit</span>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Edit status, notes, and reminders</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleUnsaveJob(job.jobId)}
+                                    className="text-xs px-2 py-1 h-6 text-muted-foreground hover:text-destructive w-full"
+                                  >
+                                    <Bookmark className="h-3 w-3 mr-1 flex-shrink-0 fill-current" />
+                                    <span className="truncate">Remove</span>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Remove from saved jobs</p>
+                                </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-3 py-2">
+                          <Badge className={getStatusColor(job.status || 'saved')}>
+                            {getStatusLabel(job.status || 'saved')}
+                          </Badge>
+                          {job.reminderDate && (
+                            <div className="flex items-center gap-1 mt-1">
+                              <Calendar className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(job.reminderDate instanceof Date ? job.reminderDate : job.reminderDate.seconds * 1000).toLocaleDateString()}
+                              </span>
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="px-3 py-2">
                           <div className="max-w-xs">
                             {job.notes ? (
                               <TooltipProvider>
@@ -856,85 +953,11 @@ function SavedJobsPageContent() {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => openEditDialog(job)}
-                                  >
-                                    <Edit className="h-4 w-4 text-muted-foreground" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Edit Application Details</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleUnsaveJob(job.jobId)}
-                                    className="text-muted-foreground hover:text-destructive"
-                                  >
-                                    <Bookmark className="h-4 w-4 fill-current text-primary" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent><p>Unsave Job</p></TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon"
-                                    onClick={() => handleTailorResume(job)}
-                                  >
-                                    <ExternalLink className={`h-4 w-4 ${
-                                      job.resumeTailoredAt 
-                                        ? 'text-green-600' 
-                                        : 'text-muted-foreground'
-                                    }`} />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>{job.resumeTailoredAt ? 'Resume Tailored ✓' : 'Tailor Resume'}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon"
-                                    onClick={() => handleCreateCoverLetter(job)}
-                                  >
-                                    <FileText className={`h-4 w-4 ${
-                                      job.coverLetterCreatedAt 
-                                        ? 'text-blue-600' 
-                                        : 'text-muted-foreground'
-                                    }`} />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>{job.coverLetterCreatedAt ? 'Cover Letter Created ✓' : 'Create Cover Letter'}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </div>
-                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
-                </Table>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -1009,19 +1032,35 @@ function SavedJobsPageContent() {
           )}
 
           {selectedJob && (
-            <MatchingScoreDialog 
-              job={{
-                ...selectedJob.originalData,
-                id: selectedJob.jobId,
+            (() => {
+              // Debug logging for job data
+              console.log('🔍 [SavedJobs] Selected job data:', {
+                jobId: selectedJob.jobId,
                 title: selectedJob.title,
-                company: selectedJob.company,
-                matchingScore: selectedJob.matchingScore ?? 0,
-                matchingSummary: selectedJob.originalData?.matchingSummary || selectedJob.summary,
-                summary: selectedJob.originalData?.summary,
-              }} 
-              isOpen={!!selectedJob} 
-              onClose={() => setSelectedJob(null)} 
-            />
+                hasOriginalData: !!selectedJob.originalData,
+                originalDataKeys: selectedJob.originalData ? Object.keys(selectedJob.originalData) : [],
+                enhancedScoreDetails: selectedJob.originalData?.enhancedScoreDetails,
+                scoreDetails: selectedJob.originalData?.scoreDetails
+              })
+              
+              return (
+                <MatchingScoreDialog 
+                  job={{
+                    ...selectedJob.originalData,
+                    id: selectedJob.jobId,
+                    title: selectedJob.title,
+                    company: selectedJob.company,
+                    matchingScore: selectedJob.matchingScore ?? 0,
+                    matchingSummary: selectedJob.originalData?.matchingSummary || selectedJob.summary,
+                    summary: selectedJob.originalData?.summary,
+                    enhancedScoreDetails: selectedJob.originalData?.enhancedScoreDetails,
+                    scoreDetails: selectedJob.originalData?.scoreDetails,
+                  }} 
+                  isOpen={!!selectedJob} 
+                  onClose={() => setSelectedJob(null)} 
+                />
+              )
+            })()
           )}
         </div>
       </main>
