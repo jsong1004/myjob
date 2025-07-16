@@ -98,7 +98,7 @@ export class PromptManager {
         console.log(`User Content: ${userContent.substring(0, 200)}...`)
       }
 
-      // Make API call with retries
+      // Make API call with retries, including user context for cache optimization
       const response = await this.callOpenRouterWithRetry({
         model: finalConfig.model,
         messages: [
@@ -106,7 +106,9 @@ export class PromptManager {
           { role: 'user', content: userContent }
         ],
         temperature: finalConfig.temperature ?? GLOBAL_CONFIG.defaultTemperature,
-        max_tokens: finalConfig.maxTokens ?? GLOBAL_CONFIG.defaultMaxTokens
+        max_tokens: finalConfig.maxTokens ?? GLOBAL_CONFIG.defaultMaxTokens,
+        // Pass user ID for OpenRouter cache isolation
+        user: request.context?.userId
       })
 
       // Parse response based on format
@@ -118,16 +120,23 @@ export class PromptManager {
       }
 
       const endTime = Date.now()
+      
+      // Enhance usage data with cache metrics and cost calculations
+      const enhancedUsage = this.enhanceUsageData(response.usage)
+      
       const promptResponse: PromptResponse = {
         success: true,
         data: parsedData,
-        usage: response.usage,
+        usage: enhancedUsage,
         metadata: {
           model: finalConfig.model,
           temperature: finalConfig.temperature ?? GLOBAL_CONFIG.defaultTemperature,
           responseTime: endTime - startTime,
           promptId: request.promptId,
-          cached: false
+          cached: false,
+          cacheHitRate: enhancedUsage.cachedTokens && enhancedUsage.promptTokens 
+            ? (enhancedUsage.cachedTokens / enhancedUsage.promptTokens * 100).toFixed(1) + '%'
+            : '0%'
         }
       }
 
@@ -167,12 +176,21 @@ export class PromptManager {
   }
 
   /**
-   * Call OpenRouter API with retry logic
+   * Call OpenRouter API with retry logic and cache optimization
    */
   private async callOpenRouterWithRetry(params: any, retries: number = 0): Promise<any> {
     const apiKey = process.env.OPENROUTER_API_KEY
     if (!apiKey) {
       throw new Error('Missing OpenRouter API key')
+    }
+
+    // Add OpenRouter-specific optimizations for prompt caching
+    const optimizedParams = {
+      ...params,
+      // Enable usage tracking for cache monitoring (required for cache insights)
+      usage: { include: true },
+      // Add user parameter for cache isolation if provided in context
+      ...(params.user && { user: `myjob_${params.user}` })
     }
 
     try {
@@ -184,7 +202,7 @@ export class PromptManager {
           'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
           'X-Title': 'MyJob AI Assistant'
         },
-        body: JSON.stringify(params),
+        body: JSON.stringify(optimizedParams),
         signal: AbortSignal.timeout(GLOBAL_CONFIG.requestTimeout)
       })
 
@@ -193,7 +211,14 @@ export class PromptManager {
         throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`)
       }
 
-      return await response.json()
+      const responseData = await response.json()
+      
+      // Log cache performance metrics if usage data is available
+      if (responseData.usage && GLOBAL_CONFIG.enableLogging) {
+        this.logCacheMetrics(responseData.usage, optimizedParams.user)
+      }
+      
+      return responseData
 
     } catch (error) {
       if (retries < GLOBAL_CONFIG.maxRetries) {
@@ -254,6 +279,71 @@ export class PromptManager {
       cacheSize: this.cache.size,
       promptsByTag
     }
+  }
+
+  /**
+   * Enhance usage data with cache metrics and cost calculations
+   */
+  private enhanceUsageData(usage: any): any {
+    if (!usage) return usage
+    
+    const promptTokens = usage.prompt_tokens || 0
+    const cachedTokens = usage.cached_tokens || 0
+    const completionTokens = usage.completion_tokens || 0
+    
+    // Calculate costs based on GPT-4o mini pricing
+    const baseCostPer1M = 0.15 // $0.15 per 1M input tokens
+    const cachedCostPer1M = 0.075 // 50% discount on cached tokens
+    const outputCostPer1M = 0.60 // $0.60 per 1M output tokens
+    
+    const nonCachedTokens = promptTokens - cachedTokens
+    const inputCost = (nonCachedTokens * baseCostPer1M) / 1000000
+    const cachedCost = (cachedTokens * cachedCostPer1M) / 1000000
+    const outputCost = (completionTokens * outputCostPer1M) / 1000000
+    const totalCost = inputCost + cachedCost + outputCost
+    
+    const savingsFromCache = (cachedTokens * (baseCostPer1M - cachedCostPer1M)) / 1000000
+    
+    return {
+      promptTokens,
+      completionTokens,
+      totalTokens: usage.total_tokens || (promptTokens + completionTokens),
+      cachedTokens,
+      cacheDiscount: usage.cache_discount || 0,
+      estimatedCost: totalCost,
+      costSavings: savingsFromCache
+    }
+  }
+
+  /**
+   * Log cache performance metrics for monitoring
+   */
+  private logCacheMetrics(usage: any, userId?: string): void {
+    const promptTokens = usage.prompt_tokens || 0
+    const cachedTokens = usage.cached_tokens || 0
+    const completionTokens = usage.completion_tokens || 0
+    const totalTokens = usage.total_tokens || 0
+    
+    // Calculate cache performance metrics
+    const cacheHitRate = promptTokens > 0 ? (cachedTokens / promptTokens * 100).toFixed(1) : '0.0'
+    const cacheDiscount = usage.cache_discount || 0
+    
+    // Calculate estimated cost savings (GPT-4o mini pricing)
+    const baseCostPer1M = 0.15 // $0.15 per 1M input tokens
+    const cachedCostPer1M = 0.075 // 50% discount on cached tokens
+    const outputCostPer1M = 0.60 // $0.60 per 1M output tokens
+    
+    const nonCachedTokens = promptTokens - cachedTokens
+    const inputCost = (nonCachedTokens * baseCostPer1M) / 1000000
+    const cachedCost = (cachedTokens * cachedCostPer1M) / 1000000
+    const outputCost = (completionTokens * outputCostPer1M) / 1000000
+    const totalCost = inputCost + cachedCost + outputCost
+    
+    const savingsFromCache = (cachedTokens * (baseCostPer1M - cachedCostPer1M)) / 1000000
+    
+    console.log(`[PromptCache] ${userId ? `User: ${userId} |` : ''} Cache Hit Rate: ${cacheHitRate}% | ` +
+      `Tokens: ${promptTokens} (${cachedTokens} cached) | ` +
+      `Cost: $${totalCost.toFixed(4)} | Savings: $${savingsFromCache.toFixed(4)}`)
   }
 
   /**

@@ -40,6 +40,10 @@ export interface PromptResponse {
     promptTokens: number
     completionTokens: number
     totalTokens: number
+    cachedTokens?: number
+    cacheDiscount?: number
+    estimatedCost?: number
+    costSavings?: number
   }
   metadata?: {
     model: string
@@ -62,6 +66,7 @@ export interface ResumeTailoringRequest {
   jobDescription: string
   userRequest: string
   mode: 'agent' | 'ask'
+  userId?: string // For cache optimization
 }
 
 export interface CoverLetterRequest {

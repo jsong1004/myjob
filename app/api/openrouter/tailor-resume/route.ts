@@ -133,25 +133,35 @@ export async function POST(req: NextRequest) {
       }
     }
     
+    // Get user ID for cache optimization
+    let userId = 'anonymous';
+    const token = req.headers.get('Authorization')?.split('Bearer ')[1];
+    if (token) {
+      try {
+        initFirebaseAdmin();
+        const decodedToken = await getAuth().verifyIdToken(token);
+        userId = decodedToken.uid;
+      } catch (error) {
+        console.warn('[TailoringAPI] Failed to decode token for cache optimization:', error);
+      }
+    }
+
     // Always use legacy tailoring system for resumes (better results than multi-agent)
-    console.log('[TailoringAPI] Using legacy tailoring system');
+    console.log('[TailoringAPI] Using legacy tailoring system with cache optimization');
     const result = await executeResumeTailoring({
       resume: finalResume,
       jobTitle,
       company,
       jobDescription,
       userRequest: message,
-      mode: mode as 'agent' | 'ask'
+      mode: mode as 'agent' | 'ask',
+      userId
     });
 
     const timeTaken = (Date.now() - startTime) / 1000;
 
-    // Log activity
-    const token = req.headers.get('Authorization')?.split('Bearer ')[1];
-    if (token) {
-      initFirebaseAdmin();
-      const decodedToken = await getAuth().verifyIdToken(token);
-      const userId = decodedToken.uid;
+    // Log activity (userId already extracted above)
+    if (userId !== 'anonymous') {
       await logActivity({
         userId,
         activityType: 'resume_generation',
@@ -165,7 +175,16 @@ export async function POST(req: NextRequest) {
           multi_agent: false,
           agents_executed: 1,
           resume_loaded_from_db: !resume && !!finalResume,
-          scoring_generated: !scoringAnalysis && !!scoringContext
+          scoring_generated: !scoringAnalysis && !!scoringContext,
+          cache_enabled: true,
+          ...(result.usage && {
+            cached_tokens: result.usage.cachedTokens || 0,
+            cache_hit_rate: result.usage.cachedTokens && result.usage.promptTokens 
+              ? (result.usage.cachedTokens / result.usage.promptTokens * 100).toFixed(1) + '%'
+              : '0%',
+            estimated_cost: result.usage.estimatedCost || 0,
+            cost_savings: result.usage.costSavings || 0
+          })
         },
       });
     }
@@ -176,7 +195,9 @@ export async function POST(req: NextRequest) {
       multiAgent: false,
       resumeLoadedFromDb: !resume && !!finalResume,
       scoringGenerated: !scoringAnalysis && !!scoringContext,
-      tailoringMode: 'legacy'
+      tailoringMode: 'legacy',
+      cacheOptimized: true,
+      userId: userId !== 'anonymous' ? userId : undefined
     };
 
     return NextResponse.json(enhancedResult);
