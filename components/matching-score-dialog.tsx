@@ -3,8 +3,10 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, AlertCircle, XCircle } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { CheckCircle, AlertCircle, XCircle, Download } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useState } from "react"
 
 interface Job {
   id: string
@@ -23,6 +25,8 @@ interface MatchingScoreDialogProps {
 }
 
 export function MatchingScoreDialog({ job, isOpen, onClose }: MatchingScoreDialogProps) {
+  const [isDownloading, setIsDownloading] = useState(false)
+  
   // Use real score details if available, otherwise fall back to mock data
   const scoreDetails = job.scoreDetails
   const enhancedScoreDetails = (job as any).enhancedScoreDetails
@@ -148,15 +152,72 @@ export function MatchingScoreDialog({ job, isOpen, onClose }: MatchingScoreDialo
     return "text-red-600"
   }
 
+  const handleDownload = async () => {
+    setIsDownloading(true)
+    try {
+      // Prepare analysis data for PDF generation
+      const analysisData = {
+        job: {
+          title: job.title,
+          company: job.company,
+          matchingScore: job.matchingScore,
+          matchingSummary: job.matchingSummary,
+        },
+        breakdown: matchingBreakdown,
+        enhancedScoreDetails: hasMultiAgentData ? enhancedScoreDetails : null,
+      }
+
+      const response = await fetch('/api/jobs/match-analysis-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(analysisData),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF')
+      }
+
+      // Handle PDF download
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${job.title.replace(/[^a-zA-Z0-9]/g, '_')}_Match_Analysis.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      // You might want to show a toast notification here
+    } finally {
+      setIsDownloading(false)
+    }
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            Match Analysis: {job.title}
-            <Badge variant="secondary" className="ml-2">
-              {job.matchingScore}% Match
-            </Badge>
+          <DialogTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              Match Analysis: {job.title}
+              <Badge variant="secondary" className="ml-2">
+                {job.matchingScore}% Match
+              </Badge>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownload}
+              disabled={isDownloading}
+              className="flex items-center gap-2"
+            >
+              <Download className="h-4 w-4" />
+              {isDownloading ? 'Generating...' : 'Download PDF'}
+            </Button>
           </DialogTitle>
         </DialogHeader>
 
