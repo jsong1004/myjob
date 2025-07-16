@@ -3,6 +3,7 @@ import { getJson } from "serpapi";
 
 import { initFirebaseAdmin } from "@/lib/firebase-admin-init";
 import { getAuth } from "firebase-admin/auth";
+import { getFirestore } from "firebase-admin/firestore";
 import { filterExistingJobs, saveJobsIfNotExist } from "@/lib/seen-jobs";
 import { JobSearchResult } from "@/lib/types";
 
@@ -49,43 +50,74 @@ export async function POST(req: NextRequest) {
 
     console.log(`[JobSearch] Using SerpAPI key: ${apiKey.substring(0, 10)}...`);
 
-    // Call SerpApi
-    const serpApiParams = {
-      engine: "google_jobs",
-      api_key: apiKey,
-      q: query,
-      location: location || "United States",
-      hl: "en",
-      gl: "us",
-      timeout: 20000, // 20 seconds timeout
-    };
+    // Fetch ALL jobs from SerpApi using pagination loop
+    let allSerpApiJobs: any[] = [];
+    let pageToken: string | null = null;
+    let pageCount = 0;
+    const maxPages = 10; // Safety limit to prevent infinite loops
     
-    console.log(`[JobSearch] SerpAPI request params:`, serpApiParams);
-    console.log(`[JobSearch] Making SerpAPI request...`);
-    
-    const results = await getJson(serpApiParams);
-    
-    console.log(`[JobSearch] SerpAPI response received`);
-    console.log(`[JobSearch] Raw SerpAPI response keys:`, Object.keys(results || {}));
-    console.log(`[JobSearch] Jobs found in response: ${results.jobs_results?.length || 0}`);
-    
-    if (results.error) {
-      console.error(`[JobSearch] SerpAPI error:`, results.error);
-      return NextResponse.json({ error: "SerpAPI error: " + results.error }, { status: 500 });
-    }
+    do {
+      pageCount++;
+      console.log(`[JobSearch] Fetching page ${pageCount}${pageToken ? ` with token: ${pageToken.substring(0, 20)}...` : ' (first page)'}`);
+      
+      const serpApiParams: any = {
+        engine: "google_jobs",
+        api_key: apiKey,
+        q: query,
+        location: location || "United States",
+        hl: "en",
+        gl: "us",
+        timeout: 20000, // 20 seconds timeout
+      };
+      
+      if (pageToken) {
+        serpApiParams.page_token = pageToken;
+      }
+      
+      console.log(`[JobSearch] SerpAPI request params for page ${pageCount}:`, serpApiParams);
+      const pageResults = await getJson(serpApiParams);
+      
+      console.log(`[JobSearch] Page ${pageCount} response received`);
+      console.log(`[JobSearch] Raw SerpAPI response keys:`, Object.keys(pageResults || {}));
+      console.log(`[JobSearch] Jobs found in page ${pageCount}: ${pageResults.jobs_results?.length || 0}`);
+      
+      if (pageResults.error) {
+        console.error(`[JobSearch] SerpAPI error on page ${pageCount}:`, pageResults.error);
+        return NextResponse.json({ error: "SerpAPI error: " + pageResults.error }, { status: 500 });
+      }
 
-    if (!results.jobs_results || results.jobs_results.length === 0) {
-      console.warn(`[JobSearch] No jobs found in SerpAPI response`);
-      console.log(`[JobSearch] Full SerpAPI response:`, JSON.stringify(results, null, 2));
+      // Add jobs from this page to the total
+      if (pageResults.jobs_results && pageResults.jobs_results.length > 0) {
+        allSerpApiJobs = [...allSerpApiJobs, ...pageResults.jobs_results];
+        console.log(`[JobSearch] Total jobs collected so far: ${allSerpApiJobs.length}`);
+      }
+      
+      // Check for next page token
+      pageToken = pageResults.serpapi_pagination?.next_page_token || null;
+      console.log(`[JobSearch] Next page token: ${pageToken ? 'Present' : 'None'}`);
+      
+      // Safety check for infinite loops
+      if (pageCount >= maxPages) {
+        console.warn(`[JobSearch] Reached maximum page limit (${maxPages}), stopping pagination`);
+        break;
+      }
+      
+    } while (pageToken);
+    
+    console.log(`[JobSearch] Pagination complete. Total pages fetched: ${pageCount}`);
+    console.log(`[JobSearch] Total jobs collected: ${allSerpApiJobs.length}`);
+
+    if (allSerpApiJobs.length === 0) {
+      console.warn(`[JobSearch] No jobs found across all pages`);
       return NextResponse.json({ jobs: [] });
     }
 
     // Log first job for debugging
-    console.log(`[JobSearch] First job sample:`, JSON.stringify(results.jobs_results[0], null, 2));
+    console.log(`[JobSearch] First job sample:`, JSON.stringify(allSerpApiJobs[0], null, 2));
 
     // Normalize SerpApi results to JobSearchResult interface
-    const unfilteredJobs: JobSearchResult[] = (results.jobs_results || []).map((job: any, index: number) => {
-      console.log(`[JobSearch] Processing job ${index + 1}/${results.jobs_results.length}: ${job.title} at ${job.company_name}`);
+    const unfilteredJobs: JobSearchResult[] = (allSerpApiJobs || []).map((job: any, index: number) => {
+      console.log(`[JobSearch] Processing job ${index + 1}/${allSerpApiJobs.length}: ${job.title} at ${job.company_name}`);
       
       let qualifications: string[] = [];
       let responsibilities: string[] = [];
@@ -156,30 +188,74 @@ export async function POST(req: NextRequest) {
     
     console.log(`[JobSearch] Processed ${unfilteredJobs.length} jobs from SerpApi`);
 
-    // Filter out jobs that already exist in the jobs collection
-    console.log(`[JobSearch] Filtering out existing jobs in database`);
-    const newJobs = await filterExistingJobs(unfilteredJobs);
-    console.log(`[JobSearch] Found ${newJobs.length} new jobs after filtering.`);
+    // Remove duplicate jobs based on job ID
+    const uniqueJobsMap = new Map<string, JobSearchResult>();
+    unfilteredJobs.forEach(job => {
+      if (!uniqueJobsMap.has(job.id)) {
+        uniqueJobsMap.set(job.id, job);
+      }
+    });
+    const uniqueJobs = Array.from(uniqueJobsMap.values());
+    console.log(`[JobSearch] Removed ${unfilteredJobs.length - uniqueJobs.length} duplicate jobs, ${uniqueJobs.length} unique jobs remaining`);
 
-    // Generate summaries for new jobs before saving
-    console.log(`[JobSearch] Generating summaries for ${newJobs.length} new jobs`);
-    const jobsWithSummaries = await generateJobSummaries(newJobs);
-    console.log(`[JobSearch] Generated summaries for jobs.`);
+    // Conditional filtering logic based on authentication status
+    let jobsToReturn: JobSearchResult[];
 
-    // Save new jobs to jobs collection only if user is authenticated
     if (userId) {
-      await saveJobsIfNotExist(jobsWithSummaries, userId);
-      console.log(`[JobSearch] Saved ${jobsWithSummaries.length} new jobs to jobs collection.`);
-    } else {
-      console.log(`[JobSearch] Skipping job save for unauthenticated user.`);
-    }
+      // SCENARIO 2: AUTHENTICATED USER
+      console.log(`[JobSearch] Authenticated user flow for ${userId}`);
+      
+      // Fetch user's personal saved jobs
+      const userSavedJobIds = new Set<string>();
+      try {
+        const db = getFirestore();
+        const savedJobsSnapshot = await db.collection("savedJobs").where("userId", "==", userId).get();
+        savedJobsSnapshot.forEach(doc => userSavedJobIds.add(doc.data().jobId));
+        console.log(`[JobSearch] User has ${userSavedJobIds.size} saved jobs`);
+      } catch (error) {
+        console.error(`[JobSearch] Error fetching user saved jobs:`, error);
+        // Continue without filtering if there's an error
+      }
 
-    // Return jobs without scoring - scoring will be done when user saves the job
-    const jobsToReturn: JobSearchResult[] = jobsWithSummaries.map(job => ({
-      ...job,
-      matchingScore: 0,
-      matchingSummary: "",
-    }));
+      // Filter out jobs the user has already saved
+      const filteredJobs = uniqueJobs.filter(job => !userSavedJobIds.has(job.id));
+      console.log(`[JobSearch] After filtering saved jobs: ${filteredJobs.length} jobs (removed ${uniqueJobs.length - filteredJobs.length} already saved)`);
+
+      // Perform system-level processing (save new jobs to global 'jobs' collection without summaries)
+      console.log(`[JobSearch] Filtering out existing jobs in database`);
+      const newJobs = await filterExistingJobs(filteredJobs);
+      console.log(`[JobSearch] Found ${newJobs.length} new jobs after filtering existing jobs.`);
+
+      // Save new jobs to jobs collection without summaries for faster performance
+      if (newJobs.length > 0) {
+        const jobsWithoutSummaries = newJobs.map(job => ({
+          ...job,
+          summary: "", // No summary for faster search
+        }));
+        await saveJobsIfNotExist(jobsWithoutSummaries, userId);
+        console.log(`[JobSearch] Saved ${jobsWithoutSummaries.length} new jobs to jobs collection (without summaries).`);
+      }
+
+      // Return filtered jobs without summaries for faster performance
+      jobsToReturn = filteredJobs.map(job => ({
+        ...job,
+        summary: "", // No summary for faster search
+        matchingScore: 0,
+        matchingSummary: "",
+      }));
+
+    } else {
+      // SCENARIO 1: UNAUTHENTICATED USER
+      console.log(`[JobSearch] Unauthenticated user flow.`);
+      
+      // Return all jobs without summaries for faster performance
+      jobsToReturn = uniqueJobs.map(job => ({
+        ...job,
+        summary: "", // No summary for faster search
+        matchingScore: 0,
+        matchingSummary: "",
+      }));
+    }
 
     console.log(`[JobSearch] Returning ${jobsToReturn.length} jobs to client.`);
     return NextResponse.json({ jobs: jobsToReturn });
@@ -192,94 +268,4 @@ export async function POST(req: NextRequest) {
   }
 } 
 
-// Legacy job scoring function removed - now using centralized prompt system
-
-async function generateJobSummaries(jobs: JobSearchResult[]): Promise<JobSearchResult[]> {
-  const openrouterApiKey = process.env.OPENROUTER_API_KEY;
-  if (!openrouterApiKey) {
-    console.warn("[JobSearch] Missing OpenRouter API key, skipping summary generation");
-    return jobs; // Return jobs without summaries if no API key
-  }
-
-  const allJobsWithSummaries: JobSearchResult[] = [];
-  const batchSize = 5; // Process 5 jobs at a time for summaries
-
-  for (let i = 0; i < jobs.length; i += batchSize) {
-    const batchJobs = jobs.slice(i, i + batchSize);
-    console.log(`[JobSearch] Generating summaries for batch starting at index ${i}: ${batchJobs.length} jobs`);
-
-    try {
-      const jobsForPrompt = batchJobs.map((job: JobSearchResult) => 
-        `ID: ${job.id}\nJob Title: ${job.title}\nCompany: ${job.company}\nLocation: ${job.location}\nDescription: ${job.description}\nQualifications: ${job.qualifications.join(', ')}\nResponsibilities: ${job.responsibilities.join(', ')}`
-      ).join("\n---\n");
-          
-      const prompt = `Please create concise summaries for the following job postings. Each summary should be 2-3 sentences highlighting the key role responsibilities and requirements.\n\nJobs:\n${jobsForPrompt}`;
-          
-      const openrouterRequestBody = {
-        model: "openai/gpt-4o-mini",
-        messages: [
-          { 
-            role: "system", 
-            content: `You are a professional job summary writer. Create concise, informative summaries for job postings.\n\nGuidelines:\n- Keep summaries to 2-3 sentences\n- Focus on key responsibilities and requirements\n- Use professional, clear language\n- Highlight the most important aspects of each role\n\nIMPORTANT: You must return ONLY a valid JSON array. Do not include any explanatory text, markdown formatting, or code blocks. Your response should start with [ and end with ].\n\nReturn format:\n[\n  {\n    "id": "job_id_here",\n    "summary": "Concise 2-3 sentence summary of the job posting highlighting key responsibilities and requirements."\n  }\n]\n\nCreate informative summaries for each job.`
-          },
-          { role: "user", content: prompt },
-        ],
-      };
-          
-      const openrouterRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${openrouterApiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(openrouterRequestBody),
-      });
-
-      if (!openrouterRes.ok) {
-        const errorText = await openrouterRes.text();
-        console.error("OpenRouter API error for summaries:", errorText);
-        throw new Error(`OpenRouter API error for summary batch starting at index ${i}`);
-      }
-
-      const data = await openrouterRes.json();
-      const aiResponse = data.choices?.[0]?.message?.content || "";
-      
-      try {
-        const jobSummaries: { id: string, summary: string }[] = JSON.parse(aiResponse);
-        const summaryMap = new Map(jobSummaries.map((j: { id: string; summary: string; }) => [j.id, j.summary]));
-
-        const batchWithSummaries = batchJobs.map((job) => {
-          const summary = summaryMap.get(job.id);
-          return { 
-            ...job, 
-            summary: summary || "No summary available."
-          };
-        });
-        allJobsWithSummaries.push(...batchWithSummaries);
-
-      } catch (parseError) {
-        console.error(`[JobSearch] Failed to parse AI response for summary batch starting at ${i}:`, parseError);
-        console.error("[JobSearch] Raw AI response:", aiResponse);
-        const failedBatch = batchJobs.map((job) => ({ 
-          ...job, 
-          summary: "Could not generate summary."
-        }));
-        allJobsWithSummaries.push(...failedBatch);
-      }
-    } catch (batchError) {
-      console.error(`[JobSearch] Error processing summary batch starting at ${i}:`, batchError);
-      const failedBatch = batchJobs.map(job => ({ 
-        ...job, 
-        summary: "Summary generation failed."
-      }));
-      allJobsWithSummaries.push(...failedBatch);
-    }
-
-    // Add a small delay between batches to avoid rate limiting
-    if (i + batchSize < jobs.length) {
-      await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
-    }
-  }
-
-  return allJobsWithSummaries;
-} 
+// Summary generation removed for faster job search performance 

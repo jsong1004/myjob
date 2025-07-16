@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Bookmark, Sparkles, TrendingUp, Eye } from "lucide-react"
+import { Bookmark, Sparkles, TrendingUp, Eye, ChevronUp, ChevronDown } from "lucide-react"
 import { MatchingScoreDialog } from "@/components/matching-score-dialog"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { AuthModal } from "@/components/auth-modal"
@@ -50,6 +50,8 @@ export function JobResults({ results }: JobResultsProps) {
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin')
   const [pendingJobToSave, setPendingJobToSave] = useState<Job | null>(null)
   const [pendingAction, setPendingAction] = useState<'save' | 'tailor' | null>(null)
+  const [sortField, setSortField] = useState<keyof Job | null>('title')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
 
   useEffect(() => {
     const fetchSavedJobs = async () => {
@@ -265,6 +267,69 @@ export function JobResults({ results }: JobResultsProps) {
     return words.slice(0, wordLimit).join(' ') + '...'
   }
 
+  const handleSort = (field: keyof Job) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortDirection('asc')
+    }
+  }
+
+  const sortedResults = React.useMemo(() => {
+    if (!sortField) return results
+    
+    return [...results].sort((a, b) => {
+      let aValue = a[sortField]
+      let bValue = b[sortField]
+      
+      // Handle empty values first
+      if (!aValue && !bValue) return 0
+      if (!aValue) return 1
+      if (!bValue) return -1
+      
+      // Special handling for different field types
+      if (sortField === 'salary') {
+        // Extract numbers from salary strings for proper comparison
+        const aNum = parseFloat(String(aValue).replace(/[^\d.]/g, '')) || 0
+        const bNum = parseFloat(String(bValue).replace(/[^\d.]/g, '')) || 0
+        const comparison = aNum - bNum
+        return sortDirection === 'desc' ? comparison * -1 : comparison
+      }
+      
+      if (sortField === 'postedAt') {
+        // Handle date strings
+        const aDate = new Date(String(aValue))
+        const bDate = new Date(String(bValue))
+        const comparison = aDate.getTime() - bDate.getTime()
+        return sortDirection === 'desc' ? comparison * -1 : comparison
+      }
+      
+      // Handle strings (title, company, location)
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        const aStr = aValue.toLowerCase().trim()
+        const bStr = bValue.toLowerCase().trim()
+        const comparison = aStr.localeCompare(bStr)
+        return sortDirection === 'desc' ? comparison * -1 : comparison
+      }
+      
+      // Fallback for other types
+      let comparison = 0
+      if (aValue < bValue) {
+        comparison = -1
+      } else if (aValue > bValue) {
+        comparison = 1
+      }
+      
+      return sortDirection === 'desc' ? comparison * -1 : comparison
+    })
+  }, [results, sortField, sortDirection])
+
+  const getSortIcon = (field: keyof Job) => {
+    if (sortField !== field) return null
+    return sortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
+  }
+
   if (!results || results.length === 0) {
     return (
       <Card className="text-center py-12">
@@ -281,20 +346,59 @@ export function JobResults({ results }: JobResultsProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <TrendingUp className="h-5 w-5" />
-          Job Matches ({results.length} found)
+          Job Matches ({sortedResults.length} found)
         </CardTitle>
-        <p className="text-sm text-muted-foreground">Showing jobs with the highest match scores based on your resume.</p>
       </CardHeader>
       <CardContent>
         <div className="border rounded-lg overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Job Title</TableHead>
-                <TableHead>Company</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Posted</TableHead>
-                <TableHead>Salary</TableHead>
+                <TableHead>
+                  <div 
+                    onClick={() => handleSort('title')}
+                    className="cursor-pointer font-semibold hover:text-blue-600 flex items-center gap-1 select-none"
+                  >
+                    Job Title
+                    {getSortIcon('title')}
+                  </div>
+                </TableHead>
+                <TableHead>
+                  <div 
+                    onClick={() => handleSort('company')}
+                    className="cursor-pointer font-semibold hover:text-blue-600 flex items-center gap-1 select-none"
+                  >
+                    Company
+                    {getSortIcon('company')}
+                  </div>
+                </TableHead>
+                <TableHead>
+                  <div 
+                    onClick={() => handleSort('location')}
+                    className="cursor-pointer font-semibold hover:text-blue-600 flex items-center gap-1 select-none"
+                  >
+                    Location
+                    {getSortIcon('location')}
+                  </div>
+                </TableHead>
+                <TableHead>
+                  <div 
+                    onClick={() => handleSort('postedAt')}
+                    className="cursor-pointer font-semibold hover:text-blue-600 flex items-center gap-1 select-none"
+                  >
+                    Posted
+                    {getSortIcon('postedAt')}
+                  </div>
+                </TableHead>
+                <TableHead>
+                  <div 
+                    onClick={() => handleSort('salary')}
+                    className="cursor-pointer font-semibold hover:text-blue-600 flex items-center gap-1 select-none"
+                  >
+                    Salary
+                    {getSortIcon('salary')}
+                  </div>
+                </TableHead>
                 <TableHead className="text-center">Details</TableHead>
                 <TableHead className="text-center w-36">
                   Actions
@@ -307,8 +411,8 @@ export function JobResults({ results }: JobResultsProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {results.map((job) => (
-                <TableRow key={job.id} className="hover:bg-muted/50">
+              {sortedResults.map((job, index) => (
+                <TableRow key={`${job.id}-${index}`} className="hover:bg-muted/50">
                   <TableCell>
                     <div className="font-medium">
                       {job.applyUrl ? (
@@ -394,12 +498,12 @@ export function JobResults({ results }: JobResultsProps) {
             <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>
-                  {results.find(job => job.id === jobDetailsOpen)?.title} at {results.find(job => job.id === jobDetailsOpen)?.company}
+                  {sortedResults.find(job => job.id === jobDetailsOpen)?.title} at {sortedResults.find(job => job.id === jobDetailsOpen)?.company}
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
                 {(() => {
-                  const job = results.find(job => job.id === jobDetailsOpen)
+                  const job = sortedResults.find(job => job.id === jobDetailsOpen)
                   if (!job) return null
                   
                   return (
