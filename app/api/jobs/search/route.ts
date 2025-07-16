@@ -258,6 +258,44 @@ export async function POST(req: NextRequest) {
     }
 
     console.log(`[JobSearch] Returning ${jobsToReturn.length} jobs to client.`);
+
+    // Fetch company culture and news from SerpApi for each job (may slow down API)
+    async function fetchCompanyInfo(companyName) {
+      try {
+        const serpApiCompanyParams = {
+          engine: "google",
+          api_key: apiKey,
+          q: companyName,
+          hl: "en",
+          gl: "us",
+        };
+        const companyResults = await getJson(serpApiCompanyParams);
+        // Try to extract a company description from the knowledge graph or organic results
+        let culture = "N/A";
+        let news = [];
+        if (companyResults.knowledge_graph && companyResults.knowledge_graph.description) {
+          culture = companyResults.knowledge_graph.description;
+        } else if (companyResults.organic_results && companyResults.organic_results.length > 0) {
+          // Try to use the snippet from the first organic result
+          culture = companyResults.organic_results[0].snippet || "N/A";
+        }
+        if (companyResults.news_results && Array.isArray(companyResults.news_results)) {
+          news = companyResults.news_results.slice(0, 3).map(n => n.title);
+        }
+        return { culture, news };
+      } catch (err) {
+        console.warn(`[JobSearch] Failed to fetch company info for ${companyName}:`, err);
+        return { culture: "N/A", news: [] };
+      }
+    }
+
+    // Attach companyCulture and companyNews to each job (in parallel for speed)
+    await Promise.all(jobsToReturn.map(async (job) => {
+      const { culture, news } = await fetchCompanyInfo(job.company);
+      job.companyCulture = culture;
+      job.companyNews = news;
+    }));
+
     return NextResponse.json({ jobs: jobsToReturn });
 
   } catch (error) {
