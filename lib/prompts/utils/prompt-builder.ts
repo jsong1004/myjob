@@ -22,31 +22,13 @@ export class PromptBuilder {
     const requiredVariables = template.match(/\{(\w+)\}/g) || []
     const missingVariables: string[] = []
 
-    console.log('[PromptBuilder] Validating variables:', {
-      templateLength: template.length,
-      requiredVariables,
-      variableKeys: Object.keys(variables),
-      templateStart: template.substring(0, 200)
-    })
-
     for (const placeholder of requiredVariables) {
       const key = placeholder.slice(1, -1) // Remove { and }
-      const value = variables[key]
-      const isMissing = value === undefined || value === null || value === ''
-      
-      console.log(`[PromptBuilder] Checking variable ${key}:`, {
-        value: typeof value === 'string' ? value.substring(0, 50) + '...' : value,
-        type: typeof value,
-        length: typeof value === 'string' ? value.length : 'N/A',
-        isMissing
-      })
-      
-      if (isMissing) {
+      if (variables[key] === undefined || variables[key] === null) {
         missingVariables.push(key)
       }
     }
 
-    console.log('[PromptBuilder] Validation result:', { missingVariables })
     return missingVariables
   }
 

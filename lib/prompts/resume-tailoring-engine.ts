@@ -260,7 +260,7 @@ async function executeTailoringOrchestrationAgent(
     const result = response.data
     
     // Validate and enhance the orchestration result
-    return validateTailoringOrchestrationResult(result, agentResults)
+    return validateTailoringOrchestrationResult(result, agentResults, resume)
     
   } catch (error) {
     console.error('❌ [TailoringOrchestration] Failed:', error)
@@ -276,12 +276,13 @@ async function executeTailoringOrchestrationAgent(
  */
 function validateTailoringOrchestrationResult(
   result: any, 
-  agentResults: TailoringAgentResults
+  agentResults: TailoringAgentResults,
+  originalResume?: string
 ): TailoringOrchestrationResult {
   
   // Ensure all required fields are present with fallbacks
   return {
-    finalTailoredResume: result.finalTailoredResume || 'Tailoring failed - please try again',
+    finalTailoredResume: result.finalTailoredResume || originalResume || '# Resume\n\nUnable to process resume content.',
     priorityChanges: result.priorityChanges || [],
     changeSummary: result.changeSummary || 'Unable to generate change summary',
     expectedScoreImprovements: result.expectedScoreImprovements || [],
