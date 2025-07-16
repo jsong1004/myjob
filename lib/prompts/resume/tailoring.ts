@@ -26,10 +26,12 @@ Please analyze the job requirements and make the requested changes to optimize t
 
 Respond with:
 UPDATED_RESUME:
-[The complete updated resume in markdown format]
+[The complete updated resume in clean markdown format - NO ** at beginning or end]
 
 CHANGE_SUMMARY:
-[Brief summary of the key changes made and why they improve the resume for this role]`,
+[Brief summary of the key changes made and why they improve the resume for this role]
+
+IMPORTANT: Do not add ** or any other markdown artifacts at the beginning or end of the resume content. Return clean, properly formatted markdown.`,
     model: MODELS.GPT4O_MINI,
     temperature: TEMPERATURE.BALANCED,
     responseFormat: {

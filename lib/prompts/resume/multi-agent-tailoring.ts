@@ -579,25 +579,32 @@ Return JSON in this exact format:
     description: 'Master orchestration agent for coordinating all tailoring recommendations',
     systemRole: `You are the Master Resume Tailoring Orchestration Agent responsible for coordinating all specialized agent recommendations into a cohesive, optimized resume.
 
-Your responsibilities include:
-- Integrating all agent recommendations cohesively
-- Prioritizing changes based on scoring analysis impact
-- Ensuring consistency across all resume sections
-- Resolving conflicts between agent recommendations
-- Maintaining resume flow and readability
-- Creating comprehensive change summary with rationale
+CRITICAL REQUIREMENTS:
+- MAXIMUM 2 PAGES: Keep the final resume to 2 pages or less
+- CONCISE CONTENT: Use bullet points, avoid lengthy paragraphs
+- CLEAN FORMAT: Professional markdown with clear sections
+- STRATEGIC FOCUS: Only include the most impactful improvements
 
 ORCHESTRATION PRIORITIES:
 1. Address highest-impact scoring weaknesses first
-2. Ensure consistency across all sections
-3. Maintain natural flow and readability
-4. Resolve conflicts between agent recommendations
-5. Create comprehensive improvement strategy
+2. Keep content concise and scannable
+3. Use clean formatting with proper spacing
+4. Prioritize quality over quantity of content
+5. Maintain 2-page maximum length
 
-BE STRATEGIC: Create a cohesive resume that maximizes job match potential while maintaining authenticity.
+FORMATTING GUIDELINES:
+- Use clear section headers with # or ##
+- Keep bullet points to 1-2 lines maximum
+- Remove redundant or low-impact content
+- Use consistent spacing and structure
+- Focus on results and achievements
+
+BE STRATEGIC: Create a concise, impactful resume that maximizes job match potential while staying within 2 pages.
 
 Return ONLY valid JSON. No explanatory text or markdown.`,
     userTemplate: `Coordinate all agent recommendations into a final, optimized resume that maximizes job match potential.
+
+CRITICAL: THE RESUME MUST BE 2 PAGES OR LESS. Be concise and focus on the most impactful improvements only.
 
 ORIGINAL RESUME:
 {resume}
@@ -614,17 +621,22 @@ ALL AGENT RESULTS:
 USER REQUEST:
 {userRequest}
 
-Integrate all recommendations into a cohesive, optimized resume.
+Create a concise, 2-page maximum resume that integrates the most impactful agent recommendations. Focus on:
+- Clear, scannable formatting with proper markdown headers
+- Bullet points that are 1-2 lines maximum
+- Results-focused achievements with metrics
+- Strategic keyword placement for ATS optimization
+- Professional flow that tells a compelling story
 
 Return JSON in this exact format:
 {
-  "finalTailoredResume": "Complete optimized resume integrating all agent improvements",
-  "priorityChanges": ["Most impactful changes based on scoring analysis"],
-  "changeSummary": "Comprehensive overview of all modifications and their strategic purpose",
-  "expectedScoreImprovements": ["Predicted improvements in each scoring category"],
-  "conflictsResolved": ["How conflicts between agent recommendations were resolved"],
-  "consistencyImprovements": ["How consistency was maintained across sections"],
-  "readabilityEnhancements": ["How readability and flow were optimized"]
+  "finalTailoredResume": "Concise, professionally formatted resume (2 pages max) integrating top agent improvements",
+  "priorityChanges": ["Top 3-5 most impactful changes based on scoring analysis"],
+  "changeSummary": "Brief overview of strategic modifications and their purpose",
+  "expectedScoreImprovements": ["Predicted improvements in key scoring categories"],
+  "conflictsResolved": ["How major conflicts between agent recommendations were resolved"],
+  "consistencyImprovements": ["Key consistency improvements across sections"],
+  "readabilityEnhancements": ["Major readability and formatting optimizations"]
 }`,
     model: MODELS.GPT4O_MINI,
     temperature: TEMPERATURE.BALANCED,

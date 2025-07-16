@@ -96,16 +96,12 @@ export async function POST(req: NextRequest) {
   try {
     const startTime = Date.now();
     
-    // Check if we should use multi-agent tailoring
-    let shouldUseMultiAgent = multiAgent;
-    let finalScoringAnalysis = scoringAnalysis;
-    
-    // If mode is 'agent' and we don't have scoring analysis, generate it on-demand
+    // Generate scoring analysis if not present (for better tailoring context)
+    let scoringContext = null;
     if (mode === 'agent' && !scoringAnalysis && (jobDescription || (jobTitle && company))) {
-      console.log('[TailoringAPI] No scoring analysis found, generating on-demand for multi-agent tailoring');
+      console.log('[TailoringAPI] No scoring analysis found, generating for better tailoring context');
       
       try {
-        // Generate scoring analysis using the enhanced scoring system
         const { executeEnhancedJobScoring } = await import('@/lib/prompts/api-helpers');
         
         // Create a mock job object for scoring
@@ -129,36 +125,24 @@ export async function POST(req: NextRequest) {
         
         const scoredJobs = await executeEnhancedJobScoring(scoringRequest);
         if (scoredJobs.length > 0 && scoredJobs[0].enhancedScoreDetails) {
-          finalScoringAnalysis = scoredJobs[0].enhancedScoreDetails;
-          shouldUseMultiAgent = true;
-          console.log('[TailoringAPI] Generated scoring analysis, enabling multi-agent mode');
+          scoringContext = scoredJobs[0].enhancedScoreDetails;
+          console.log('[TailoringAPI] Generated scoring analysis for tailoring context');
         }
       } catch (scoringError) {
-        console.warn('[TailoringAPI] Failed to generate on-demand scoring, falling back to legacy mode:', scoringError);
+        console.warn('[TailoringAPI] Failed to generate scoring analysis, proceeding without it:', scoringError);
       }
     }
     
-    // Choose between multi-agent and legacy tailoring
-    let result;
-    if (shouldUseMultiAgent) {
-      console.log('[TailoringAPI] Using multi-agent tailoring system');
-      result = await executeMultiAgentResumeTailoring({
-        resume: finalResume,
-        jobDescription: jobDescription || `Job Title: ${jobTitle}\nCompany: ${company}`,
-        scoringAnalysis: finalScoringAnalysis,
-        userRequest: message
-      });
-    } else {
-      console.log('[TailoringAPI] Using legacy tailoring system');
-      result = await executeResumeTailoring({
-        resume: finalResume,
-        jobTitle,
-        company,
-        jobDescription,
-        userRequest: message,
-        mode: mode as 'agent' | 'ask'
-      });
-    }
+    // Always use legacy tailoring system for resumes (better results than multi-agent)
+    console.log('[TailoringAPI] Using legacy tailoring system');
+    const result = await executeResumeTailoring({
+      resume: finalResume,
+      jobTitle,
+      company,
+      jobDescription,
+      userRequest: message,
+      mode: mode as 'agent' | 'ask'
+    });
 
     const timeTaken = (Date.now() - startTime) / 1000;
 
@@ -174,27 +158,25 @@ export async function POST(req: NextRequest) {
         tokenUsage: 0, // TODO: Get actual token usage from prompt manager
         timeTaken,
         metadata: { 
-          model: shouldUseMultiAgent ? 'multi-agent-tailoring' : 'openai/gpt-4o-mini', 
-          mode: shouldUseMultiAgent ? 'multi-agent' : mode, 
+          model: 'openai/gpt-4o-mini', 
+          mode: mode, 
           user_prompt: message,
-          prompt_system: shouldUseMultiAgent ? 'centralized-multi-agent' : 'centralized',
-          multi_agent: shouldUseMultiAgent,
-          agents_executed: shouldUseMultiAgent ? (result.executionSummary?.agentsExecuted || 8) : 1,
-          has_scoring_analysis: !!finalScoringAnalysis,
-          scoring_generated_on_demand: !scoringAnalysis && !!finalScoringAnalysis
+          prompt_system: 'centralized-legacy',
+          multi_agent: false,
+          agents_executed: 1,
+          resume_loaded_from_db: !resume && !!finalResume,
+          scoring_generated: !scoringAnalysis && !!scoringContext
         },
       });
     }
 
-    // Add multi-agent metadata to response
+    // Add metadata to response
     const enhancedResult = {
       ...result,
-      multiAgent: shouldUseMultiAgent,
-      scoringGeneratedOnDemand: !scoringAnalysis && !!finalScoringAnalysis,
-      ...(shouldUseMultiAgent && {
-        agentResults: result.agentResults,
-        executionSummary: result.executionSummary
-      })
+      multiAgent: false,
+      resumeLoadedFromDb: !resume && !!finalResume,
+      scoringGenerated: !scoringAnalysis && !!scoringContext,
+      tailoringMode: 'legacy'
     };
 
     return NextResponse.json(enhancedResult);

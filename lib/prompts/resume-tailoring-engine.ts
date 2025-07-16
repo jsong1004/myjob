@@ -245,8 +245,8 @@ async function executeTailoringOrchestrationAgent(
         }
       },
       overrides: {
-        // Orchestration needs more tokens to process all agent results
-        maxTokens: 3000
+        // Reduced tokens to encourage concise, 2-page resumes
+        maxTokens: 2000
       }
     })
 

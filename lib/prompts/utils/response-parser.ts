@@ -76,8 +76,15 @@ export class ResponseParser {
     const letterMatch = content.match(/COVER_LETTER:\s*([\s\S]*?)\s*SUMMARY:/i)
     const letterSummaryMatch = content.match(/SUMMARY:\s*([\s\S]*?)$/i)
     
+    // Clean the updated content by removing ** artifacts at beginning and end
+    let updatedContent = resumeMatch?.[1]?.trim() || letterMatch?.[1]?.trim()
+    if (updatedContent) {
+      // Remove ** at the very beginning and end of the content
+      updatedContent = updatedContent.replace(/^\*\*/, '').replace(/\*\*$/, '')
+    }
+    
     return {
-      updatedContent: resumeMatch?.[1]?.trim() || letterMatch?.[1]?.trim(),
+      updatedContent,
       summary: summaryMatch?.[1]?.trim() || letterSummaryMatch?.[1]?.trim()
     }
   }

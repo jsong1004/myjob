@@ -116,12 +116,7 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
       setTailorError(null)
       try {
         const token = await auth.currentUser.getIdToken()
-        // Check if we have scoring analysis to use multi-agent tailoring
-        const hasScoring = job.enhancedScoreDetails || job.originalData?.enhancedScoreDetails
-        const multiAgent = !!hasScoring
-        
-        console.log(`[TailorResume] Using ${multiAgent ? 'multi-agent' : 'legacy'} tailoring system`)
-        console.log(`[TailorResume] Has scoring analysis: ${!!hasScoring}`)
+        console.log(`[TailorResume] Using legacy tailoring system`)
         console.log(`[TailorResume] Default resume length: ${defaultResume?.length || 0}`)
         
         const res = await fetch("/api/openrouter/tailor-resume", {
@@ -131,16 +126,12 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
             "Authorization": `Bearer ${token}`
           },
           body: JSON.stringify({
-            message: multiAgent 
-              ? "Optimize this resume using the detailed job match analysis to address identified gaps and strengthen weak areas."
-              : "Tailor this resume for the following job. Do not change unless necessary.",
+            message: "Tailor this resume for the following job. Focus on relevant experience and skills.",
             resume: defaultResume,
             jobTitle: job.title,
             company: job.company,
             jobDescription: job.fullDescription || job.description || "",
-            mode: "agent",
-            multiAgent,
-            scoringAnalysis: hasScoring,
+            mode: "agent"
           }),
         })
         if (!res.ok) {
@@ -268,12 +259,9 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
 
     try {
       const token = await auth.currentUser.getIdToken()
-      // Check if we have scoring analysis for multi-agent chat
-      const hasScoring = job.enhancedScoreDetails || job.originalData?.enhancedScoreDetails
-      const useMultiAgent = mode === "agent" && !!hasScoring
       
       console.log(`[Chat] Current resume length: ${currentResume?.length || 0}`)
-      console.log(`[Chat] Using multi-agent: ${useMultiAgent}`)
+      console.log(`[Chat] Using legacy tailoring mode`)
       
       // Call OpenRouter API for AI resume tailoring or Q&A
       const res = await fetch("/api/openrouter/tailor-resume", {
@@ -288,9 +276,7 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
           jobTitle: job.title,
           company: job.company,
           jobDescription: job.fullDescription || job.description || "",
-          mode, // pass mode to backend
-          multiAgent: useMultiAgent,
-          scoringAnalysis: useMultiAgent ? hasScoring : undefined,
+          mode // pass mode to backend
         }),
       })
       if (!res.ok) throw new Error("AI service error")
@@ -536,12 +522,6 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
                   <CardTitle className="flex items-center gap-2">
                     <MessageSquare className="h-5 w-5" />
                     AI Resume Assistant
-                    {(job?.enhancedScoreDetails || job?.originalData?.enhancedScoreDetails) && (
-                      <Badge variant="secondary" className="ml-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white">
-                        <Sparkles className="h-3 w-3 mr-1" />
-                        Multi-Agent
-                      </Badge>
-                    )}
                   </CardTitle>
                   <div className="flex items-center gap-4 mt-2">
                     <span className="text-sm text-gray-600">Mode:</span>
@@ -552,9 +532,7 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
                   </div>
                   <p className="text-sm text-gray-600 mt-2">
                     {mode === 'agent'
-                      ? (job?.enhancedScoreDetails || job?.originalData?.enhancedScoreDetails)
-                        ? 'Give instructions to edit your resume. Multi-Agent system will use job match analysis to optimize your resume with 8 specialized agents.'
-                        : 'Give instructions to edit your resume. Example: "Make the summary shorter".'
+                      ? 'Give instructions to edit your resume. Example: "Make the summary shorter" or "Add more technical skills".'
                       : 'Ask questions about your resume or the job. Example: "What skills should I highlight?"'}
                   </p>
                 </CardHeader>
