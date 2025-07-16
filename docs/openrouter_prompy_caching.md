@@ -1,4 +1,4 @@
-# OpenRouter Prompt Caching for Multi-User Applications
+p# OpenRouter Prompt Caching for Multi-User Applications
 
 OpenRouter implements automatic prompt caching for GPT-4o mini that requires no special configuration, offering 25-50% cost savings on cached tokens with a minimum threshold of 1,024 tokens. The system provides user-specific cache isolation through the `user` parameter and maintains caches for 5-10 minutes of inactivity, making it ideal for multi-user applications like resume analysis services.
 

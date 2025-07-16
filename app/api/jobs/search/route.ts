@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import { executeEnhancedJobScoring, executeMultiAgentJobScoring } from "@/lib/prompts/api-helpers";
 import { getJson } from "serpapi";
 
 import { initFirebaseAdmin } from "@/lib/firebase-admin-init";
@@ -34,17 +33,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing SERPAPI_KEY" }, { status: 500 });
     }
 
-    // Get user ID for deduplication
+    // Get user ID for deduplication (optional for authenticated users)
     const token = req.headers.get('Authorization')?.split('Bearer ')[1];
     let userId = null;
     if (token) {
-        initFirebaseAdmin();
-        const decodedToken = await getAuth().verifyIdToken(token);
-        userId = decodedToken.uid;
-    }
-
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        try {
+            initFirebaseAdmin();
+            const decodedToken = await getAuth().verifyIdToken(token);
+            userId = decodedToken.uid;
+        } catch (error) {
+            console.log(`[JobSearch] Token verification failed:`, error);
+            // Continue without userId for unauthenticated search
+        }
     }
 
     console.log(`[JobSearch] Using SerpAPI key: ${apiKey.substring(0, 10)}...`);
@@ -166,44 +166,22 @@ export async function POST(req: NextRequest) {
     const jobsWithSummaries = await generateJobSummaries(newJobs);
     console.log(`[JobSearch] Generated summaries for jobs.`);
 
-    // Save new jobs to jobs collection with userId
-    await saveJobsIfNotExist(jobsWithSummaries, userId);
-    console.log(`[JobSearch] Saved ${jobsWithSummaries.length} new jobs to jobs collection.`);
-
-    let jobsToReturn: JobSearchResult[] = [];
-
-    if (jobsWithSummaries.length > 0) {
-      if (resume) {
-        try {
-          if (forceLegacyScoring) {
-            console.log(`[JobSearch] Using legacy enhanced scoring for ${jobsWithSummaries.length} new jobs (forced).`);
-            jobsToReturn = await executeEnhancedJobScoring({ jobs: jobsWithSummaries, resume, userId });
-          } else if (useMultiAgent) {
-            console.log(`[JobSearch] Using multi-agent scoring for ${jobsWithSummaries.length} new jobs.`);
-            jobsToReturn = await executeMultiAgentJobScoring({ jobs: jobsWithSummaries, resume, userId });
-          } else {
-            console.log(`[JobSearch] Using enhanced scoring for ${jobsWithSummaries.length} new jobs.`);
-            jobsToReturn = await executeEnhancedJobScoring({ jobs: jobsWithSummaries, resume, userId });
-          }
-        } catch (error) {
-          console.error("[JobSearch] Error getting matching scores:", error);
-          jobsToReturn = jobsWithSummaries.map(job => ({
-            ...job,
-            matchingScore: 0,
-            matchingSummary: "AI analysis failed for this job.",
-          }));
-        }
-      } else {
-        // No resume, just return new jobs with default empty summary/score
-        jobsToReturn = jobsWithSummaries.map(job => ({
-          ...job,
-          matchingScore: 0,
-          matchingSummary: "Resume not provided for matching.",
-        }));
-      }
+    // Save new jobs to jobs collection only if user is authenticated
+    if (userId) {
+      await saveJobsIfNotExist(jobsWithSummaries, userId);
+      console.log(`[JobSearch] Saved ${jobsWithSummaries.length} new jobs to jobs collection.`);
+    } else {
+      console.log(`[JobSearch] Skipping job save for unauthenticated user.`);
     }
 
-    console.log(`[JobSearch] Returning ${jobsToReturn.length} new jobs to client.`);
+    // Return jobs without scoring - scoring will be done when user saves the job
+    const jobsToReturn: JobSearchResult[] = jobsWithSummaries.map(job => ({
+      ...job,
+      matchingScore: 0,
+      matchingSummary: "",
+    }));
+
+    console.log(`[JobSearch] Returning ${jobsToReturn.length} jobs to client.`);
     return NextResponse.json({ jobs: jobsToReturn });
 
   } catch (error) {

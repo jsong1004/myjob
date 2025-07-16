@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { initFirebaseAdmin } from "@/lib/firebase-admin-init"
 import { getFirestore } from "firebase-admin/firestore"
 import { getAuth } from "firebase-admin/auth"
-import { SavedJob } from "@/lib/types"
+import { SavedJob, JobSearchResult } from "@/lib/types"
+import { executeMultiAgentJobScoring, executeEnhancedJobScoring } from "@/lib/prompts/api-helpers"
 
 export async function GET(req: NextRequest) {
   try {
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
     const decoded = await adminAuth.verifyIdToken(token)
     const userId = decoded.uid
     const body = await req.json()
-    const { jobId, title, company, location, summary, salary, matchingScore, scoreDetails, matchingSummary, originalData } = body
+    const { jobId, title, company, location, summary, salary, matchingScore, scoreDetails, matchingSummary, originalData, useMultiAgent = true } = body
     if (!jobId || !title || !company) {
       return NextResponse.json({ error: "Missing required job fields" }, { status: 400 })
     }
@@ -59,6 +60,85 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Job already saved" }, { status: 409 })
     }
 
+    // Get user's default resume for scoring
+    let calculatedScore = 0
+    let calculatedSummary = ""
+    let calculatedScoreDetails = {}
+    
+    try {
+      // Fetch user's default resume
+      const resumesSnapshot = await adminDb.collection("resumes")
+        .where("userId", "==", userId)
+        .where("isDefault", "==", true)
+        .limit(1)
+        .get()
+      
+      let resume = ""
+      if (!resumesSnapshot.empty) {
+        resume = resumesSnapshot.docs[0].data().content || ""
+      } else {
+        // If no default resume, get any resume
+        const anyResumeSnapshot = await adminDb.collection("resumes")
+          .where("userId", "==", userId)
+          .limit(1)
+          .get()
+        if (!anyResumeSnapshot.empty) {
+          resume = anyResumeSnapshot.docs[0].data().content || ""
+        }
+      }
+
+      // If we have a resume and originalData, perform scoring
+      if (resume && originalData) {
+        console.log(`[SavedJobs] Performing scoring for job ${jobId} with user's resume`)
+        
+        // Convert originalData to JobSearchResult format for scoring
+        const jobForScoring: JobSearchResult = {
+          id: originalData.id || jobId,
+          title: originalData.title || title,
+          company: originalData.company || company,
+          location: originalData.location || location,
+          description: originalData.description || "",
+          qualifications: originalData.qualifications || [],
+          responsibilities: originalData.responsibilities || [],
+          benefits: originalData.benefits || [],
+          salary: originalData.salary || salary || "",
+          postedAt: originalData.postedAt || "",
+          applyUrl: originalData.applyUrl || "",
+          source: originalData.source || "",
+          matchingScore: 0,
+          matchingSummary: "",
+          summary: originalData.summary || summary || ""
+        }
+
+        let scoredJobs: JobSearchResult[] = []
+        
+        if (useMultiAgent) {
+          scoredJobs = await executeMultiAgentJobScoring({ 
+            jobs: [jobForScoring], 
+            resume, 
+            userId 
+          })
+        } else {
+          scoredJobs = await executeEnhancedJobScoring({ 
+            jobs: [jobForScoring], 
+            resume, 
+            userId 
+          })
+        }
+
+        if (scoredJobs.length > 0) {
+          calculatedScore = scoredJobs[0].matchingScore || 0
+          calculatedSummary = scoredJobs[0].matchingSummary || ""
+          calculatedScoreDetails = scoredJobs[0].scoreDetails || {}
+        }
+      } else {
+        console.log(`[SavedJobs] No resume found or originalData missing, saving without scoring`)
+      }
+    } catch (scoringError) {
+      console.error(`[SavedJobs] Error performing scoring:`, scoringError)
+      // Continue with save even if scoring fails
+    }
+
     const docRef = await adminDb.collection("savedJobs").add({
       userId,
       jobId,
@@ -67,9 +147,9 @@ export async function POST(req: NextRequest) {
       location,
       summary: summary || "",
       salary: salary || "",
-      matchingScore: matchingScore ?? 0,
-      matchingSummary: matchingSummary || "",
-      scoreDetails: scoreDetails || {},
+      matchingScore: calculatedScore || matchingScore || 0,
+      matchingSummary: calculatedSummary || matchingSummary || "",
+      scoreDetails: calculatedScoreDetails || scoreDetails || {},
       savedAt: new Date(),
       appliedAt: null, // Initialize as null, can be updated later
       // New application tracking fields
@@ -80,7 +160,13 @@ export async function POST(req: NextRequest) {
       originalData: originalData || {},
     })
     const doc = await docRef.get()
-    return NextResponse.json({ id: doc.id, ...doc.data() })
+    return NextResponse.json({ 
+      id: doc.id, 
+      ...doc.data(),
+      matchingScore: calculatedScore || matchingScore || 0,
+      matchingSummary: calculatedSummary || matchingSummary || "",
+      scoreDetails: calculatedScoreDetails || scoreDetails || {}
+    })
   } catch (error) {
     console.error("[SavedJobs][POST] Error:", error)
     return NextResponse.json({ error: "Failed to save job" }, { status: 500 })

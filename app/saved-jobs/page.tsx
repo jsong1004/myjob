@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Bookmark, ExternalLink, Loader2, AlertCircle, FileText, Edit, Calendar, StickyNote, ChevronUp, ChevronDown, Search, X, Plus, RefreshCw, Sparkles, PenTool } from "lucide-react"
+import { Bookmark, ExternalLink, Loader2, AlertCircle, FileText, Edit, Calendar, StickyNote, ChevronUp, ChevronDown, Search, X, Plus, RefreshCw, Sparkles, PenTool, Eye } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Header } from "@/components/header"
@@ -55,6 +55,7 @@ function SavedJobsPageContent() {
   const [newJobSalary, setNewJobSalary] = useState('')
   const [isAddingJob, setIsAddingJob] = useState(false)
   const [rescoringJobId, setRescoringJobId] = useState<string | null>(null)
+  const [jobDetailsOpen, setJobDetailsOpen] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchSavedJobs = async () => {
@@ -316,6 +317,12 @@ function SavedJobsPageContent() {
     if (score >= 90) return "text-green-600 bg-green-100 border-green-200"
     if (score >= 80) return "text-blue-600 bg-blue-100 border-blue-200"
     return "text-amber-600 bg-amber-100 border-amber-200"
+  }
+
+  const truncateDescription = (description: string, wordLimit: number = 50) => {
+    const words = description.split(' ')
+    if (words.length <= wordLimit) return description
+    return words.slice(0, wordLimit).join(' ') + '...'
   }
 
   const handleAddJob = async () => {
@@ -795,19 +802,16 @@ function SavedJobsPageContent() {
                             {job.company}
                           </Link>
                         </TableCell>
-                        <TableCell className="px-3 py-2">
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <p className="text-sm text-muted-foreground line-clamp-2 cursor-help">
-                                  {job.originalData?.summary || "No summary available."}
-                                </p>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" className="max-w-md p-4 whitespace-pre-line">
-                                <p>{job.originalData?.summary || "No summary available."}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
+                        <TableCell className="px-3 py-2 text-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setJobDetailsOpen(job.jobId)}
+                            className="gap-2 text-muted-foreground hover:text-foreground"
+                          >
+                            <Eye className="h-4 w-4" />
+                            View Details
+                          </Button>
                         </TableCell>
                         <TableCell className="text-center px-3 py-2">
                           <div className="flex items-center justify-center gap-1">
@@ -889,7 +893,7 @@ function SavedJobsPageContent() {
                                     className="text-xs px-2 py-1 h-6 text-muted-foreground hover:text-foreground w-full"
                                   >
                                     <Edit className="h-3 w-3 mr-1 flex-shrink-0" />
-                                    <span className="truncate">Edit</span>
+                                    <span className="truncate">Edit Status</span>
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
@@ -907,7 +911,7 @@ function SavedJobsPageContent() {
                                     className="text-xs px-2 py-1 h-6 text-muted-foreground hover:text-destructive w-full"
                                   >
                                     <Bookmark className="h-3 w-3 mr-1 flex-shrink-0 fill-current" />
-                                    <span className="truncate">Remove</span>
+                                    <span className="truncate">Remove Job</span>
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
@@ -1061,6 +1065,98 @@ function SavedJobsPageContent() {
                 />
               )
             })()
+          )}
+
+          {jobDetailsOpen && (
+            <Dialog open={!!jobDetailsOpen} onOpenChange={() => setJobDetailsOpen(null)}>
+              <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>
+                    {(() => {
+                      const job = savedJobs.find(j => j.jobId === jobDetailsOpen)
+                      return job ? `${job.title} at ${job.company}` : 'Job Details'
+                    })()}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  {(() => {
+                    const job = savedJobs.find(j => j.jobId === jobDetailsOpen)
+                    if (!job) return null
+                    
+                    return (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <h3 className="font-semibold mb-2">Company</h3>
+                            <p className="text-muted-foreground">{job.company}</p>
+                          </div>
+                          <div>
+                            <h3 className="font-semibold mb-2">Location</h3>
+                            <p className="text-muted-foreground">{job.location}</p>
+                          </div>
+                          <div>
+                            <h3 className="font-semibold mb-2">Posted</h3>
+                            <p className="text-muted-foreground">{job.originalData?.postedAt || "Not specified"}</p>
+                          </div>
+                          <div>
+                            <h3 className="font-semibold mb-2">Salary</h3>
+                            <Badge variant="secondary">{job.salary || "Not specified"}</Badge>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <h3 className="font-semibold mb-2">Description</h3>
+                          <p className="text-muted-foreground whitespace-pre-wrap">{job.originalData?.description || job.originalData?.summary || "No description available"}</p>
+                        </div>
+                        
+                        {job.originalData?.qualifications && job.originalData.qualifications.length > 0 && (
+                          <div>
+                            <h3 className="font-semibold mb-2">Qualifications</h3>
+                            <ul className="list-disc list-inside text-muted-foreground space-y-1">
+                              {job.originalData.qualifications.map((qual, index) => (
+                                <li key={index}>{qual}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
+                        {job.originalData?.responsibilities && job.originalData.responsibilities.length > 0 && (
+                          <div>
+                            <h3 className="font-semibold mb-2">Responsibilities</h3>
+                            <ul className="list-disc list-inside text-muted-foreground space-y-1">
+                              {job.originalData.responsibilities.map((resp, index) => (
+                                <li key={index}>{resp}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
+                        {job.originalData?.benefits && job.originalData.benefits.length > 0 && (
+                          <div>
+                            <h3 className="font-semibold mb-2">Benefits</h3>
+                            <ul className="list-disc list-inside text-muted-foreground space-y-1">
+                              {job.originalData.benefits.map((benefit, index) => (
+                                <li key={index}>{benefit}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
+                        {job.originalData?.applyUrl && (
+                          <div className="pt-4 border-t">
+                            <Button asChild>
+                              <a href={job.originalData.applyUrl} target="_blank" rel="noopener noreferrer">
+                                Apply for this job
+                              </a>
+                            </Button>
+                          </div>
+                        )}
+                      </>
+                    )
+                  })()}
+                </div>
+              </DialogContent>
+            </Dialog>
           )}
         </div>
       </main>

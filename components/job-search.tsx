@@ -14,8 +14,6 @@ import { Label } from "@/components/ui/label"
 interface JobSearchProps {
   onSearch: (query: string, location: string) => void
   isLoading: boolean
-  onAuthRequired?: () => void
-  isAuthenticated?: boolean
 }
 
 const majorCities = [
@@ -34,19 +32,13 @@ const majorCities = [
 
 const workArrangements = ["All", "Remote", "Hybrid"];
 
-export function JobSearch({ onSearch, isLoading, onAuthRequired, isAuthenticated = false }: JobSearchProps) {
+export function JobSearch({ onSearch, isLoading }: JobSearchProps) {
   const [query, setQuery] = useState("")
   const [location, setLocation] = useState("Seattle, Washington, United States")
   const [workArrangement, setWorkArrangement] = useState("All");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    
-    // Check if user is authenticated before allowing search
-    if (!isAuthenticated && onAuthRequired) {
-      onAuthRequired()
-      return
-    }
     
     let finalQuery = query.trim();
     if (workArrangement === "Remote") {

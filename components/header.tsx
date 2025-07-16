@@ -32,7 +32,7 @@ export function Header() {
       await signOut()
       
       // Check if on protected route and redirect with clean page reload
-      const protectedRoutes = ['/profile', '/resumes', '/saved-jobs', '/cover-letters', '/my-activities', '/admin', '/search']
+      const protectedRoutes = ['/profile', '/resumes', '/saved-jobs', '/cover-letters', '/my-activities', '/admin']
       const currentPath = window.location.pathname
       const isOnProtectedRoute = protectedRoutes.some(route => currentPath.startsWith(route))
       
@@ -67,7 +67,7 @@ export function Header() {
             </Link>
 
             <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
-              <Link href="/search" className="text-muted-foreground hover:text-foreground transition-colors">
+              <Link href="/" className="text-muted-foreground hover:text-foreground transition-colors">
                 Search Jobs
               </Link>
               {user && (
