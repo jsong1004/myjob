@@ -301,6 +301,7 @@ export async function executeResumeTailoring(request: ResumeTailoringRequest): P
         userRequest: request.userRequest
       },
       context: {
+        userId: request.userId, // For OpenRouter cache optimization
         metadata: {
           mode: request.mode,
           timestamp: new Date().toISOString()
