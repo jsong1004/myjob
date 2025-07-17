@@ -1,11 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
 import { JobSearch } from "@/components/job-search"
 import { JobResults } from "@/components/job-results"
 import { Header } from "@/components/header"
 import { AuthProvider, useAuth } from "@/components/auth-provider"
 import { AuthModal } from "@/components/auth-modal"
+import { OnboardingModal } from "@/components/onboarding-modal"
 import { auth } from "@/lib/firebase"
 
 interface Job {
@@ -26,13 +28,24 @@ interface Job {
   summary?: string
 }
 
-function HomePage() {
+function HomePageContent() {
   const [searchResults, setSearchResults] = useState<Job[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signup')
-  const { user } = useAuth()
+  const { user, showOnboarding, setShowOnboarding } = useAuth()
+  const searchParams = useSearchParams()
+
+  // Handle initial search from URL parameters (e.g., from onboarding)
+  useEffect(() => {
+    const query = searchParams.get('q')
+    const location = searchParams.get('location')
+    
+    if (query && location && user && !hasSearched) {
+      handleSearch(query, location)
+    }
+  }, [searchParams, user, hasSearched])
 
 
   const handleSearch = async (query: string, location: string) => {
@@ -93,6 +106,8 @@ function HomePage() {
           <JobSearch 
             onSearch={handleSearch} 
             isLoading={isLoading}
+            initialQuery={searchParams.get('q') || ""}
+            initialLocation={searchParams.get('location') || "Seattle, Washington, United States"}
           />
           
           {isLoading && (
@@ -125,7 +140,20 @@ function HomePage() {
         mode={authMode}
         onModeChange={setAuthMode}
       />
+      
+      <OnboardingModal
+        isOpen={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
+      />
     </>
+  )
+}
+
+function HomePage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <HomePageContent />
+    </Suspense>
   )
 }
 
