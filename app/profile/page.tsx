@@ -9,28 +9,36 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Separator } from "@/components/ui/separator"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from "@/components/ui/switch"
-import { AlertCircle, User, FileText, Settings, Star, Upload, Save, Loader2, CheckCircle, Camera } from "lucide-react"
+import { Camera, Upload, Save, Loader2, CheckCircle, Plus, X } from "lucide-react"
 import { Header } from "@/components/header"
 import { AuthProvider, useAuth } from "@/components/auth-provider"
 import { Resume } from "@/lib/types"
 import { auth, storage } from "@/lib/firebase"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
+import { useToast } from "@/components/ui/use-toast"
 
 interface UserProfile {
   displayName: string
   email: string
   phoneNumber: string
   location: string
-  linkedinUrl: string
-  githubUrl: string
-  portfolioUrl: string
-  bio: string
-  jobTitle: string
-  experience: string
-  skills: string[]
+  currentJobTitle: string
+  yearsOfExperience: string
+  professionalBio: string
+  linkedinProfile: string
+  githubProfile: string
+  portfolioWebsite: string
+  targetJobTitles: string[]
+  preferredWorkLocations: string[]
+  openToRemote: boolean
+  desiredSalary: string
+  salaryCurrency: string
+  salaryFrequency: string
+  employmentTypes: string[]
+  visaSponsorshipRequired: string
   defaultResumeId: string
   emailNotifications: boolean
   jobAlerts: boolean
@@ -47,340 +55,522 @@ export default function ProfilePage() {
 
 function ProfilePageContent() {
   const { user } = useAuth()
+  const { toast } = useToast()
   const [profile, setProfile] = useState<UserProfile>({
     displayName: "",
     email: "",
     phoneNumber: "",
     location: "",
-    linkedinUrl: "",
-    githubUrl: "",
-    portfolioUrl: "",
-    bio: "",
-    jobTitle: "",
-    experience: "",
-    skills: [],
+    currentJobTitle: "",
+    yearsOfExperience: "",
+    professionalBio: "",
+    linkedinProfile: "",
+    githubProfile: "",
+    portfolioWebsite: "",
+    targetJobTitles: [],
+    preferredWorkLocations: [],
+    openToRemote: false,
+    desiredSalary: "",
+    salaryCurrency: "USD",
+    salaryFrequency: "per Year",
+    employmentTypes: [],
+    visaSponsorshipRequired: "",
     defaultResumeId: "",
     emailNotifications: true,
     jobAlerts: true,
     photoURL: "",
   })
+  
   const [resumes, setResumes] = useState<Resume[]>([])
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
-  const [newSkill, setNewSkill] = useState("")
-  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [showSuccessAlert, setShowSuccessAlert] = useState(false)
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
+  const [newJobTitle, setNewJobTitle] = useState("")
+  const [newWorkLocation, setNewWorkLocation] = useState("")
+  const [showJobTitleSuggestions, setShowJobTitleSuggestions] = useState(false)
+  const [filteredJobTitleSuggestions, setFilteredJobTitleSuggestions] = useState<string[]>([])
+  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false)
+  const [filteredLocationSuggestions, setFilteredLocationSuggestions] = useState<string[]>([])
 
-  useEffect(() => {
-    if (user) {
-      fetchProfile()
-      fetchResumes()
+  // Common job title suggestions
+  const jobTitleSuggestions = [
+    "AI Engineer", "AI Developer", "AI Solutions Architect", "AI Research Scientist", "AI Product Manager",
+    "Machine Learning Engineer", "Machine Learning Scientist", "ML Ops Engineer", "Data Scientist", "Data Engineer",
+    "Software Engineer", "Senior Software Engineer", "Lead Software Engineer", "Principal Software Engineer",
+    "Frontend Developer", "Backend Developer", "Full Stack Developer", "React Developer", "Node.js Developer",
+    "DevOps Engineer", "Site Reliability Engineer", "Platform Engineer", "Cloud Engineer", "Cloud Architect",
+    "Product Manager", "Senior Product Manager", "Technical Product Manager", "Product Owner",
+    "UX Designer", "UI Designer", "UX/UI Designer", "Product Designer", "Design Lead",
+    "Data Analyst", "Business Analyst", "Systems Analyst", "Financial Analyst",
+    "QA Engineer", "Test Engineer", "QA Automation Engineer", "Quality Assurance Lead",
+    "Cybersecurity Engineer", "Security Analyst", "Information Security Specialist",
+    "Mobile Developer", "iOS Developer", "Android Developer", "React Native Developer",
+    "Database Administrator", "Database Engineer", "Systems Administrator",
+    "Technical Writer", "Documentation Specialist", "Developer Advocate",
+    "Engineering Manager", "Technical Lead", "Team Lead", "CTO", "VP of Engineering",
+    "Sales Engineer", "Solutions Engineer", "Customer Success Manager",
+    "Research Scientist", "Research Engineer", "Applied Scientist"
+  ]
+
+  // Location suggestions including major cities, states, and remote options
+  const locationSuggestions = [
+    "Remote", "Anywhere", "Hybrid",
+    // Major US Cities
+    "Seattle, Washington", "San Francisco, California", "Los Angeles, California", "San Diego, California",
+    "New York, New York", "Boston, Massachusetts", "Philadelphia, Pennsylvania",
+    "Austin, Texas", "Dallas, Texas", "Houston, Texas",
+    "Chicago, Illinois", "Detroit, Michigan", "Minneapolis, Minnesota",
+    "Denver, Colorado", "Phoenix, Arizona", "Las Vegas, Nevada",
+    "Portland, Oregon", "Salt Lake City, Utah",
+    "Atlanta, Georgia", "Miami, Florida", "Tampa, Florida", "Orlando, Florida",
+    "Charlotte, North Carolina", "Raleigh, North Carolina",
+    "Nashville, Tennessee", "Memphis, Tennessee",
+    "Washington, District of Columbia", "Baltimore, Maryland",
+    "Richmond, Virginia", "Norfolk, Virginia",
+    "Pittsburgh, Pennsylvania", "Cleveland, Ohio", "Columbus, Ohio", "Cincinnati, Ohio",
+    "Indianapolis, Indiana", "Milwaukee, Wisconsin", "Kansas City, Missouri", "St. Louis, Missouri",
+    "New Orleans, Louisiana", "Oklahoma City, Oklahoma",
+    "Albuquerque, New Mexico", "Tucson, Arizona",
+    "Sacramento, California", "Fresno, California", "San Jose, California", "Oakland, California",
+    "Honolulu, Hawaii", "Anchorage, Alaska",
+    // States
+    "California", "New York", "Texas", "Florida", "Washington", "Illinois", "Pennsylvania",
+    "Ohio", "Georgia", "North Carolina", "Michigan", "New Jersey", "Virginia", "Tennessee",
+    "Indiana", "Arizona", "Massachusetts", "Maryland", "Missouri", "Wisconsin", "Colorado",
+    "Minnesota", "Louisiana", "Alabama", "Kentucky", "Oregon", "Oklahoma", "Connecticut",
+    "South Carolina", "Iowa", "Kansas", "Utah", "Nevada", "Arkansas", "Mississippi",
+    "New Mexico", "Nebraska", "West Virginia", "Idaho", "Hawaii", "New Hampshire",
+    "Maine", "Montana", "Rhode Island", "Delaware", "South Dakota", "North Dakota",
+    "Alaska", "Vermont", "Wyoming",
+    // International locations
+    "Toronto, Canada", "Vancouver, Canada", "Montreal, Canada",
+    "London, United Kingdom", "Berlin, Germany", "Amsterdam, Netherlands",
+    "Dublin, Ireland", "Stockholm, Sweden", "Copenhagen, Denmark",
+    "Zurich, Switzerland", "Vienna, Austria", "Barcelona, Spain", "Madrid, Spain",
+    "Paris, France", "Milan, Italy", "Rome, Italy",
+    "Tokyo, Japan", "Singapore", "Hong Kong", "Sydney, Australia", "Melbourne, Australia"
+  ]
+
+  // Filter job title suggestions based on input
+  const handleJobTitleInputChange = (value: string) => {
+    setNewJobTitle(value)
+    if (value.trim().length > 0) {
+      const filtered = jobTitleSuggestions.filter(suggestion =>
+        suggestion.toLowerCase().includes(value.toLowerCase()) &&
+        !profile.targetJobTitles.includes(suggestion)
+      ).slice(0, 8) // Limit to 8 suggestions
+      setFilteredJobTitleSuggestions(filtered)
+      setShowJobTitleSuggestions(filtered.length > 0)
     } else {
-      setLoading(false)
+      setShowJobTitleSuggestions(false)
+      setFilteredJobTitleSuggestions([])
+    }
+  }
+
+  const selectJobTitleSuggestion = (suggestion: string) => {
+    setProfile(prev => ({
+      ...prev,
+      targetJobTitles: [...prev.targetJobTitles, suggestion]
+    }))
+    setNewJobTitle("")
+    setShowJobTitleSuggestions(false)
+    setFilteredJobTitleSuggestions([])
+  }
+
+  // Filter location suggestions based on input
+  const handleLocationInputChange = (value: string) => {
+    setNewWorkLocation(value)
+    if (value.trim().length > 0) {
+      const filtered = locationSuggestions.filter(suggestion =>
+        suggestion.toLowerCase().includes(value.toLowerCase()) &&
+        !profile.preferredWorkLocations.includes(suggestion)
+      ).slice(0, 8) // Limit to 8 suggestions
+      setFilteredLocationSuggestions(filtered)
+      setShowLocationSuggestions(filtered.length > 0)
+    } else {
+      setShowLocationSuggestions(false)
+      setFilteredLocationSuggestions([])
+    }
+  }
+
+  const selectLocationSuggestion = (suggestion: string) => {
+    setProfile(prev => ({
+      ...prev,
+      preferredWorkLocations: [...prev.preferredWorkLocations, suggestion]
+    }))
+    setNewWorkLocation("")
+    setShowLocationSuggestions(false)
+    setFilteredLocationSuggestions([])
+  }
+
+  // Load profile data and resumes
+  useEffect(() => {
+    if (user && auth?.currentUser) {
+      loadProfile()
+      loadResumes()
     }
   }, [user])
 
-  const getAuthToken = async () => {
-    if (!auth?.currentUser) return null
+  const loadProfile = async () => {
     try {
-      return await auth.currentUser.getIdToken()
-    } catch (error) {
-      console.error('Failed to get auth token:', error)
-      return null
-    }
-  }
-
-  const fetchProfile = async () => {
-    try {
-      const token = await getAuthToken()
-      if (!token) return
-
-      const response = await fetch('/api/profile', {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const token = await auth.currentUser.getIdToken()
+      const response = await fetch("/api/profile", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       })
-
       if (response.ok) {
         const data = await response.json()
-        setProfile(prev => ({ ...prev, ...data.profile }))
-      } else if (response.status === 404) {
-        setProfile(prev => ({
-          ...prev,
-          displayName: user?.displayName || "",
-          email: user?.email || "",
-          photoURL: user?.photoURL || "",
+        const profileData = data.profile || data // Handle both nested and direct response
+        setProfile(prevProfile => ({
+          ...prevProfile,
+          displayName: profileData.displayName || "",
+          email: profileData.email || "",
+          phoneNumber: profileData.phoneNumber || "",
+          location: profileData.location || "",
+          currentJobTitle: profileData.currentJobTitle || profileData.jobTitle || "",
+          yearsOfExperience: profileData.yearsOfExperience || profileData.experience || "",
+          professionalBio: profileData.professionalBio || profileData.bio || "",
+          linkedinProfile: profileData.linkedinProfile || profileData.linkedinUrl || "",
+          githubProfile: profileData.githubProfile || profileData.githubUrl || "",
+          portfolioWebsite: profileData.portfolioWebsite || profileData.portfolioUrl || "",
+          targetJobTitles: profileData.targetJobTitles || [],
+          preferredWorkLocations: profileData.preferredWorkLocations || [],
+          openToRemote: profileData.openToRemote || false,
+          desiredSalary: profileData.desiredSalary || "",
+          salaryCurrency: profileData.salaryCurrency || "USD",
+          salaryFrequency: profileData.salaryFrequency || "per Year",
+          employmentTypes: profileData.employmentTypes || [],
+          visaSponsorshipRequired: profileData.visaSponsorshipRequired || "",
+          defaultResumeId: profileData.defaultResumeId || "",
+          emailNotifications: profileData.emailNotifications !== false,
+          jobAlerts: profileData.jobAlerts !== false,
+          photoURL: profileData.photoURL || "",
         }))
       }
     } catch (error) {
-      setError('Failed to load profile')
-    } finally {
-      setLoading(false)
+      console.error("Error loading profile:", error)
     }
   }
 
-  const fetchResumes = async () => {
+  const loadResumes = async () => {
     try {
-      const token = await getAuthToken()
-      if (!token) return
-
-      const response = await fetch('/api/resumes', {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const token = await auth.currentUser.getIdToken()
+      const response = await fetch("/api/resumes", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       })
-
       if (response.ok) {
         const data = await response.json()
+        console.log("Loaded resumes:", data.resumes || [])
         setResumes(data.resumes || [])
+      } else {
+        console.error("Failed to load resumes:", response.status, response.statusText)
       }
     } catch (error) {
-      console.error('Error fetching resumes:', error)
+      console.error("Error loading resumes:", error)
     }
   }
 
   const handleSaveProfile = async () => {
-    setSaving(true)
-    setError(null)
-    setSuccess(null)
-
+    setIsSaving(true)
     try {
-      const token = await getAuthToken()
-      if (!token) {
-        setError('Authentication required')
-        return
-      }
-
-      const response = await fetch('/api/profile', {
-        method: 'POST',
+      const token = await auth.currentUser.getIdToken()
+      const response = await fetch("/api/profile", {
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify(profile)
+        body: JSON.stringify(profile),
       })
 
       if (response.ok) {
-        setSuccess('Profile saved successfully!')
-        setTimeout(() => setSuccess(null), 3000)
-      } else {
-        const errorData = await response.json()
-        setError(errorData.error || 'Failed to save profile')
+        setShowSuccessAlert(true)
+        setTimeout(() => setShowSuccessAlert(false), 3000)
+        toast({
+          title: "Profile Updated",
+          description: "Your changes have been saved successfully.",
+        })
       }
     } catch (error) {
-      setError('Failed to save profile')
+      console.error("Error saving profile:", error)
+      toast({
+        title: "Error",
+        description: "Failed to save profile changes.",
+        variant: "destructive",
+      })
     } finally {
-      setSaving(false)
+      setIsSaving(false)
     }
-  }
-
-  const handleAddSkill = () => {
-    if (newSkill.trim() && !profile.skills.includes(newSkill.trim())) {
-      setProfile(prev => ({ ...prev, skills: [...prev.skills, newSkill.trim()] }))
-      setNewSkill("")
-    }
-  }
-
-  const handleRemoveSkill = (skillToRemove: string) => {
-    setProfile(prev => ({ ...prev, skills: prev.skills.filter(skill => skill !== skillToRemove) }))
-  }
-
-  const handleInputChange = (field: keyof UserProfile, value: string | boolean) => {
-    setProfile(prev => ({ ...prev, [field]: value }))
-  }
-
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
   }
 
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (!file) return
-    
-    if (!user?.uid) {
-      setError('User not authenticated.')
-      return
-    }
-    
-    if (!storage) {
-      setError('Storage not available. Please check your Firebase configuration.')
-      return
-    }
+    if (!file || !user) return
 
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
-    if (!allowedTypes.includes(file.type)) {
-      setError('Please upload a JPEG, PNG, or WebP image.')
+    // Validate file type and size
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp']
+    if (!validTypes.includes(file.type)) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload a JPEG, PNG, or WebP image.",
+        variant: "destructive",
+      })
       return
     }
 
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024
-    if (file.size > maxSize) {
-      setError('Image size must be less than 5MB.')
+    if (file.size > 5 * 1024 * 1024) { // 5MB
+      toast({
+        title: "File too large",
+        description: "Please upload an image smaller than 5MB.",
+        variant: "destructive",
+      })
       return
     }
 
-    setUploadingPhoto(true)
-    setError(null)
-
+    setIsUploadingPhoto(true)
     try {
-      console.log('Starting photo upload...', { fileSize: file.size, fileType: file.type })
-      
-      // Create a storage reference
       const storageRef = ref(storage, `profile-photos/${user.uid}/${Date.now()}-${file.name}`)
-      console.log('Storage reference created:', storageRef)
+      await uploadBytes(storageRef, file)
+      const downloadURL = await getDownloadURL(storageRef)
       
-      // Upload the file
-      console.log('Uploading file...')
-      const snapshot = await uploadBytes(storageRef, file)
-      console.log('Upload completed:', snapshot)
-      
-      // Get the download URL
-      console.log('Getting download URL...')
-      const downloadURL = await getDownloadURL(snapshot.ref)
-      console.log('Download URL obtained:', downloadURL)
-      
-      // Update profile state
       setProfile(prev => ({ ...prev, photoURL: downloadURL }))
-      
-      setSuccess('Photo uploaded successfully!')
-      setTimeout(() => setSuccess(null), 3000)
+      toast({
+        title: "Photo uploaded",
+        description: "Your profile photo has been updated.",
+      })
     } catch (error) {
-      console.error('Error uploading photo:', error)
-      if (error instanceof Error) {
-        setError(`Upload failed: ${error.message}`)
-      } else {
-        setError('Failed to upload photo. Please check your internet connection and try again.')
-      }
+      console.error("Error uploading photo:", error)
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload photo. Please try again.",
+        variant: "destructive",
+      })
     } finally {
-      setUploadingPhoto(false)
-      // Clear the file input
-      event.target.value = ''
+      setIsUploadingPhoto(false)
     }
   }
 
-  if (loading) {
+  const addJobTitle = () => {
+    if (newJobTitle.trim() && !profile.targetJobTitles.includes(newJobTitle.trim())) {
+      setProfile(prev => ({
+        ...prev,
+        targetJobTitles: [...prev.targetJobTitles, newJobTitle.trim()]
+      }))
+      setNewJobTitle("")
+      setShowJobTitleSuggestions(false)
+      setFilteredJobTitleSuggestions([])
+    }
+  }
+
+  const removeJobTitle = (title: string) => {
+    setProfile(prev => ({
+      ...prev,
+      targetJobTitles: prev.targetJobTitles.filter(t => t !== title)
+    }))
+  }
+
+  const addWorkLocation = () => {
+    if (newWorkLocation.trim() && !profile.preferredWorkLocations.includes(newWorkLocation.trim())) {
+      setProfile(prev => ({
+        ...prev,
+        preferredWorkLocations: [...prev.preferredWorkLocations, newWorkLocation.trim()]
+      }))
+      setNewWorkLocation("")
+      setShowLocationSuggestions(false)
+      setFilteredLocationSuggestions([])
+    }
+  }
+
+  const removeWorkLocation = (location: string) => {
+    setProfile(prev => ({
+      ...prev,
+      preferredWorkLocations: prev.preferredWorkLocations.filter(l => l !== location)
+    }))
+  }
+
+  const toggleEmploymentType = (type: string) => {
+    setProfile(prev => ({
+      ...prev,
+      employmentTypes: prev.employmentTypes.includes(type)
+        ? prev.employmentTypes.filter(t => t !== type)
+        : [...prev.employmentTypes, type]
+    }))
+  }
+
+  if (!user) {
     return (
-      <>
+      <div className="min-h-screen bg-gray-50">
         <Header />
-        <div className="container mx-auto px-4 py-8">
-          <div className="max-w-4xl mx-auto flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            <span className="ml-2 text-muted-foreground">Loading profile...</span>
-          </div>
+        <div className="flex items-center justify-center py-24">
+          <p className="text-gray-600">Please sign in to access your profile.</p>
         </div>
-      </>
+      </div>
     )
   }
 
   return (
-    <>
+    <div className="min-h-screen bg-gray-50">
       <Header />
-      <main className="container mx-auto px-4 py-12 md:py-16">
-        <div className="max-w-4xl mx-auto space-y-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      
+      <main className="container mx-auto px-4 py-8">
+        {/* Page Header */}
+        <div className="mb-8">
+          <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">Profile Settings</h1>
-              <p className="text-muted-foreground">Manage your account information and preferences.</p>
+              <h1 className="text-3xl font-bold text-gray-900">Profile Settings</h1>
+              <p className="text-gray-600 mt-2">Manage your account information and job search preferences.</p>
             </div>
-            <Button onClick={handleSaveProfile} disabled={saving}>
-              {saving ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <Button
+              onClick={handleSaveProfile}
+              disabled={isSaving}
+              className="flex items-center gap-2"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Saving...
+                </>
               ) : (
-                <Save className="mr-2 h-4 w-4" />
+                <>
+                  <Save className="h-4 w-4" />
+                  Save Changes
+                </>
               )}
-              {saving ? "Saving..." : "Save Changes"}
             </Button>
           </div>
+        </div>
 
-          {success && (
-            <Alert className="border-green-200 bg-green-50 text-green-800">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertDescription>{success}</AlertDescription>
-            </Alert>
-          )}
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+        {/* Success Alert */}
+        {showSuccessAlert && (
+          <Alert className="mb-6 border-green-200 bg-green-50">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-800">
+              <strong>Profile Updated</strong> - Your changes have been saved successfully.
+            </AlertDescription>
+          </Alert>
+        )}
 
+        <div className="space-y-6">
+          {/* Card 1: Basic Information */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <User className="h-5 w-5" />
-                Basic Information
-              </CardTitle>
+              <CardTitle>Basic Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex items-center gap-6">
-                <div className="relative">
-                  <Avatar className="h-24 w-24">
-                    <AvatarImage src={profile.photoURL || user?.photoURL || ""} />
-                    <AvatarFallback className="text-2xl">
-                      {getInitials(profile.displayName || user?.displayName || "U")}
-                    </AvatarFallback>
-                  </Avatar>
-                  {uploadingPhoto && (
-                    <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
-                      <Loader2 className="h-6 w-6 text-white animate-spin" />
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <div className="relative">
+              {/* Profile Photo */}
+              <div className="flex items-center gap-4">
+                <Avatar className="h-20 w-20">
+                  <AvatarImage src={profile.photoURL} alt="Profile photo" />
+                  <AvatarFallback>
+                    <Camera className="h-8 w-8 text-gray-400" />
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <Button
+                    variant="outline"
+                    disabled={isUploadingPhoto}
+                    className="relative"
+                  >
+                    {isUploadingPhoto ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Change Photo
+                      </>
+                    )}
                     <input
                       type="file"
-                      accept="image/jpeg,image/jpg,image/png,image/webp"
+                      accept="image/jpeg,image/png,image/webp"
                       onChange={handlePhotoUpload}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      disabled={uploadingPhoto}
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      disabled={isUploadingPhoto}
                     />
-                    <Button variant="outline" disabled={uploadingPhoto}>
-                      {uploadingPhoto ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <Camera className="mr-2 h-4 w-4" />
-                      )}
-                      {uploadingPhoto ? "Uploading..." : "Change Photo"}
-                    </Button>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    JPEG, PNG, or WebP. Max 5MB.
-                    {uploadingPhoto && <span className="block text-blue-600 mt-1">Upload in progress...</span>}
-                  </p>
+                  </Button>
+                  <p className="text-sm text-gray-500 mt-1">JPEG, PNG, or WebP. Max 5MB.</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="displayName">Full Name</Label>
-                  <Input id="displayName" value={profile.displayName} onChange={(e) => handleInputChange('displayName', e.target.value)} placeholder="Your full name" />
+                  <Label htmlFor="fullName">Full Name</Label>
+                  <Input
+                    id="fullName"
+                    placeholder="Enter your full name"
+                    value={profile.displayName}
+                    onChange={(e) => setProfile(prev => ({ ...prev, displayName: e.target.value }))}
+                  />
                 </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" value={profile.email} onChange={(e) => handleInputChange('email', e.target.value)} placeholder="your.email@example.com" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="Enter your email address"
+                    value={profile.email}
+                    onChange={(e) => setProfile(prev => ({ ...prev, email: e.target.value }))}
+                  />
                 </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="phoneNumber">Phone Number</Label>
-                  <Input id="phoneNumber" value={profile.phoneNumber} onChange={(e) => handleInputChange('phoneNumber', e.target.value)} placeholder="+1 (555) 123-4567" />
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <Input
+                    id="phone"
+                    placeholder="Enter your phone number"
+                    value={profile.phoneNumber}
+                    onChange={(e) => setProfile(prev => ({ ...prev, phoneNumber: e.target.value }))}
+                  />
                 </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="location">Location</Label>
-                  <Input id="location" value={profile.location} onChange={(e) => handleInputChange('location', e.target.value)} placeholder="San Francisco, CA" />
+                  <Input
+                    id="location"
+                    placeholder="e.g., Seattle, Washington"
+                    value={profile.location}
+                    onChange={(e) => setProfile(prev => ({ ...prev, location: e.target.value }))}
+                  />
+                  <p className="text-sm text-gray-500">Your current city of residence.</p>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Card 2: Professional Profile */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Professional Profile</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="jobTitle">Current Job Title</Label>
-                  <Input id="jobTitle" value={profile.jobTitle} onChange={(e) => handleInputChange('jobTitle', e.target.value)} placeholder="Senior Software Engineer" />
+                  <Input
+                    id="jobTitle"
+                    placeholder="e.g., AI Engineer"
+                    value={profile.currentJobTitle}
+                    onChange={(e) => setProfile(prev => ({ ...prev, currentJobTitle: e.target.value }))}
+                  />
                 </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="experience">Years of Experience</Label>
-                  <Select value={profile.experience} onValueChange={(value) => handleInputChange('experience', value)}>
-                    <SelectTrigger><SelectValue placeholder="Select experience level" /></SelectTrigger>
+                  <Select value={profile.yearsOfExperience} onValueChange={(value) => setProfile(prev => ({ ...prev, yearsOfExperience: value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select experience level" />
+                    </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="0-1">0-1 years</SelectItem>
-                      <SelectItem value="2-3">2-3 years</SelectItem>
-                      <SelectItem value="4-6">4-6 years</SelectItem>
-                      <SelectItem value="7-10">7-10 years</SelectItem>
+                      <SelectItem value="less-than-1">Less than 1 year</SelectItem>
+                      <SelectItem value="1-3">1-3 years</SelectItem>
+                      <SelectItem value="3-5">3-5 years</SelectItem>
+                      <SelectItem value="5-10">5-10 years</SelectItem>
                       <SelectItem value="10+">10+ years</SelectItem>
                     </SelectContent>
                   </Select>
@@ -389,76 +579,299 @@ function ProfilePageContent() {
 
               <div className="space-y-2">
                 <Label htmlFor="bio">Professional Bio</Label>
-                <Textarea id="bio" value={profile.bio} onChange={(e) => handleInputChange('bio', e.target.value)} placeholder="Tell us about yourself..." className="min-h-[120px]" />
+                <Textarea
+                  id="bio"
+                  placeholder="Tell recruiters what makes you stand out. Describe your passions, key achievements, and what you're looking for in your next role."
+                  value={profile.professionalBio}
+                  onChange={(e) => setProfile(prev => ({ ...prev, professionalBio: e.target.value }))}
+                  rows={4}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="linkedin">LinkedIn Profile</Label>
+                  <Input
+                    id="linkedin"
+                    placeholder="https://www.linkedin.com/in/your-profile"
+                    value={profile.linkedinProfile}
+                    onChange={(e) => setProfile(prev => ({ ...prev, linkedinProfile: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="github">GitHub Profile</Label>
+                  <Input
+                    id="github"
+                    placeholder="https://github.com/your-username"
+                    value={profile.githubProfile}
+                    onChange={(e) => setProfile(prev => ({ ...prev, githubProfile: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="portfolio">Portfolio Website</Label>
+                  <Input
+                    id="portfolio"
+                    placeholder="https://your-portfolio.com"
+                    value={profile.portfolioWebsite}
+                    onChange={(e) => setProfile(prev => ({ ...prev, portfolioWebsite: e.target.value }))}
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader><CardTitle>Professional Links</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="linkedinUrl">LinkedIn Profile</Label>
-                <Input id="linkedinUrl" value={profile.linkedinUrl} onChange={(e) => handleInputChange('linkedinUrl', e.target.value)} placeholder="https://linkedin.com/in/yourprofile" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="githubUrl">GitHub Profile</Label>
-                <Input id="githubUrl" value={profile.githubUrl} onChange={(e) => handleInputChange('githubUrl', e.target.value)} placeholder="https://github.com/yourusername" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="portfolioUrl">Portfolio Website</Label>
-                <Input id="portfolioUrl" value={profile.portfolioUrl} onChange={(e) => handleInputChange('portfolioUrl', e.target.value)} placeholder="https://yourportfolio.com" />
-              </div>
-            </CardContent>
-          </Card>
-
+          {/* Card 3: Job Search Preferences */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl"><FileText className="h-5 w-5" />Default Resume</CardTitle>
+              <CardTitle>Job Search Preferences</CardTitle>
+              <p className="text-sm text-gray-600">This information helps us find the best job matches for you. It is not displayed on a public profile.</p>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-6">
+              {/* Target Job Titles */}
               <div className="space-y-2">
-                <Label htmlFor="defaultResume">Default Resume for Job Applications</Label>
-                <Select value={profile.defaultResumeId} onValueChange={(value) => handleInputChange('defaultResumeId', value)}>
-                  <SelectTrigger><SelectValue placeholder="Select your default resume" /></SelectTrigger>
-                  <SelectContent>
-                    {resumes.map((resume) => (
-                      <SelectItem key={resume.id} value={resume.id}>
-                        <div className="flex items-center gap-2">
-                          {resume.name}
-                          {resume.isDefault && <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />}
+                <Label>Target Job Titles</Label>
+                <div className="relative">
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        placeholder="Type to add a job title (e.g., AI Engineer)"
+                        value={newJobTitle}
+                        onChange={(e) => handleJobTitleInputChange(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && addJobTitle()}
+                        onFocus={() => {
+                          if (newJobTitle.trim() && filteredJobTitleSuggestions.length > 0) {
+                            setShowJobTitleSuggestions(true)
+                          }
+                        }}
+                        onBlur={() => {
+                          // Delay hiding suggestions to allow for clicks
+                          setTimeout(() => setShowJobTitleSuggestions(false), 200)
+                        }}
+                      />
+                      {/* Autocomplete Suggestions */}
+                      {showJobTitleSuggestions && filteredJobTitleSuggestions.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 z-10 mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                          {filteredJobTitleSuggestions.map((suggestion, index) => (
+                            <button
+                              key={index}
+                              type="button"
+                              className="w-full text-left px-3 py-2 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none text-sm"
+                              onClick={() => selectJobTitleSuggestion(suggestion)}
+                            >
+                              {suggestion}
+                            </button>
+                          ))}
                         </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                      )}
+                    </div>
+                    <Button onClick={addJobTitle} size="sm">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {profile.targetJobTitles.map((title) => (
+                    <Badge key={title} variant="secondary" className="flex items-center gap-1">
+                      {title}
+                      <X className="h-3 w-3 cursor-pointer" onClick={() => removeJobTitle(title)} />
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
+              {/* Preferred Work Locations */}
+              <div className="space-y-2">
+                <Label>Preferred Work Locations</Label>
+                <div className="relative">
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        placeholder="Type a city, state, or select 'Remote' (e.g., Seattle, Washington)"
+                        value={newWorkLocation}
+                        onChange={(e) => handleLocationInputChange(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && addWorkLocation()}
+                        onFocus={() => {
+                          if (newWorkLocation.trim() && filteredLocationSuggestions.length > 0) {
+                            setShowLocationSuggestions(true)
+                          }
+                        }}
+                        onBlur={() => {
+                          // Delay hiding suggestions to allow for clicks
+                          setTimeout(() => setShowLocationSuggestions(false), 200)
+                        }}
+                      />
+                      {/* Autocomplete Suggestions */}
+                      {showLocationSuggestions && filteredLocationSuggestions.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 z-10 mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                          {filteredLocationSuggestions.map((suggestion, index) => (
+                            <button
+                              key={index}
+                              type="button"
+                              className="w-full text-left px-3 py-2 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none text-sm"
+                              onClick={() => selectLocationSuggestion(suggestion)}
+                            >
+                              {suggestion}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <Button onClick={addWorkLocation} size="sm">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {profile.preferredWorkLocations.map((location) => (
+                    <Badge key={location} variant="secondary" className="flex items-center gap-1">
+                      {location}
+                      <X className="h-3 w-3 cursor-pointer" onClick={() => removeWorkLocation(location)} />
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
+              {/* Remote Work Preference */}
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="remote"
+                  checked={profile.openToRemote}
+                  onCheckedChange={(checked) => setProfile(prev => ({ ...prev, openToRemote: !!checked }))}
+                />
+                <Label htmlFor="remote">Open to 100% remote roles</Label>
+              </div>
+
+              {/* Desired Compensation */}
+              <div className="space-y-2">
+                <Label>Desired Compensation</Label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <Input
+                    placeholder="Minimum Base Salary"
+                    value={profile.desiredSalary}
+                    onChange={(e) => setProfile(prev => ({ ...prev, desiredSalary: e.target.value }))}
+                  />
+                  <Select value={profile.salaryCurrency} onValueChange={(value) => setProfile(prev => ({ ...prev, salaryCurrency: value }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="USD">USD</SelectItem>
+                      <SelectItem value="CAD">CAD</SelectItem>
+                      <SelectItem value="EUR">EUR</SelectItem>
+                      <SelectItem value="GBP">GBP</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={profile.salaryFrequency} onValueChange={(value) => setProfile(prev => ({ ...prev, salaryFrequency: value }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="per Year">per Year</SelectItem>
+                      <SelectItem value="per Hour">per Hour</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-sm text-gray-500">Providing a salary helps us filter roles that don't meet your expectations.</p>
+              </div>
+
+              {/* Employment Type */}
+              <div className="space-y-2">
+                <Label>Employment Type</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {['Full-time', 'Part-time', 'Contract', 'Internship'].map((type) => (
+                    <div key={type} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={type}
+                        checked={profile.employmentTypes.includes(type)}
+                        onCheckedChange={() => toggleEmploymentType(type)}
+                      />
+                      <Label htmlFor={type}>{type}</Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Work Authorization */}
+              <div className="space-y-2">
+                <Label>Will you require visa sponsorship for employment in your preferred locations?</Label>
+                <div className="flex gap-4">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="visa-yes"
+                      name="visa"
+                      checked={profile.visaSponsorshipRequired === 'Yes'}
+                      onChange={() => setProfile(prev => ({ ...prev, visaSponsorshipRequired: 'Yes' }))}
+                    />
+                    <Label htmlFor="visa-yes">Yes</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="visa-no"
+                      name="visa"
+                      checked={profile.visaSponsorshipRequired === 'No'}
+                      onChange={() => setProfile(prev => ({ ...prev, visaSponsorshipRequired: 'No' }))}
+                    />
+                    <Label htmlFor="visa-no">No</Label>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
 
+          {/* Card 4: Notifications */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl"><Settings className="h-5 w-5" />Preferences</CardTitle>
+              <CardTitle>Notifications</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-4 rounded-lg border">
+              <div className="flex items-center justify-between">
                 <div>
-                  <Label htmlFor="emailNotifications" className="font-medium">Email Notifications</Label>
-                  <p className="text-sm text-muted-foreground">Receive updates about your job applications.</p>
+                  <Label htmlFor="email-notifications">Email Notifications</Label>
+                  <p className="text-sm text-gray-500">Receive updates about your job applications.</p>
                 </div>
-                <Switch id="emailNotifications" checked={profile.emailNotifications} onCheckedChange={(checked) => handleInputChange('emailNotifications', checked)} />
+                <Switch
+                  id="email-notifications"
+                  checked={profile.emailNotifications}
+                  onCheckedChange={(checked) => setProfile(prev => ({ ...prev, emailNotifications: checked }))}
+                />
               </div>
-              <div className="flex items-center justify-between p-4 rounded-lg border">
+
+              <div className="flex items-center justify-between">
                 <div>
-                  <Label htmlFor="jobAlerts" className="font-medium">Job Alerts</Label>
-                  <p className="text-sm text-muted-foreground">Get notified about relevant job opportunities.</p>
+                  <Label htmlFor="job-alerts">Job Alerts</Label>
+                  <p className="text-sm text-gray-500">Get notified about new job opportunities that match your preferences.</p>
                 </div>
-                <Switch id="jobAlerts" checked={profile.jobAlerts} onCheckedChange={(checked) => handleInputChange('jobAlerts', checked)} />
+                <Switch
+                  id="job-alerts"
+                  checked={profile.jobAlerts}
+                  onCheckedChange={(checked) => setProfile(prev => ({ ...prev, jobAlerts: checked }))}
+                />
               </div>
             </CardContent>
           </Card>
         </div>
+
+        {/* Footer */}
+        <footer className="mt-12 pt-8 border-t border-gray-200">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="text-sm text-gray-500">
+              © 2025 Startup Consulting Inc. All rights reserved.
+            </p>
+            <div className="flex gap-4">
+              <a href="/privacy-policy" className="text-sm text-gray-500 hover:text-gray-700">
+                Privacy Policy
+              </a>
+              <a href="/terms-of-service" className="text-sm text-gray-500 hover:text-gray-700">
+                Terms of Service
+              </a>
+            </div>
+          </div>
+        </footer>
       </main>
-    </>
+    </div>
   )
-} 
+}
