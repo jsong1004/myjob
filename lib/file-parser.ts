@@ -74,6 +74,48 @@ export async function parseMarkdown(buffer: Buffer): Promise<ParsedFileResult> {
 }
 
 /**
+ * Parse TXT file buffer to extract text content
+ */
+export async function parseTXT(buffer: Buffer): Promise<ParsedFileResult> {
+  try {
+    const content = buffer.toString('utf-8').trim();
+    return {
+      content
+    };
+  } catch (error) {
+    console.error('TXT parsing error:', error);
+    return {
+      content: '',
+      error: 'Failed to parse TXT file. Please ensure it is a valid text file.'
+    };
+  }
+}
+
+/**
+ * Handle image files (return file info instead of parsing content)
+ */
+export async function handleImage(buffer: Buffer, filename: string): Promise<ParsedFileResult> {
+  try {
+    const extension = filename.toLowerCase().split('.').pop();
+    const sizeKB = Math.round(buffer.length / 1024);
+    
+    return {
+      content: `[Image Attachment: ${filename}]
+File Type: ${extension?.toUpperCase()}
+File Size: ${sizeKB} KB
+
+This image has been attached to the feedback.`
+    };
+  } catch (error) {
+    console.error('Image handling error:', error);
+    return {
+      content: '',
+      error: 'Failed to process image file.'
+    };
+  }
+}
+
+/**
  * Parse file based on its extension
  */
 export async function parseFile(buffer: Buffer, filename: string): Promise<ParsedFileResult> {
@@ -87,10 +129,19 @@ export async function parseFile(buffer: Buffer, filename: string): Promise<Parse
     case 'md':
     case 'markdown':
       return parseMarkdown(buffer);
+    case 'txt':
+      return parseTXT(buffer);
+    case 'jpg':
+    case 'jpeg':
+    case 'png':
+    case 'gif':
+    case 'bmp':
+    case 'webp':
+      return handleImage(buffer, filename);
     default:
       return {
         content: '',
-        error: `Unsupported file format: ${extension}. Please upload PDF, DOCX, or Markdown files.`
+        error: `Unsupported file format: ${extension}. Please upload PDF, DOCX, TXT, Markdown, or image files.`
       };
   }
 }
@@ -110,12 +161,39 @@ export function validateFile(file: File): { valid: boolean; error?: string } {
 
   // Check file extension
   const extension = file.name.toLowerCase().split('.').pop();
-  const allowedExtensions = ['pdf', 'docx', 'md', 'markdown'];
+  const allowedExtensions = ['pdf', 'docx', 'md', 'markdown', 'txt', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
   
   if (!extension || !allowedExtensions.includes(extension)) {
     return {
       valid: false,
-      error: 'Please upload a PDF, DOCX, or Markdown file'
+      error: 'Please upload a PDF, DOCX, TXT, Markdown, or image file'
+    };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Validate file specifically for feedback attachments (more lenient size limit)
+ */
+export function validateFeedbackFile(file: File): { valid: boolean; error?: string } {
+  // Check file size (max 5MB for feedback attachments)
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  if (file.size > maxSize) {
+    return {
+      valid: false,
+      error: 'File size must be less than 5MB'
+    };
+  }
+
+  // Check file extension
+  const extension = file.name.toLowerCase().split('.').pop();
+  const allowedExtensions = ['pdf', 'docx', 'md', 'markdown', 'txt', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
+  
+  if (!extension || !allowedExtensions.includes(extension)) {
+    return {
+      valid: false,
+      error: 'Please upload a PDF, DOCX, TXT, Markdown, or image file'
     };
   }
 
