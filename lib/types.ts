@@ -9,6 +9,7 @@ export interface User {
   createdAt: Timestamp
   updatedAt: Timestamp
   defaultResumeId?: string
+  onboardingCompleted?: boolean
 }
 
 // Resume document interface
@@ -140,6 +141,8 @@ export interface AuthContextType {
   signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
   updateProfile: (data: Partial<User>) => Promise<void>
+  showOnboarding: boolean
+  setShowOnboarding: (show: boolean) => void
 } 
 
 export interface UserProfile {

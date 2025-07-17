@@ -122,3 +122,93 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Failed to fetch users", details: errorMessage }, { status: 500 })
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    initFirebaseAdmin()
+    const adminAuth = getAuth()
+    const adminDb = getFirestore()
+
+    const authHeader = req.headers.get("authorization") || ""
+    const token = authHeader.replace("Bearer ", "")
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized: No token provided" }, { status: 401 })
+    }
+
+    const decodedToken = await adminAuth.verifyIdToken(token)
+    
+    // Check if the user is the admin
+    if (decodedToken.email !== ADMIN_EMAIL) {
+      return NextResponse.json({ error: "Forbidden: Access denied" }, { status: 403 })
+    }
+
+    // Get userId from request body
+    const { userId } = await req.json()
+    if (!userId) {
+      return NextResponse.json({ error: "User ID is required" }, { status: 400 })
+    }
+
+    // Prevent admin from deleting themselves
+    if (userId === decodedToken.uid) {
+      return NextResponse.json({ error: "Cannot delete your own account" }, { status: 400 })
+    }
+
+    console.log(`[Admin][Users][DELETE] Deleting user: ${userId}`)
+
+    // First, get user data to verify it exists
+    const userDoc = await adminDb.collection("users").doc(userId).get()
+    if (!userDoc.exists) {
+      console.log(`[Admin][Users][DELETE] User document ${userId} not found in Firestore`)
+      return NextResponse.json({ error: "User not found in database" }, { status: 404 })
+    }
+
+    const userData = userDoc.data()
+    console.log(`[Admin][Users][DELETE] Found user data:`, userData)
+
+    // Delete user from Firebase Auth
+    await adminAuth.deleteUser(userId)
+
+    // Delete user document from Firestore
+    await adminDb.collection("users").doc(userId).delete()
+    console.log(`[Admin][Users][DELETE] Deleted user document from Firestore`)
+
+    // Delete all user's resumes
+    const resumesSnapshot = await adminDb.collection("resumes")
+      .where("userId", "==", userId)
+      .get()
+    
+    const resumeDeletePromises = resumesSnapshot.docs.map(doc => doc.ref.delete())
+    await Promise.all(resumeDeletePromises)
+
+    // Delete all user's saved jobs
+    const savedJobsSnapshot = await adminDb.collection("savedJobs")
+      .where("userId", "==", userId)
+      .get()
+    
+    const savedJobsDeletePromises = savedJobsSnapshot.docs.map(doc => doc.ref.delete())
+    await Promise.all(savedJobsDeletePromises)
+
+    // Delete all user's cover letters
+    const coverLettersSnapshot = await adminDb.collection("coverLetters")
+      .where("userId", "==", userId)
+      .get()
+    
+    const coverLettersDeletePromises = coverLettersSnapshot.docs.map(doc => doc.ref.delete())
+    await Promise.all(coverLettersDeletePromises)
+
+    console.log(`[Admin][Users][DELETE] Successfully deleted user ${userId} and all associated data`)
+
+    return NextResponse.json({ 
+      message: "User successfully deleted",
+      deletedData: {
+        resumes: resumesSnapshot.size,
+        savedJobs: savedJobsSnapshot.size,
+        coverLetters: coverLettersSnapshot.size
+      }
+    })
+  } catch (error) {
+    console.error("[Admin][Users][DELETE] Error:", error)
+    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred"
+    return NextResponse.json({ error: "Failed to delete user", details: errorMessage }, { status: 500 })
+  }
+}

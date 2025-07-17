@@ -3,13 +3,25 @@
 import { useEffect, useState, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Loader2, AlertCircle, ArrowUpDown, Users, Mail, Calendar } from "lucide-react"
+import { Loader2, AlertCircle, ArrowUpDown, Users, Mail, Calendar, Trash2 } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
 import { auth } from "@/lib/firebase"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { useToast } from "@/components/ui/use-toast"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 // Define the structure of a user
 interface UserData {
@@ -30,9 +42,11 @@ type SortKey = keyof UserData
 
 export function AdminUserManagement() {
   const { user } = useAuth()
+  const { toast } = useToast()
   const [users, setUsers] = useState<UserData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null)
   
   // State for filtering
   const [emailFilter, setEmailFilter] = useState("")
@@ -129,6 +143,48 @@ export function AdminUserManagement() {
     if (!dateString) return "N/A"
     const date = new Date(dateString)
     return isNaN(date.getTime()) ? "Invalid Date" : date.toLocaleDateString()
+  }
+
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    if (!user || !auth?.currentUser || !isAdmin) return
+
+    setDeletingUserId(userId)
+    try {
+      const token = await auth.currentUser.getIdToken()
+      const response = await fetch("/api/admin/users", {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setUsers(prev => prev.filter(u => u.uid !== userId))
+        toast({
+          title: "User Deleted",
+          description: `${userName} has been successfully deleted from the system.`,
+        })
+      } else {
+        const errorData = await response.json()
+        toast({
+          title: "Error",
+          description: errorData.error || "Failed to delete user.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error deleting user:", error)
+      toast({
+        title: "Error",
+        description: "An error occurred while deleting the user.",
+        variant: "destructive",
+      })
+    } finally {
+      setDeletingUserId(null)
+    }
   }
 
   return (
@@ -241,6 +297,7 @@ export function AdminUserManagement() {
                     </TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Data</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -280,6 +337,53 @@ export function AdminUserManagement() {
                           <div>Saved Jobs: {userData.savedJobsCount || 0}</div>
                           <div>Cover Letters: {userData.coverLettersCount || 0}</div>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {userData.uid !== user?.uid && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                disabled={deletingUserId === userData.uid}
+                              >
+                                {deletingUserId === userData.uid ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete User</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete user <strong>{userData.name}</strong> ({userData.email})?
+                                  <br /><br />
+                                  This action will permanently delete:
+                                  <ul className="mt-2 ml-4 list-disc text-sm">
+                                    <li>User account and authentication</li>
+                                    <li>{userData.resumeCount || 0} resume(s)</li>
+                                    <li>{userData.savedJobsCount || 0} saved job(s)</li>
+                                    <li>{userData.coverLettersCount || 0} cover letter(s)</li>
+                                  </ul>
+                                  <br />
+                                  <strong>This action cannot be undone.</strong>
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDeleteUser(userData.uid, userData.name)}
+                                  className="bg-red-600 hover:bg-red-700 text-white"
+                                >
+                                  Delete User
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

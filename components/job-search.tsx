@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -14,6 +14,8 @@ import { Label } from "@/components/ui/label"
 interface JobSearchProps {
   onSearch: (query: string, location: string) => void
   isLoading: boolean
+  initialQuery?: string
+  initialLocation?: string
 }
 
 const majorCities = [
@@ -32,10 +34,37 @@ const majorCities = [
 
 const workArrangements = ["All", "Remote", "Hybrid"];
 
-export function JobSearch({ onSearch, isLoading }: JobSearchProps) {
-  const [query, setQuery] = useState("")
-  const [location, setLocation] = useState("Seattle, Washington, United States")
+export function JobSearch({ onSearch, isLoading, initialQuery = "", initialLocation = "Seattle, Washington, United States" }: JobSearchProps) {
+  const [query, setQuery] = useState(initialQuery)
+  const [location, setLocation] = useState(initialLocation)
   const [workArrangement, setWorkArrangement] = useState("All");
+
+  // Create dynamic city list that includes the initial location if it's not in the default list
+  const getCityList = () => {
+    const cityList = [...majorCities];
+    
+    // If the initial location is not in the list, add it
+    if (initialLocation && !cityList.includes(initialLocation)) {
+      // Also check if a similar location without "United States" exists
+      const locationWithoutUS = initialLocation.replace(', United States', '');
+      const existingLocation = cityList.find(city => city.includes(locationWithoutUS));
+      
+      if (!existingLocation) {
+        cityList.splice(cityList.length - 1, 0, initialLocation); // Add before "Anywhere"
+      }
+    }
+    
+    return cityList;
+  };
+
+  // Update state when initial values change
+  useEffect(() => {
+    setQuery(initialQuery)
+  }, [initialQuery])
+
+  useEffect(() => {
+    setLocation(initialLocation)
+  }, [initialLocation])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -81,7 +110,7 @@ export function JobSearch({ onSearch, isLoading }: JobSearchProps) {
                   <SelectValue placeholder="Select a location" />
                 </SelectTrigger>
                 <SelectContent>
-                  {majorCities.map((city) => (
+                  {getCityList().map((city) => (
                     <SelectItem key={city} value={city}>
                       {city}
                     </SelectItem>

@@ -23,6 +23,7 @@ const googleProvider = new GoogleAuthProvider();
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const router = useRouter();
 
   const signOut = async () => {
@@ -51,21 +52,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const userDocRef = doc(db, "users", firebaseUser.uid);
         const userDoc = await getDoc(userDocRef);
         if (userDoc.exists()) {
-          setUser({ uid: firebaseUser.uid, ...userDoc.data() } as User);
+          const userData = userDoc.data();
+          setUser({ id: firebaseUser.uid, ...userData } as User);
+          
+          // Check if onboarding is needed for existing users
+          if (!userData.onboardingCompleted) {
+            setShowOnboarding(true);
+          }
         } else {
           const newUser: User = {
-            uid: firebaseUser.uid,
+            id: firebaseUser.uid,
             email: firebaseUser.email || "",
             name: firebaseUser.displayName || "New User",
             photoURL: firebaseUser.photoURL || "",
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
+            onboardingCompleted: false,
           };
           await setDoc(userDocRef, newUser);
           setUser(newUser);
           
-          // Redirect new Google users to resume upload page for onboarding
-          router.push('/resumes?onboarding=true');
+          // Trigger onboarding for new users
+          setShowOnboarding(true);
         }
       } else {
         setUser(null);
@@ -87,17 +95,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (result.user) {
         await firebaseUpdateProfile(result.user, { displayName: name });
         const newUser = {
-          uid: result.user.uid,
+          id: result.user.uid,
           email,
           name,
           photoURL: result.user.photoURL,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
+          onboardingCompleted: false,
         };
         await setDoc(doc(db, "users", result.user.uid), newUser);
         
-        // Redirect new users to resume upload page for onboarding
-        router.push('/resumes?onboarding=true');
+        // Onboarding will be triggered by the auth state change
     }
   };
 
@@ -108,7 +116,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updateProfile = async (data: Partial<User>) => {
     if (!user || !db) throw new Error("No user logged in or DB not initialized.");
-    const userDocRef = doc(db, "users", user.uid);
+    const userDocRef = doc(db, "users", user.id);
     await updateDoc(userDocRef, { ...data, updatedAt: serverTimestamp() });
     setUser(prevUser => prevUser ? { ...prevUser, ...data } as User : null);
   };
@@ -123,6 +131,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signOut,
         signInWithGoogle,
         updateProfile,
+        showOnboarding,
+        setShowOnboarding,
       }}
     >
       {children}
