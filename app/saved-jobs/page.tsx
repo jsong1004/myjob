@@ -981,6 +981,7 @@ function SavedJobsPageContent() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="saved">Saved</SelectItem>
+                        <SelectItem value="notinterested">Not Interested</SelectItem>
                         <SelectItem value="applied">Applied</SelectItem>
                         <SelectItem value="interviewing">Interviewing</SelectItem>
                         <SelectItem value="offer">Offer</SelectItem>

@@ -47,8 +47,11 @@ export function JobSearch({ onSearch, isLoading }: JobSearchProps) {
       finalQuery = `${finalQuery} hybrid`.trim();
     }
     
+    // Pass "United States" if "Anywhere" is selected
+    const searchLocation = location === "Anywhere" ? "United States" : location;
+
     if (finalQuery) {
-      onSearch(finalQuery, location)
+      onSearch(finalQuery, searchLocation)
     }
   }
 

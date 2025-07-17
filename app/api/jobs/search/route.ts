@@ -7,6 +7,51 @@ import { getFirestore } from "firebase-admin/firestore";
 import { filterExistingJobs, saveJobsIfNotExist } from "@/lib/seen-jobs";
 import { JobSearchResult } from "@/lib/types";
 
+// State name to abbreviation mapping
+const STATE_ABBREVIATIONS: { [key: string]: string } = {
+  'alabama': 'AL', 'alaska': 'AK', 'arizona': 'AZ', 'arkansas': 'AR', 'california': 'CA',
+  'colorado': 'CO', 'connecticut': 'CT', 'delaware': 'DE', 'florida': 'FL', 'georgia': 'GA',
+  'hawaii': 'HI', 'idaho': 'ID', 'illinois': 'IL', 'indiana': 'IN', 'iowa': 'IA',
+  'kansas': 'KS', 'kentucky': 'KY', 'louisiana': 'LA', 'maine': 'ME', 'maryland': 'MD',
+  'massachusetts': 'MA', 'michigan': 'MI', 'minnesota': 'MN', 'mississippi': 'MS', 'missouri': 'MO',
+  'montana': 'MT', 'nebraska': 'NE', 'nevada': 'NV', 'new hampshire': 'NH', 'new jersey': 'NJ',
+  'new mexico': 'NM', 'new york': 'NY', 'north carolina': 'NC', 'north dakota': 'ND', 'ohio': 'OH',
+  'oklahoma': 'OK', 'oregon': 'OR', 'pennsylvania': 'PA', 'rhode island': 'RI', 'south carolina': 'SC',
+  'south dakota': 'SD', 'tennessee': 'TN', 'texas': 'TX', 'utah': 'UT', 'vermont': 'VT',
+  'virginia': 'VA', 'washington': 'WA', 'west virginia': 'WV', 'wisconsin': 'WI', 'wyoming': 'WY',
+  'district of columbia': 'DC', 'washington dc': 'DC', 'washington d.c.': 'DC'
+};
+
+// Extract state abbreviation from location string
+function extractStateFromLocation(location: string): string | null {
+  if (!location) return null;
+  
+  // First, check if location already contains a state abbreviation (e.g., "Seattle, WA")
+  const abbreviationMatch = location.match(/\b([A-Z]{2})\b/);
+  if (abbreviationMatch) {
+    const abbr = abbreviationMatch[1];
+    // Verify it's a valid state abbreviation
+    if (Object.values(STATE_ABBREVIATIONS).includes(abbr)) {
+      return abbr;
+    }
+  }
+  
+  // Check for full state names in the location string
+  const locationLower = location.toLowerCase();
+  for (const [stateName, stateAbbr] of Object.entries(STATE_ABBREVIATIONS)) {
+    if (locationLower.includes(stateName)) {
+      return stateAbbr;
+    }
+  }
+  
+  return null;
+}
+
+// Get expected state from user's search location
+function getExpectedState(searchLocation: string): string | null {
+  return extractStateFromLocation(searchLocation);
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { query, location, resume, useMultiAgent = true, forceLegacyScoring = false } = await req.json();
@@ -71,7 +116,7 @@ export async function POST(req: NextRequest) {
       };
       
       if (pageToken) {
-        serpApiParams.page_token = pageToken;
+        serpApiParams.next_page_token = pageToken;
       }
       
       console.log(`[JobSearch] SerpAPI request params for page ${pageCount}:`, serpApiParams);
@@ -96,6 +141,16 @@ export async function POST(req: NextRequest) {
       pageToken = pageResults.serpapi_pagination?.next_page_token || null;
       console.log(`[JobSearch] Next page token: ${pageToken ? 'Present' : 'None'}`);
       
+      if (pageResults.serpapi_pagination) {
+        console.log(`[JobSearch] Full pagination object:`, pageResults.serpapi_pagination);
+      }
+      
+      // If no more jobs on this page, stop pagination
+      if (!pageResults.jobs_results || pageResults.jobs_results.length === 0) {
+        console.log(`[JobSearch] No more jobs found on page ${pageCount}, stopping pagination`);
+        break;
+      }
+      
       // Safety check for infinite loops
       if (pageCount >= maxPages) {
         console.warn(`[JobSearch] Reached maximum page limit (${maxPages}), stopping pagination`);
@@ -117,7 +172,7 @@ export async function POST(req: NextRequest) {
 
     // Normalize SerpApi results to JobSearchResult interface
     const unfilteredJobs: JobSearchResult[] = (allSerpApiJobs || []).map((job: any, index: number) => {
-      console.log(`[JobSearch] Processing job ${index + 1}/${allSerpApiJobs.length}: ${job.title} at ${job.company_name}`);
+      // Processing job silently to reduce console noise
       
       let qualifications: string[] = [];
       let responsibilities: string[] = [];
@@ -155,8 +210,16 @@ export async function POST(req: NextRequest) {
         }
       }
       
+      // Generate a more unique ID if job_id is missing or not unique enough
+      let jobId = job.job_id;
+      if (!jobId) {
+        // Fallback to a combination of title, company, and location for uniqueness
+        jobId = `${job.title || 'unknown'}_${job.company_name || job.company || 'unknown'}_${job.location || 'unknown'}`.replace(/[^a-zA-Z0-9]/g, '_');
+        console.warn(`[JobSearch] Missing job_id for job, using fallback: ${jobId}`);
+      }
+      
       const processedJob = {
-        id: job.job_id, // Use the stable job_id from SerpAPI
+        id: jobId, // Use the job_id from SerpAPI or fallback
         title: job.title || "",
         company: job.company_name || job.company || "",
         location: job.location || "",
@@ -173,15 +236,7 @@ export async function POST(req: NextRequest) {
         summary: "",
       };
       
-      console.log(`[JobSearch] Processed job ${index + 1}:`, {
-        id: processedJob.id,
-        title: processedJob.title,
-        company: processedJob.company,
-        descriptionLength: processedJob.description.length,
-        qualificationsCount: processedJob.qualifications.length,
-        responsibilitiesCount: processedJob.responsibilities.length,
-        salary: processedJob.salary
-      });
+      // Removed detailed job logging to reduce console noise
       
       return processedJob;
     });
@@ -190,13 +245,60 @@ export async function POST(req: NextRequest) {
 
     // Remove duplicate jobs based on job ID
     const uniqueJobsMap = new Map<string, JobSearchResult>();
+    const duplicateIds = new Set<string>();
+    
     unfilteredJobs.forEach(job => {
-      if (!uniqueJobsMap.has(job.id)) {
+      if (uniqueJobsMap.has(job.id)) {
+        duplicateIds.add(job.id);
+      } else {
         uniqueJobsMap.set(job.id, job);
       }
     });
+    
     const uniqueJobs = Array.from(uniqueJobsMap.values());
-    console.log(`[JobSearch] Removed ${unfilteredJobs.length - uniqueJobs.length} duplicate jobs, ${uniqueJobs.length} unique jobs remaining`);
+    console.log(`[JobSearch] Deduplication summary:`);
+    console.log(`[JobSearch] - Total jobs processed: ${unfilteredJobs.length}`);
+    console.log(`[JobSearch] - Unique jobs: ${uniqueJobs.length}`);
+    console.log(`[JobSearch] - Duplicates removed: ${unfilteredJobs.length - uniqueJobs.length}`);
+    console.log(`[JobSearch] - Duplicate IDs found: ${duplicateIds.size}`);
+    
+    if (duplicateIds.size > 0) {
+      console.log(`[JobSearch] Most common duplicate IDs:`, Array.from(duplicateIds).slice(0, 5));
+    }
+
+    // Apply location filtering based on state
+    const expectedState = getExpectedState(location);
+    let locationFilteredJobs = uniqueJobs;
+    
+    if (expectedState) {
+      console.log(`[JobSearch] Filtering jobs for state: ${expectedState} (from search location: ${location})`);
+      console.log(`[JobSearch] Note: Jobs with "Anywhere" or "Remote" in location will be included regardless of state`);
+      
+      let flexibleJobsCount = 0;
+      
+      locationFilteredJobs = uniqueJobs.filter(job => {
+        // Always include jobs with "Anywhere" or "Remote" in location
+        if (job.location) {
+          const locationLower = job.location.toLowerCase();
+          if (locationLower.includes('anywhere') || locationLower.includes('remote')) {
+            flexibleJobsCount++;
+            return true;
+          }
+        }
+        
+        const jobState = extractStateFromLocation(job.location);
+        return jobState === expectedState;
+      });
+      
+      console.log(`[JobSearch] Location filtering summary:`);
+      console.log(`[JobSearch] - Jobs before filtering: ${uniqueJobs.length}`);
+      console.log(`[JobSearch] - Jobs after filtering: ${locationFilteredJobs.length}`);
+      console.log(`[JobSearch] - Flexible jobs included (Anywhere/Remote): ${flexibleJobsCount}`);
+      console.log(`[JobSearch] - State-specific jobs: ${locationFilteredJobs.length - flexibleJobsCount}`);
+      console.log(`[JobSearch] - Jobs removed by location filter: ${uniqueJobs.length - locationFilteredJobs.length}`);
+    } else {
+      console.log(`[JobSearch] No state detected in search location: "${location}" - skipping location filter`);
+    }
 
     // Conditional filtering logic based on authentication status
     let jobsToReturn: JobSearchResult[];
@@ -218,8 +320,8 @@ export async function POST(req: NextRequest) {
       }
 
       // Filter out jobs the user has already saved
-      const filteredJobs = uniqueJobs.filter(job => !userSavedJobIds.has(job.id));
-      console.log(`[JobSearch] After filtering saved jobs: ${filteredJobs.length} jobs (removed ${uniqueJobs.length - filteredJobs.length} already saved)`);
+      const filteredJobs = locationFilteredJobs.filter(job => !userSavedJobIds.has(job.id));
+      console.log(`[JobSearch] After filtering saved jobs: ${filteredJobs.length} jobs (removed ${locationFilteredJobs.length - filteredJobs.length} already saved)`);
 
       // Perform system-level processing (save new jobs to global 'jobs' collection without summaries)
       console.log(`[JobSearch] Filtering out existing jobs in database`);
@@ -249,7 +351,7 @@ export async function POST(req: NextRequest) {
       console.log(`[JobSearch] Unauthenticated user flow.`);
       
       // Return all jobs without summaries for faster performance
-      jobsToReturn = uniqueJobs.map(job => ({
+      jobsToReturn = locationFilteredJobs.map(job => ({
         ...job,
         summary: "", // No summary for faster search
         matchingScore: 0,
