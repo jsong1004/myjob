@@ -339,7 +339,7 @@ export function AdminUserManagement() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {userData.uid !== user?.uid && (
+                        {userData.uid !== user?.id && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button 

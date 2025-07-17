@@ -54,11 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (userDoc.exists()) {
           const userData = userDoc.data();
           setUser({ id: firebaseUser.uid, ...userData } as User);
-          
-          // Check if onboarding is needed for existing users
-          if (!userData.onboardingCompleted) {
-            setShowOnboarding(true);
-          }
+          // Don't trigger onboarding for existing users signing in
         } else {
           const newUser: User = {
             id: firebaseUser.uid,

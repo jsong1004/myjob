@@ -300,21 +300,40 @@ export function OnboardingModal({ isOpen, onClose }: OnboardingModalProps) {
       // Upload resume if provided
       let resumeId = null
       if (data.resumeFile) {
-        const resumeFormData = new FormData()
-        resumeFormData.append('resume', data.resumeFile)
-        resumeFormData.append('resumeName', data.resumeFile.name.split('.')[0])
-        
-        const resumeResponse = await fetch('/api/resumes', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-          body: resumeFormData
-        })
-        
-        if (resumeResponse.ok) {
-          const resumeData = await resumeResponse.json()
-          resumeId = resumeData.id
+        try {
+          const resumeFormData = new FormData()
+          resumeFormData.append('file', data.resumeFile)
+          resumeFormData.append('name', data.resumeFile.name.split('.')[0])
+          resumeFormData.append('makeDefault', 'true')
+          
+          const resumeResponse = await fetch('/api/resumes', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+            body: resumeFormData
+          })
+          
+          if (resumeResponse.ok) {
+            const resumeData = await resumeResponse.json()
+            resumeId = resumeData.id
+            console.log('Resume uploaded successfully:', resumeId)
+          } else {
+            const errorData = await resumeResponse.text()
+            console.error('Resume upload failed:', resumeResponse.status, errorData)
+            toast({
+              title: "Resume Upload Failed",
+              description: "Your resume couldn't be uploaded, but your profile was saved. You can upload it later from the resumes page.",
+              variant: "destructive",
+            })
+          }
+        } catch (resumeError) {
+          console.error('Resume upload error:', resumeError)
+          toast({
+            title: "Resume Upload Error",
+            description: "There was an error uploading your resume, but your profile was saved. You can upload it later from the resumes page.",
+            variant: "destructive",
+          })
         }
       }
       

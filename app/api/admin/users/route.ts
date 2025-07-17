@@ -95,6 +95,7 @@ export async function GET(req: NextRequest) {
 
           return {
             ...user,
+            uid: user.id, // Ensure uid is always the document ID (Firebase Auth UID)
             userId: userId, // Ensure we have a consistent userId field
             ...counts,
             createdAt: user.createdAt?.toDate ? user.createdAt.toDate().toISOString() : new Date().toISOString(),
@@ -104,6 +105,7 @@ export async function GET(req: NextRequest) {
           console.error(`Error fetching additional data for user ${user.uid || user.userId || user.id}:`, error)
           return {
             ...user,
+            uid: user.id, // Ensure uid is always the document ID (Firebase Auth UID)
             userId: user.uid || user.userId || user.id,
             resumeCount: 0,
             savedJobsCount: 0,
@@ -166,7 +168,13 @@ export async function DELETE(req: NextRequest) {
     console.log(`[Admin][Users][DELETE] Found user data:`, userData)
 
     // Delete user from Firebase Auth
-    await adminAuth.deleteUser(userId)
+    try {
+      await adminAuth.deleteUser(userId)
+      console.log(`[Admin][Users][DELETE] Successfully deleted user from Firebase Auth`)
+    } catch (authError) {
+      console.error(`[Admin][Users][DELETE] Failed to delete user from Firebase Auth:`, authError)
+      // Continue with Firestore deletion even if Auth deletion fails
+    }
 
     // Delete user document from Firestore
     await adminDb.collection("users").doc(userId).delete()
