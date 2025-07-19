@@ -8,6 +8,7 @@ import { Header } from "@/components/header"
 import { AuthProvider, useAuth } from "@/components/auth-provider"
 import { AuthModal } from "@/components/auth-modal"
 import { OnboardingModal } from "@/components/onboarding-modal"
+import { JobSearchLoadingInfo } from "@/components/job-search-loading-info"
 import { auth } from "@/lib/firebase"
 
 interface Job {
@@ -34,6 +35,8 @@ function HomePageContent() {
   const [hasSearched, setHasSearched] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signup')
+  const [currentSearchQuery, setCurrentSearchQuery] = useState("")
+  const [currentSearchLocation, setCurrentSearchLocation] = useState("")
   const { user, showOnboarding, setShowOnboarding } = useAuth()
   const searchParams = useSearchParams()
 
@@ -52,6 +55,8 @@ function HomePageContent() {
     setIsLoading(true)
     setSearchResults([])
     setHasSearched(true)
+    setCurrentSearchQuery(query)
+    setCurrentSearchLocation(location)
     
     try {
       const searchPayload = {
@@ -111,9 +116,10 @@ function HomePageContent() {
           />
           
           {isLoading && (
-            <div className="mt-8 text-center">
-              <p className="text-muted-foreground">Searching for jobs...</p>
-            </div>
+            <JobSearchLoadingInfo 
+              searchQuery={currentSearchQuery} 
+              location={currentSearchLocation} 
+            />
           )}
 
           {searchResults.length > 0 && (
