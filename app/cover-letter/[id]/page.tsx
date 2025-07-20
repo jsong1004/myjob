@@ -15,6 +15,7 @@ import { ChatMessage } from "@/lib/types"
 import { auth } from "@/lib/firebase"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Textarea } from "@/components/ui/textarea"
+import { CoverLetterLoadingInfo } from "@/components/cover-letter-loading-info"
 import { useToast } from "@/hooks/use-toast"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
@@ -523,9 +524,11 @@ ${currentCoverLetter}`
                   <Separator />
                   <CardContent className="p-6 flex-1">
                     {generating ? (
-                      <div className="flex items-center justify-center h-full">
-                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                        <p className="ml-4">Generating your cover letter...</p>
+                      <div className="h-full">
+                        <CoverLetterLoadingInfo 
+                          jobTitle={job?.title}
+                          company={job?.company}
+                        />
                       </div>
                     ) : generateError ? (
                       <div className="text-destructive text-center h-full flex flex-col items-center justify-center">

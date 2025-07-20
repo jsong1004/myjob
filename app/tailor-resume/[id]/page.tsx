@@ -17,6 +17,7 @@ import { ChatMessage } from "@/lib/types"
 import { auth } from "@/lib/firebase"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Textarea } from "@/components/ui/textarea"
+import { ResumeTailoringLoadingInfo } from "@/components/resume-tailoring-loading-info"
 
 interface TailorResumePageProps {
   params: Promise<{ id: string }>
@@ -399,8 +400,20 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
         <div className="min-h-screen bg-gray-50">
           <Header />
           <div className="container mx-auto px-4 py-8">
-            <div className="max-w-4xl mx-auto text-center py-20 text-gray-500">
-              {loading ? 'Loading tailored resume...' : 'Tailoring your resume for this job...'}
+            <div className="max-w-6xl mx-auto">
+              <div className="mb-8 text-center">
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                  {loading ? 'Preparing Resume Tailoring' : 'AI Resume Tailoring in Progress'}
+                </h1>
+                <p className="text-gray-600">
+                  {loading ? 'Loading your resume and job details...' : `Customizing your resume for ${job?.title || 'the position'} at ${job?.company || 'the company'}`}
+                </p>
+              </div>
+              <ResumeTailoringLoadingInfo 
+                jobTitle={job?.title}
+                company={job?.company}
+                resumeName={resumeName || "your resume"}
+              />
             </div>
           </div>
         </div>

@@ -25,9 +25,11 @@ Please create a cover letter that:
 4. Shows enthusiasm and cultural fit
 5. Closes with a compelling call to action
 
+IMPORTANT: Do NOT include traditional letter header formatting (no sender address, date, recipient address blocks). Start directly with "Dear Hiring Manager" or personalized greeting.
+
 Respond with:
 COVER_LETTER:
-[The complete cover letter in professional format]
+[The complete cover letter starting with the greeting, no header blocks]
 
 SUMMARY:
 [Brief summary of the key selling points highlighted in the cover letter]`,
@@ -64,9 +66,11 @@ Please create a cover letter that:
 4. Shows understanding of the company culture
 5. Maintains professionalism while being engaging
 
+IMPORTANT: Do NOT include traditional letter header formatting (no sender address, date, recipient address blocks). Start directly with "Dear Hiring Manager" or personalized greeting.
+
 Respond with:
 COVER_LETTER:
-[The creative cover letter in professional format]
+[The creative cover letter starting with the greeting, no header blocks]
 
 SUMMARY:
 [Summary of the creative elements and key messages]`,
@@ -103,9 +107,11 @@ Please create a cover letter that:
 4. Includes specific examples of technical achievements
 5. Balances technical depth with accessibility
 
+IMPORTANT: Do NOT include traditional letter header formatting (no sender address, date, recipient address blocks). Start directly with "Dear Hiring Manager" or personalized greeting.
+
 Respond with:
 COVER_LETTER:
-[The technical cover letter in professional format]
+[The technical cover letter starting with the greeting, no header blocks]
 
 SUMMARY:
 [Summary of technical highlights and key qualifications]`,
@@ -142,9 +148,11 @@ Please create a cover letter that:
 4. Demonstrates enthusiasm for the role and company
 5. Addresses any experience gaps positively
 
+IMPORTANT: Do NOT include traditional letter header formatting (no sender address, date, recipient address blocks). Start directly with "Dear Hiring Manager" or personalized greeting.
+
 Respond with:
 COVER_LETTER:
-[The entry-level focused cover letter in professional format]
+[The entry-level focused cover letter starting with the greeting, no header blocks]
 
 SUMMARY:
 [Summary of key strengths and potential highlighted]`,
