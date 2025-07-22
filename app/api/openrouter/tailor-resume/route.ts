@@ -159,13 +159,27 @@ export async function POST(req: NextRequest) {
     });
 
     const timeTaken = (Date.now() - startTime) / 1000;
+    
+    // Debug token usage for suggestion generation
+    if (message?.includes('Generate 3 short, specific suggestions')) {
+      console.log('[TailoringAPI] AI Suggestion Generation Debug:', {
+        mode,
+        hasUsage: !!result.usage,
+        totalTokens: result.usage?.totalTokens || 0,
+        promptTokens: result.usage?.promptTokens || 0,
+        completionTokens: result.usage?.completionTokens || 0,
+        cachedTokens: result.usage?.cachedTokens || 0,
+        responseType: typeof result,
+        responseKeys: Object.keys(result)
+      });
+    }
 
     // Log activity (userId already extracted above)
     if (userId !== 'anonymous') {
       await logActivity({
         userId,
         activityType: 'resume_generation',
-        tokenUsage: 0, // TODO: Get actual token usage from prompt manager
+        tokenUsage: result.usage?.totalTokens || 0,
         timeTaken,
         metadata: { 
           model: 'openai/gpt-4o-mini', 
@@ -178,6 +192,8 @@ export async function POST(req: NextRequest) {
           scoring_generated: !scoringAnalysis && !!scoringContext,
           cache_enabled: true,
           ...(result.usage && {
+            prompt_tokens: result.usage.promptTokens,
+            completion_tokens: result.usage.completionTokens,
             cached_tokens: result.usage.cachedTokens || 0,
             cache_hit_rate: result.usage.cachedTokens && result.usage.promptTokens 
               ? (result.usage.cachedTokens / result.usage.promptTokens * 100).toFixed(1) + '%'

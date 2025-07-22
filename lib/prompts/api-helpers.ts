@@ -285,7 +285,7 @@ export async function executeJobSummary(jobs: JobSearchResult[]): Promise<JobSea
 /**
  * Execute resume tailoring using the centralized prompt system
  */
-export async function executeResumeTailoring(request: ResumeTailoringRequest): Promise<{ reply: string; updatedResume?: string }> {
+export async function executeResumeTailoring(request: ResumeTailoringRequest): Promise<{ reply: string; updatedResume?: string; usage?: PromptResponse['usage'] }> {
   try {
     // Choose the appropriate prompt based on mode
     const promptId = request.mode === 'agent' ? 'resume-tailoring-ats' : 'resume-tailoring-advisory'
@@ -318,12 +318,14 @@ export async function executeResumeTailoring(request: ResumeTailoringRequest): P
       const parsed = ResponseParser.parseAgentResponse(response.data)
       return {
         reply: parsed.summary || 'Resume updated successfully',
-        updatedResume: parsed.updatedContent || request.resume
+        updatedResume: parsed.updatedContent || request.resume,
+        usage: response.usage
       }
     } else {
       // For advisory mode, return the advice directly
       return {
-        reply: response.data
+        reply: response.data,
+        usage: response.usage
       }
     }
   } catch (error) {
@@ -335,7 +337,7 @@ export async function executeResumeTailoring(request: ResumeTailoringRequest): P
 /**
  * Execute resume editing using the centralized prompt system
  */
-export async function executeResumeEditing(request: { resume: string; userRequest: string; mode: 'agent' | 'ask' }): Promise<{ reply: string; updatedResume?: string }> {
+export async function executeResumeEditing(request: { resume: string; userRequest: string; mode: 'agent' | 'ask' }): Promise<{ reply: string; updatedResume?: string; usage?: PromptResponse['usage'] }> {
   try {
     // Choose the appropriate prompt based on mode
     const promptId = request.mode === 'agent' ? 'resume-editing-agent' : 'resume-editing-advisor'
@@ -364,12 +366,14 @@ export async function executeResumeEditing(request: { resume: string; userReques
       const parsed = ResponseParser.parseAgentResponse(response.data)
       return {
         reply: parsed.summary || 'Resume updated successfully',
-        updatedResume: parsed.updatedContent || request.resume
+        updatedResume: parsed.updatedContent || request.resume,
+        usage: response.usage
       }
     } else {
       // For advisory mode, return the advice directly
       return {
-        reply: response.data
+        reply: response.data,
+        usage: response.usage
       }
     }
   } catch (error) {
@@ -381,7 +385,7 @@ export async function executeResumeEditing(request: { resume: string; userReques
 /**
  * Execute cover letter generation using the centralized prompt system
  */
-export async function executeCoverLetterGeneration(request: CoverLetterRequest): Promise<{ reply: string; coverLetter?: string }> {
+export async function executeCoverLetterGeneration(request: CoverLetterRequest): Promise<{ reply: string; coverLetter?: string; usage?: PromptResponse['usage'] }> {
   try {
     let promptId: string
     
@@ -429,20 +433,23 @@ export async function executeCoverLetterGeneration(request: CoverLetterRequest):
         // Editing mode - response is the complete cover letter
         return {
           reply: 'Cover letter updated successfully',
-          coverLetter: response.data
+          coverLetter: response.data,
+          usage: response.usage
         }
       } else {
         // Generation mode - parse the structured response
         const parsed = ResponseParser.parseAgentResponse(response.data)
         return {
           reply: parsed.summary || 'Cover letter generated successfully',
-          coverLetter: parsed.updatedContent || response.data
+          coverLetter: parsed.updatedContent || response.data,
+          usage: response.usage
         }
       }
     } else {
       // Advisory mode - return the advice directly
       return {
-        reply: response.data
+        reply: response.data,
+        usage: response.usage
       }
     }
   } catch (error) {
@@ -611,6 +618,7 @@ export async function executeMultiAgentResumeTailoring(request: {
   updatedResume?: string
   agentResults?: any
   executionSummary?: any
+  usage?: PromptResponse['usage']
 }> {
   try {
     console.log('[MultiAgentTailoring] Starting multi-agent resume tailoring...')
@@ -638,7 +646,8 @@ export async function executeMultiAgentResumeTailoring(request: {
       reply: tailoringResult.changeSummary,
       updatedResume: tailoringResult.finalTailoredResume,
       agentResults: tailoringResult.agentResults,
-      executionSummary: tailoringResult.executionSummary
+      executionSummary: tailoringResult.executionSummary,
+      usage: tailoringResult.usage || undefined
     }
     
   } catch (error) {

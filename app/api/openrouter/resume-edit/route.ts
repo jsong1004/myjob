@@ -27,14 +27,21 @@ export async function POST(req: NextRequest) {
       const userId = decodedToken.uid;
       await logActivity({
         userId,
-        activityType: 'resume_generation',
-        tokenUsage: 0, // TODO: Get actual token usage from prompt manager
+        activityType: 'resume_edit',
+        tokenUsage: result.usage?.totalTokens || 0,
         timeTaken,
         metadata: { 
           model: 'openai/gpt-4o-mini', 
           mode, 
           user_prompt: message,
-          prompt_system: 'centralized'
+          prompt_system: 'centralized',
+          ...(result.usage && {
+            prompt_tokens: result.usage.promptTokens,
+            completion_tokens: result.usage.completionTokens,
+            cached_tokens: result.usage.cachedTokens || 0,
+            estimated_cost: result.usage.estimatedCost || 0,
+            cost_savings: result.usage.costSavings || 0
+          })
         },
       });
     }

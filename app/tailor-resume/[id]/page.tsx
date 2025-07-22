@@ -186,6 +186,15 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
         
         if (res.ok) {
           const data = await res.json()
+          
+          // Debug logging for suggestion generation
+          console.log('[TailorResume] AI Suggestion Response:', {
+            hasReply: !!data.reply,
+            hasUsage: !!data.usage,
+            tokenUsage: data.usage?.totalTokens || 0,
+            responseData: data
+          })
+          
           const parseResult = safeJsonParse<string[]>(data.reply)
           
           if (parseResult.success && Array.isArray(parseResult.data)) {
