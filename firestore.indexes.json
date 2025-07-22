@@ -30,6 +30,83 @@
         { "fieldPath": "activityType", "order": "ASCENDING" },
         { "fieldPath": "timestamp", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "batch_jobs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "batchId", "order": "ASCENDING"},
+        {"fieldPath": "location", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "batch_jobs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "searchQuery", "order": "ASCENDING"},
+        {"fieldPath": "postedAt", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "batch_jobs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "experienceLevel", "order": "ASCENDING"},
+        {"fieldPath": "location", "order": "ASCENDING"},
+        {"fieldPath": "postedAt", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "batch_jobs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "jobType", "order": "ASCENDING"},
+        {"fieldPath": "workArrangement", "order": "ASCENDING"},
+        {"fieldPath": "postedAt", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "batch_jobs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "salaryMin", "order": "ASCENDING"},
+        {"fieldPath": "salaryMax", "order": "ASCENDING"},
+        {"fieldPath": "location", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "batch_jobs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "companySize", "order": "ASCENDING"},
+        {"fieldPath": "experienceLevel", "order": "ASCENDING"},
+        {"fieldPath": "postedAt", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "batch_jobs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "location", "order": "ASCENDING"},
+        {"fieldPath": "experienceLevel", "order": "ASCENDING"},
+        {"fieldPath": "jobType", "order": "ASCENDING"},
+        {"fieldPath": "postedAt", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "batch_runs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "completedAt", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "batch_runs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "batchId", "order": "ASCENDING"},
+        {"fieldPath": "completedAt", "order": "DESCENDING"}
+      ]
     }
   ],
   "fieldOverrides": []

@@ -3,15 +3,16 @@
 import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ShieldCheck, AlertCircle, Activity, Users, GitBranch } from "lucide-react"
+import { ShieldCheck, AlertCircle, Activity, Users, GitBranch, Database } from "lucide-react"
 import { Header } from "@/components/header"
 import { AuthProvider, useAuth } from "@/components/auth-provider"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AdminActivities } from "@/components/admin/admin-activities"
 import { AdminUserManagement } from "@/components/admin/admin-user-management"
 import { AdminGitHubIssues } from "@/components/admin/admin-github-issues"
+import { BatchJobsAdmin } from "@/components/admin/batch-jobs-admin"
 
-type AdminSection = 'activities' | 'users' | 'issues'
+type AdminSection = 'activities' | 'users' | 'issues' | 'batch-jobs'
 
 export default function AdminPage() {
   return (
@@ -59,6 +60,12 @@ function AdminPageContent() {
       title: 'GitHub Issues',
       icon: GitBranch,
       description: 'View and manage GitHub issues'
+    },
+    {
+      id: 'batch-jobs' as AdminSection,
+      title: 'Batch Jobs',
+      icon: Database,
+      description: 'Monitor and manage nightly job scraping'
     }
   ]
 
@@ -70,6 +77,8 @@ function AdminPageContent() {
         return <AdminUserManagement />
       case 'issues':
         return <AdminGitHubIssues />
+      case 'batch-jobs':
+        return <BatchJobsAdmin />
       default:
         return <AdminActivities />
     }

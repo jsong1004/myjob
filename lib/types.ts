@@ -163,4 +163,148 @@ export interface UserProfile {
   jobAlerts: boolean
   createdAt: Date
   updatedAt: Date
+}
+
+// Enhanced job search types for batch processing and filtering
+export type ExperienceLevel = 'entry' | 'mid' | 'senior' | 'lead' | 'executive'
+export type JobType = 'full-time' | 'part-time' | 'contract' | 'internship'
+export type WorkArrangement = 'remote' | 'hybrid' | 'on-site'
+export type CompanySize = 'startup' | 'small' | 'medium' | 'large' | 'enterprise'
+export type JobFreshness = 'new' | 'recent' | 'older'
+export type SalaryType = 'hourly' | 'annual'
+export type PostedWithin = '24h' | '3d' | '1w' | '2w' | '1m'
+
+// Batch job interface for nightly job scraping
+export interface BatchJob {
+  id: string
+  batchId: string          // Daily batch identifier (e.g., "2025-07-22")
+  searchQuery: string      // Original search term used
+  searchLocation: string   // Location searched
+  
+  // Core job details
+  title: string
+  company: string
+  location: string
+  description: string
+  qualifications: string[]
+  responsibilities: string[]
+  benefits: string[]
+  
+  // Enhanced metadata for filtering
+  salary?: string
+  salaryMin?: number       // Extracted minimum salary
+  salaryMax?: number       // Extracted maximum salary
+  salaryType?: SalaryType  // Annual vs hourly
+  experienceLevel: ExperienceLevel
+  jobType: JobType
+  workArrangement: WorkArrangement
+  companySize: CompanySize
+  
+  // Additional metadata
+  postedAt: string
+  applyUrl: string
+  source: string
+  sourceJobId?: string     // Original job ID from source (SerpApi)
+  
+  // Batch processing metadata
+  batchCreatedAt: Timestamp
+  freshness: JobFreshness
+  scrapedAt: Timestamp
+  
+  // Search optimization
+  searchKeywords: string[] // Extracted keywords for matching
+  industryTags: string[]   // Industry classifications
+  skillTags: string[]      // Required skills extracted
+}
+
+// Advanced job filtering interface
+export interface JobFilters {
+  // Basic search
+  searchQuery?: string
+  locations?: string[]
+  
+  // Salary filtering
+  salaryMin?: number
+  salaryMax?: number
+  salaryType?: SalaryType
+  
+  // Experience and role
+  experienceLevel?: ExperienceLevel[]
+  jobType?: JobType[]
+  workArrangement?: WorkArrangement[]
+  
+  // Company filtering
+  companySize?: CompanySize[]
+  companies?: string[]
+  
+  // Temporal filtering
+  postedWithin?: PostedWithin
+  freshness?: JobFreshness[]
+  
+  // Advanced filtering
+  skillsRequired?: string[]    // Must have these skills
+  industryFocus?: string[]     // Preferred industries
+  benefitsRequired?: string[]  // Required benefits
+  
+  // Search optimization
+  excludeCompanies?: string[]
+  excludeKeywords?: string[]
+  sortBy?: 'relevance' | 'date' | 'salary' | 'company'
+  sortDirection?: 'asc' | 'desc'
+}
+
+// Enhanced job search result for filtered results
+export interface EnhancedJobSearchResult extends JobSearchResult {
+  // Additional fields from batch processing
+  experienceLevel?: ExperienceLevel
+  jobType?: JobType
+  workArrangement?: WorkArrangement
+  companySize?: CompanySize
+  freshness?: JobFreshness
+  
+  // Metadata
+  isBatchResult?: boolean  // True if from batch, false if from live API
+  searchRelevance?: number // Relevance score for search query
+  lastUpdated?: string     // When this job was last updated
+}
+
+// Batch processing configuration
+export interface BatchConfig {
+  enabled: boolean
+  schedule: string         // Cron expression
+  popularQueries: string[] // Job titles to search for
+  locations: string[]      // Locations to search in
+  maxJobsPerQuery: number  // Limit jobs per search query
+  retentionDays: number    // How long to keep batch jobs
+}
+
+// Filter options for UI components
+export interface FilterOptions {
+  locations: { value: string; label: string; count: number }[]
+  companies: { value: string; label: string; count: number }[]
+  experienceLevels: { value: ExperienceLevel; label: string; count: number }[]
+  jobTypes: { value: JobType; label: string; count: number }[]
+  workArrangements: { value: WorkArrangement; label: string; count: number }[]
+  companySizes: { value: CompanySize; label: string; count: number }[]
+  industries: { value: string; label: string; count: number }[]
+  skills: { value: string; label: string; count: number }[]
+  salaryRanges: {
+    min: number
+    max: number
+    q25: number  // 25th percentile
+    q50: number  // Median
+    q75: number  // 75th percentile
+  }
+}
+
+// Search analytics for optimization
+export interface SearchAnalytics {
+  query: string
+  location: string
+  filters: JobFilters
+  resultCount: number
+  batchHitRate: number     // Percentage from batch vs live API
+  executionTime: number    // Search time in milliseconds
+  timestamp: Timestamp
+  userId?: string
 } 
