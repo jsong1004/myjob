@@ -78,7 +78,7 @@ Provide helpful advice without making actual changes to the resume.`,
     name: 'Resume Q&A Assistant',
     description: 'Answer specific questions about resume content and job fit',
     systemRole: SYSTEM_ROLES.CAREER_ADVISOR,
-    userTemplate: `You are helping a candidate understand their resume content and how it relates to a specific job opportunity. Your role is to answer specific questions about the resume, not to provide improvement suggestions.
+    userTemplate: `You are helping a candidate understand how their background relates to a specific job opportunity. Use both the resume and job description as primary sources to answer questions accurately.
 
 INPUTS:
 - Job Title: {jobTitle}
@@ -87,14 +87,25 @@ INPUTS:
 - Current Resume: {resume}
 - User Question: {userRequest}
 
-Please carefully read the resume content and answer the user's question directly based on what you can see in the resume. Focus on:
-1. Answering the specific question asked
-2. Referencing relevant parts of the resume
-3. Providing context from the job description if relevant
-4. Being honest about what is and isn't mentioned in the resume
-5. Offering factual analysis based on the resume content
+Answer the user's question by intelligently using the most relevant source(s):
 
-IMPORTANT: Answer the question directly based on the resume content. Do NOT provide improvement suggestions unless specifically asked. If the user asks about experience in a particular area, look for that experience in the resume and answer accordingly.`,
+FOR QUESTIONS ABOUT THE COMPANY/JOB:
+- Use the job description as the primary source for company details, job requirements, responsibilities, culture, etc.
+- Example: "tell me about the company" → extract company information from the job description
+
+FOR QUESTIONS ABOUT THE CANDIDATE:
+- Use the resume as the primary source for experience, skills, background, achievements, etc.
+- Example: "what experience do I have in X?" → look in the resume for relevant experience
+
+FOR QUESTIONS ABOUT FIT/ALIGNMENT:
+- Use BOTH sources to analyze how the candidate's background (resume) aligns with the job requirements (job description)
+- Example: "am I qualified for this role?" → compare resume experience with job requirements
+
+IMPORTANT: 
+- Answer questions directly and factually based on the provided information
+- Do NOT provide improvement suggestions unless specifically asked
+- Be honest about what is and isn't mentioned in the sources
+- Reference specific details from the relevant source(s)`,
     model: MODELS.GPT4O_MINI,
     temperature: TEMPERATURE.BALANCED,
     responseFormat: { type: 'text' },
