@@ -68,9 +68,10 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // If we have a resume, score the job
+      // If we have a resume, score the job using modern scoring system
       if (defaultResume && defaultResume.content) {
-        console.log(`[AddManual] Scoring job against resume for user ${userId}`)
+        console.log(`[AddManual] Scoring job against resume for user ${userId} using enhanced scoring`)
+        
         const jobToScore: JobSearchResult = {
           id: jobId,
           title,
@@ -89,11 +90,69 @@ export async function POST(req: NextRequest) {
           summary: description || ""
         }
 
-        const scoredJobs = await getMatchingScores([jobToScore], defaultResume.content, userId)
+        // Use the multi-agent scoring system for consistency with "Generate score match"
+        const { executeMultiAgentJobScoring } = await import('@/lib/prompts/api-helpers')
+        
+        const scoringStartTime = Date.now()
+        const scoredJobs = await executeMultiAgentJobScoring({
+          jobs: [jobToScore],
+          resume: defaultResume.content,
+          userId
+        })
+        const scoringExecutionTime = Date.now() - scoringStartTime
+        
         if (scoredJobs.length > 0) {
           matchingScore = scoredJobs[0].matchingScore || 0
           matchingSummary = scoredJobs[0].matchingSummary || ""
-          console.log(`[AddManual] Job scored: ${matchingScore}% - ${matchingSummary}`)
+          
+          // Capture enhanced score details for detailed PDF analysis
+          const enhancedDetails = scoredJobs[0].enhancedScoreDetails
+          if (enhancedDetails) {
+            // Store enhanced details in originalData for the saved job
+            originalData.enhancedScoreDetails = enhancedDetails
+          }
+          
+          console.log(`[AddManual] Job scored with multi-agent system: ${matchingScore}% - ${matchingSummary}`)
+        }
+
+        // Log activity for manual job scoring
+        try {
+          // Multi-agent logs individual agent activities
+          // This is just a summary activity
+          let actualTokenUsage = 0
+          let actualUsageData = null
+          
+          if (scoredJobs.length > 0 && scoredJobs[0].enhancedScoreDetails?.usage) {
+            actualUsageData = scoredJobs[0].enhancedScoreDetails.usage
+            // Set to 0 as individual agents already logged their usage
+            actualTokenUsage = 0
+          }
+          
+          await logActivity({
+            userId,
+            activityType: 'job_scoring_summary',
+            tokenUsage: actualTokenUsage, // 0 for summary
+            timeTaken: scoringExecutionTime / 1000, // Convert to seconds
+            metadata: {
+              model: 'multi-agent-system',
+              jobs_scored: 1,
+              scoring_type: 'multi-agent',
+              multi_agent: true,
+              triggered_by: 'manual_job_add',
+              job_title: title,
+              job_company: company,
+              execution_time_ms: scoringExecutionTime,
+              summary_activity: true,
+              agent_count: 9, // 8 scoring agents + 1 orchestration
+              total_tokens_used: actualUsageData?.totalTokens || 0,
+              note: 'Individual agent activities logged separately',
+              user_initiated: true // User manually added job
+            }
+          })
+          console.log(`[AddManual] Job scoring activity logged: ${actualTokenUsage} tokens for ${title} at ${company} (${actualUsageData ? 'actual' : 'estimated'})`)
+        } catch (activityError) {
+          console.warn('[AddManual] Failed to log job scoring activity:', activityError)
+          // Continue without failing the request
         }
       } else {
         console.log(`[AddManual] No resume found for user ${userId}, skipping scoring`)
@@ -134,95 +193,4 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function getMatchingScores(jobs: JobSearchResult[], resume: string, userId: string): Promise<JobSearchResult[]> {
-  const openrouterApiKey = process.env.OPENROUTER_API_KEY
-  if (!openrouterApiKey) {
-    console.warn("[AddManual] Missing OpenRouter API key, skipping scoring")
-    return jobs
-  }
-
-  const startTime = Date.now()
-  const allScoredJobs: JobSearchResult[] = []
-
-  try {
-    const jobsForPrompt = jobs.map((job: JobSearchResult) => 
-      `ID: ${job.id}\nJob Title: ${job.title}\nCompany: ${job.company}\nDescription: ${job.description}`
-    ).join("\n---\n")
-        
-    const prompt = `Please score the following jobs against the provided resume.\n\nResume:\n${resume}\n\nJobs:\n${jobsForPrompt}`
-        
-    const openrouterRequestBody = {
-      model: "openai/gpt-4o-mini",
-      messages: [
-        { 
-          role: "system", 
-          content: `You are an expert job-matching assistant. Analyze how well a candidate's resume matches each job description.\n\nSCORING CRITERIA (0-100):\n- Skills & Keywords (40%): Match between candidate skills and job requirements\n- Experience & Achievements (40%): Relevance of past roles, years of experience, quantifiable achievements\n- Education & Certifications (10%): Educational background alignment\n- Job Title & Seniority (10%): Career progression and title alignment\n\nIMPORTANT: You must return ONLY a valid JSON array. Do not include any explanatory text, markdown formatting, or code blocks. Your response should start with [ and end with ].\n\nReturn format:\n[\n  {\n    "id": "job_id_here",\n    "title": "Job Title",\n    "company": "Company Name",\n    "score": 85,\n    "summary": "Brief explanation of the match quality and key factors affecting the score."\n  }\n]\n\nAnalyze each job carefully and provide accurate scores based on the resume content.`
-        },
-        { role: "user", content: prompt },
-      ],
-    }
-        
-    const openrouterRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${openrouterApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(openrouterRequestBody),
-    })
-
-    if (!openrouterRes.ok) {
-      const errorText = await openrouterRes.text()
-      console.error("OpenRouter API error:", errorText)
-      throw new Error("OpenRouter API error during manual job scoring")
-    }
-
-    const data = await openrouterRes.json()
-    const aiResponse = data.choices?.[0]?.message?.content || ""
-    
-    const parseResult = safeJsonParse<{ id: string, score: number, summary: string }[]>(aiResponse)
-    
-    if (parseResult.success && Array.isArray(parseResult.data)) {
-      const matchedJobsMap = new Map(parseResult.data.map((j: { id: string; score: number; summary: string; }) => [j.id, j]))
-
-      const scoredJobs = jobs.map((job) => {
-        const matchedJob = matchedJobsMap.get(job.id)
-        if (matchedJob) {
-          return { ...job, matchingScore: matchedJob.score, matchingSummary: matchedJob.summary }
-        }
-        return { ...job, matchingScore: 0, matchingSummary: "AI analysis failed for this job." }
-      })
-      allScoredJobs.push(...scoredJobs)
-    } else {
-      console.warn('Failed to parse AI scoring response:', parseResult.error)
-      // Return jobs with default scores
-      const defaultScoredJobs = jobs.map((job) => ({ 
-        ...job, 
-        matchingScore: 0, 
-        matchingSummary: "JSON parsing failed for AI analysis." 
-      }))
-      allScoredJobs.push(...defaultScoredJobs)
-    }
-
-    // Log the activity
-    const timeTaken = (Date.now() - startTime) / 1000
-    const totalTokens = data.usage?.total_tokens || jobs.length * 100 // Rough estimate
-    
-    await logActivity({
-      userId,
-      activityType: 'job_scoring',
-      tokenUsage: totalTokens,
-      timeTaken,
-      metadata: { 
-        model: 'openai/gpt-4o-mini',
-        jobs_scored: jobs.length,
-        scoring_type: 'manual_job_addition'
-      },
-    })
-  } catch (error) {
-    console.error("[AddManual] Error during scoring:", error)
-    return jobs.map(job => ({ ...job, matchingScore: 0, matchingSummary: "Scoring failed." }))
-  }
-
-  return allScoredJobs
-}
+// Legacy scoring function removed - now using enhanced scoring from api-helpers

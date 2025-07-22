@@ -224,6 +224,14 @@ export interface AgentResult {
   result: any
   executedAt: string
   executionTime?: number
+  usage?: {
+    totalTokens: number
+    promptTokens: number
+    completionTokens: number
+    cachedTokens: number
+    estimatedCost: number
+    costSavings: number
+  }
 }
 
 export interface ScoringAgentResult {
@@ -363,6 +371,14 @@ export interface MultiAgentScoreResult extends OrchestrationResult {
   agentResults: AgentResults
   processedAt: string
   totalProcessingTime: number
+  usage?: {
+    totalTokens: number
+    promptTokens: number
+    completionTokens: number
+    cachedTokens: number
+    estimatedCost: number
+    costSavings: number
+  }
 }
 
 export type AgentType = 'technicalSkills' | 'experienceDepth' | 'achievements' | 'education' | 'softSkills' | 'careerProgression' | 'strengths' | 'weaknesses' | 'orchestration'

@@ -519,7 +519,8 @@ export async function executeMultiAgentJobScoring(request: JobScoringRequest): P
         const multiAgentResult = await calculateMultiAgentScore(
           { resume: request.resume },
           job,
-          openRouterApiKey
+          openRouterApiKey,
+          request.userId
         )
         
         // Track performance metrics
@@ -547,7 +548,9 @@ export async function executeMultiAgentJobScoring(request: JobScoringRequest): P
             interviewFocus: multiAgentResult.interviewFocus,
             summary: multiAgentResult.hiringRecommendation,
             validatedAt: multiAgentResult.processedAt,
-            scoringVersion: multiAgentResult.executionSummary.scoringVersion
+            scoringVersion: multiAgentResult.executionSummary.scoringVersion,
+            executionSummary: multiAgentResult.executionSummary,
+            usage: multiAgentResult.usage // Include actual token usage data
           }
         }
         

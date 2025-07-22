@@ -18,7 +18,8 @@ async function executeAgent(
   agentType: AgentType,
   candidateData: { resume: string },
   jobData: JobSearchResult,
-  openRouterApiKey: string
+  openRouterApiKey: string,
+  userId?: string
 ): Promise<AgentResult> {
   
   const startTime = Date.now()
@@ -79,11 +80,46 @@ async function executeAgent(
     const executionTime = Date.now() - startTime
     console.log(`✅ [${agentType}] Agent completed in ${executionTime}ms`)
 
+    // Log individual agent activity to track each OpenRouter API call separately
+    if (response.usage && response.usage.totalTokens > 0) {
+      try {
+        const { logActivity } = await import('@/lib/activity-logger')
+        
+        await logActivity({
+          userId: userId || 'system',
+          activityType: 'job_scoring_agent',
+          tokenUsage: response.usage.totalTokens,
+          timeTaken: executionTime / 1000,
+          metadata: {
+            model: 'openai/gpt-4o-mini',
+            agent_type: agentType,
+            job_title: jobData.title,
+            job_company: jobData.company,
+            execution_time_ms: executionTime,
+            prompt_tokens: response.usage.promptTokens,
+            completion_tokens: response.usage.completionTokens,
+            cached_tokens: response.usage.cachedTokens || 0,
+            cache_hit_rate: response.usage.promptTokens > 0 
+              ? (response.usage.cachedTokens / response.usage.promptTokens * 100).toFixed(1) + '%' 
+              : '0%',
+            estimated_cost: response.usage.estimatedCost || 0,
+            cost_savings: response.usage.costSavings || 0,
+            scoring_context: 'multi_agent_individual',
+            agent_execution: true
+          }
+        })
+        console.log(`💰 [${agentType}] Agent activity logged: ${response.usage.totalTokens} tokens`)
+      } catch (activityError) {
+        console.warn(`⚠️ [${agentType}] Failed to log agent activity:`, activityError)
+      }
+    }
+
     return {
       agentType,
       result: response.data,
       executedAt: new Date().toISOString(),
-      executionTime
+      executionTime,
+      usage: response.usage
     }
     
   } catch (error) {
@@ -128,7 +164,8 @@ async function executeAgent(
 export async function executeAllAgentsParallel(
   candidateData: { resume: string },
   jobData: JobSearchResult,
-  openRouterApiKey: string
+  openRouterApiKey: string,
+  userId?: string
 ): Promise<AgentResults> {
   
   console.log('🚀 [MultiAgent] Starting parallel execution of 8 agents...')
@@ -148,7 +185,7 @@ export async function executeAllAgentsParallel(
   try {
     // Execute all agents in parallel
     const agentPromises = agentTypes.map(agentType => 
-      executeAgent(agentType, candidateData, jobData, openRouterApiKey)
+      executeAgent(agentType, candidateData, jobData, openRouterApiKey, userId)
     )
     
     const agentResults = await Promise.all(agentPromises)
@@ -197,7 +234,8 @@ async function executeOrchestrationAgent(
   agentResults: AgentResults,
   candidateData: { resume: string },
   jobData: JobSearchResult,
-  openRouterApiKey: string
+  openRouterApiKey: string,
+  userId?: string
 ): Promise<OrchestrationResult> {
   
   console.log('🎭 [Orchestration] Starting result combination...')
@@ -242,10 +280,50 @@ async function executeOrchestrationAgent(
     const executionTime = Date.now() - startTime
     console.log(`✅ [Orchestration] Completed in ${executionTime}ms`)
 
+    // Log orchestration agent activity
+    if (response.usage && response.usage.totalTokens > 0) {
+      try {
+        const { logActivity } = await import('@/lib/activity-logger')
+        
+        await logActivity({
+          userId: userId || 'system',
+          activityType: 'job_scoring_agent',
+          tokenUsage: response.usage.totalTokens,
+          timeTaken: executionTime / 1000,
+          metadata: {
+            model: 'openai/gpt-4o-mini',
+            agent_type: 'orchestration',
+            job_title: jobData.title,
+            job_company: jobData.company,
+            execution_time_ms: executionTime,
+            prompt_tokens: response.usage.promptTokens,
+            completion_tokens: response.usage.completionTokens,
+            cached_tokens: response.usage.cachedTokens || 0,
+            cache_hit_rate: response.usage.promptTokens > 0 
+              ? (response.usage.cachedTokens / response.usage.promptTokens * 100).toFixed(1) + '%' 
+              : '0%',
+            estimated_cost: response.usage.estimatedCost || 0,
+            cost_savings: response.usage.costSavings || 0,
+            scoring_context: 'multi_agent_orchestration',
+            agent_execution: true
+          }
+        })
+        console.log(`💰 [Orchestration] Agent activity logged: ${response.usage.totalTokens} tokens`)
+      } catch (activityError) {
+        console.warn('⚠️ [Orchestration] Failed to log agent activity:', activityError)
+      }
+    }
+
     const result = response.data
     
     // Validate and enhance the orchestration result
-    return validateOrchestrationResult(result, agentResults)
+    const orchestrationResult = validateOrchestrationResult(result, agentResults)
+    
+    // Add usage data from orchestration to the result
+    return {
+      ...orchestrationResult,
+      usage: response.usage
+    } as any
     
   } catch (error) {
     console.error('❌ [Orchestration] Failed:', error)
@@ -446,7 +524,8 @@ function createFallbackOrchestrationResult(
 export async function calculateMultiAgentScore(
   candidateData: { resume: string },
   jobData: JobSearchResult,
-  openRouterApiKey: string
+  openRouterApiKey: string,
+  userId?: string
 ): Promise<MultiAgentScoreResult> {
   
   console.log('🎬 [MultiAgent] Starting multi-agent scoring process...')
@@ -457,7 +536,8 @@ export async function calculateMultiAgentScore(
     const agentResults = await executeAllAgentsParallel(
       candidateData, 
       jobData, 
-      openRouterApiKey
+      openRouterApiKey,
+      userId
     )
     
     // Step 2: Orchestrate results
@@ -465,10 +545,14 @@ export async function calculateMultiAgentScore(
       agentResults,
       candidateData,
       jobData, 
-      openRouterApiKey
+      openRouterApiKey,
+      userId
     )
     
     const totalTime = Date.now() - startTime
+    
+    // Aggregate usage data from all agents and orchestration
+    const aggregatedUsage = aggregateTokenUsage(agentResults, orchestrationResult)
     
     console.log(`🎉 [MultiAgent] Scoring completed in ${totalTime}ms`)
     
@@ -476,12 +560,71 @@ export async function calculateMultiAgentScore(
       ...orchestrationResult,
       agentResults,
       processedAt: new Date().toISOString(),
-      totalProcessingTime: totalTime
+      totalProcessingTime: totalTime,
+      usage: aggregatedUsage
     }
     
   } catch (error) {
     console.error('💥 [MultiAgent] Scoring failed:', error)
     throw new Error(`Multi-agent scoring failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
+}
+
+/**
+ * Aggregate token usage from all agents and orchestration
+ */
+function aggregateTokenUsage(agentResults: AgentResults, orchestrationResult: OrchestrationResult) {
+  let totalTokens = 0
+  let promptTokens = 0
+  let completionTokens = 0
+  let cachedTokens = 0
+  let estimatedCost = 0
+  let costSavings = 0
+
+  // Aggregate usage from all scoring agents
+  Object.values(agentResults.scoring).forEach(agentData => {
+    if (agentData?.usage) {
+      totalTokens += agentData.usage.totalTokens || 0
+      promptTokens += agentData.usage.promptTokens || 0
+      completionTokens += agentData.usage.completionTokens || 0
+      cachedTokens += agentData.usage.cachedTokens || 0
+      estimatedCost += agentData.usage.estimatedCost || 0
+      costSavings += agentData.usage.costSavings || 0
+    }
+  })
+
+  // Aggregate usage from analysis agents
+  Object.values(agentResults.analysis).forEach(agentData => {
+    if (agentData?.usage) {
+      totalTokens += agentData.usage.totalTokens || 0
+      promptTokens += agentData.usage.promptTokens || 0
+      completionTokens += agentData.usage.completionTokens || 0
+      cachedTokens += agentData.usage.cachedTokens || 0
+      estimatedCost += agentData.usage.estimatedCost || 0
+      costSavings += agentData.usage.costSavings || 0
+    }
+  })
+
+  // Add orchestration agent usage if available
+  if ((orchestrationResult as any).usage) {
+    const orchUsage = (orchestrationResult as any).usage
+    totalTokens += orchUsage.totalTokens || 0
+    promptTokens += orchUsage.promptTokens || 0
+    completionTokens += orchUsage.completionTokens || 0
+    cachedTokens += orchUsage.cachedTokens || 0
+    estimatedCost += orchUsage.estimatedCost || 0
+    costSavings += orchUsage.costSavings || 0
+  }
+
+  console.log(`💰 [Usage] Aggregated: ${totalTokens} tokens (${promptTokens}+${completionTokens}, ${cachedTokens} cached), $${estimatedCost.toFixed(4)}, saved $${costSavings.toFixed(4)}`)
+
+  return {
+    totalTokens,
+    promptTokens,
+    completionTokens,
+    cachedTokens,
+    estimatedCost,
+    costSavings
   }
 }
 

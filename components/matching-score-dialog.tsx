@@ -38,11 +38,15 @@ export function MatchingScoreDialog({ job, isOpen, onClose }: MatchingScoreDialo
     hasEnhancedScoreDetails: !!enhancedScoreDetails,
     scoreDetailsKeys: scoreDetails ? Object.keys(scoreDetails) : [],
     enhancedScoreDetailsKeys: enhancedScoreDetails ? Object.keys(enhancedScoreDetails) : [],
-    enhancedScoreDetails: enhancedScoreDetails
+    scoreDetailsData: scoreDetails,
+    enhancedScoreDetails: enhancedScoreDetails,
+    fullJobData: job
   })
   
-  // Check if we have multi-agent scoring data
-  const hasMultiAgentData = enhancedScoreDetails?.breakdown
+  // Check if we have multi-agent or enhanced scoring data
+  const hasEnhancedData = enhancedScoreDetails?.breakdown
+  const isMultiAgent = enhancedScoreDetails?.executionSummary || enhancedScoreDetails?.scoringVersion?.includes('multi-agent')
+  const hasMultiAgentData = hasEnhancedData && isMultiAgent
   
   const mockData = {
     skills: {
@@ -90,8 +94,8 @@ export function MatchingScoreDialog({ job, isOpen, onClose }: MatchingScoreDialo
     return []
   }
 
-  // If we have multi-agent scoring data, use it
-  const matchingBreakdown = hasMultiAgentData ? {
+  // If we have enhanced scoring data (multi-agent or regular enhanced), use it
+  const matchingBreakdown = hasEnhancedData ? {
     skills: {
       score: enhancedScoreDetails.breakdown.technicalSkills?.score || 0,
       matched: extractStringArray(enhancedScoreDetails.keyStrengths).filter((s: string) => s.toLowerCase().includes('skill') || s.toLowerCase().includes('technical')),
@@ -99,8 +103,8 @@ export function MatchingScoreDialog({ job, isOpen, onClose }: MatchingScoreDialo
     },
     experience: {
       score: enhancedScoreDetails.breakdown.experienceDepth?.score || 0,
-      yearsRequired: 3, // Default as we don't have this in multi-agent
-      yearsHave: 2, // Default as we don't have this in multi-agent
+      yearsRequired: 3, // Default as we don't have this in enhanced scoring
+      yearsHave: 2, // Default as we don't have this in enhanced scoring
       relevantExperience: enhancedScoreDetails.breakdown.experienceDepth?.reasoning || "See detailed analysis",
     },
     education: {
@@ -164,7 +168,7 @@ export function MatchingScoreDialog({ job, isOpen, onClose }: MatchingScoreDialo
           matchingSummary: job.matchingSummary,
         },
         breakdown: matchingBreakdown,
-        enhancedScoreDetails: hasMultiAgentData ? enhancedScoreDetails : null,
+        enhancedScoreDetails: hasEnhancedData ? enhancedScoreDetails : null,
       }
 
       const response = await fetch('/api/jobs/match-analysis-pdf', {
@@ -346,8 +350,8 @@ export function MatchingScoreDialog({ job, isOpen, onClose }: MatchingScoreDialo
             </div>
           )}
 
-          {/* Multi-Agent Insights Section */}
-          {hasMultiAgentData && (
+          {/* Enhanced/Multi-Agent Insights Section */}
+          {hasEnhancedData && (
             <div className="pt-4 border-t space-y-4">
               <h3 className="text-lg font-semibold">AI Analysis Insights</h3>
               

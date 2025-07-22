@@ -123,10 +123,39 @@ export async function POST(req: NextRequest) {
           userId: 'temp-user'
         };
         
+        const contextScoringStart = Date.now()
         const scoredJobs = await executeEnhancedJobScoring(scoringRequest);
+        const contextScoringTime = Date.now() - contextScoringStart
+        
         if (scoredJobs.length > 0 && scoredJobs[0].enhancedScoreDetails) {
           scoringContext = scoredJobs[0].enhancedScoreDetails;
           console.log('[TailoringAPI] Generated scoring analysis for tailoring context');
+          
+          // Log activity for context scoring (if we have a real user)
+          if (userId !== 'anonymous') {
+            try {
+              await logActivity({
+                userId,
+                activityType: 'job_scoring',
+                tokenUsage: 600, // Enhanced scoring estimate
+                timeTaken: contextScoringTime / 1000,
+                metadata: {
+                  model: 'openai/gpt-4o-mini',
+                  jobs_scored: 1,
+                  scoring_type: 'enhanced',
+                  triggered_by: 'resume_tailoring_context',
+                  job_title: jobTitle,
+                  job_company: company,
+                  execution_time_ms: contextScoringTime,
+                  estimated_tokens_per_job: 600,
+                  internal_scoring: true // This is for context, not direct user request
+                }
+              })
+              console.log('[TailoringAPI] Context scoring activity logged: 600 tokens')
+            } catch (activityError) {
+              console.warn('[TailoringAPI] Failed to log context scoring activity:', activityError)
+            }
+          }
         }
       } catch (scoringError) {
         console.warn('[TailoringAPI] Failed to generate scoring analysis, proceeding without it:', scoringError);

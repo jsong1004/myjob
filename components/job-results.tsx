@@ -129,6 +129,7 @@ export function JobResults({ results }: JobResultsProps) {
           matchingScore: job.matchingScore ?? 0,
           matchingSummary: job.matchingSummary || "",
           originalData: job,
+          useMultiAgent: true, // Use multi-agent scoring for consistency
         }),
       })
 
@@ -216,6 +217,7 @@ export function JobResults({ results }: JobResultsProps) {
             salary: job.salary || "",
             matchingScore: job.matchingScore ?? 0,
             originalData: job,
+            useMultiAgent: true, // Use multi-agent scoring for consistency
           }),
         })
 
