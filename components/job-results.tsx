@@ -14,7 +14,7 @@ import { useRouter } from "next/navigation"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
 import { useAuth } from "@/components/auth-provider"
 import { auth } from "@/lib/firebase"
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast"
 
 interface Job {
   id: string

@@ -44,16 +44,25 @@ export async function GET(req: NextRequest) {
     // Fetch user names
     const userMap = new Map<string, string>()
     if (userIds.length > 0) {
-      // Firestore 'in' query is limited to 30 items, so we may need to batch requests
-      const MAX_IDS_PER_QUERY = 10 // Firestore `in` query limit
-      for (let i = 0; i < userIds.length; i += MAX_IDS_PER_QUERY) {
-        const chunk = userIds.slice(i, i + MAX_IDS_PER_QUERY)
-        if (chunk.length > 0) {
-          const usersSnapshot = await adminDb.collection("users").where('userId', 'in', chunk).get()
-          usersSnapshot.forEach(doc => {
-            const userData = doc.data()
-            userMap.set(userData.userId, userData.name || 'Anonymous')
-          })
+      // Fetch user documents by their document IDs
+      for (const userId of userIds) {
+        try {
+          const userDoc = await adminDb.collection("users").doc(userId).get()
+          if (userDoc.exists) {
+            const userData = userDoc.data()
+            // Use displayName field which is what's saved in the profile
+            userMap.set(userId, userData?.displayName || userData?.name || 'Anonymous')
+          } else {
+            // If user doc doesn't exist in Firestore, try to get from Firebase Auth
+            try {
+              const authUser = await adminAuth.getUser(userId)
+              userMap.set(userId, authUser.displayName || authUser.email || 'Anonymous')
+            } catch (authError) {
+              console.error(`User ${userId} not found in Firestore or Auth`)
+            }
+          }
+        } catch (error) {
+          console.error(`Failed to fetch user ${userId}:`, error)
         }
       }
     }

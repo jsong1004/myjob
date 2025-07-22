@@ -12,6 +12,7 @@ import Link from "next/link"
 import { Header } from "@/components/header"
 import { AuthProvider, useAuth } from "@/components/auth-provider"
 import { ChatMessage, Resume } from "@/lib/types"
+import { safeJsonParse } from "@/lib/utils/json-parser"
 import { auth } from "@/lib/firebase"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import ReactMarkdown from "react-markdown"
@@ -102,12 +103,12 @@ export default function ResumeEditPage({ params }: ResumeEditPageProps) {
         
         if (res.ok) {
           const data = await res.json()
-          try {
-            const suggestions = JSON.parse(data.reply)
-            if (Array.isArray(suggestions)) {
-              setAiSuggestions(suggestions.slice(0, 3))
-            }
-          } catch {
+          const parseResult = safeJsonParse<string[]>(data.reply)
+          
+          if (parseResult.success && Array.isArray(parseResult.data)) {
+            setAiSuggestions(parseResult.data.slice(0, 3))
+          } else {
+            console.warn('Resume suggestions parsing failed:', parseResult.error)
             setAiSuggestions([
               "Make the professional summary more impactful",
               "Add more quantifiable achievements",

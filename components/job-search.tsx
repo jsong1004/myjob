@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -39,23 +39,23 @@ export function JobSearch({ onSearch, isLoading, initialQuery = "", initialLocat
   const [location, setLocation] = useState(initialLocation)
   const [workArrangement, setWorkArrangement] = useState("All");
 
-  // Create dynamic city list that includes the initial location if it's not in the default list
-  const getCityList = () => {
-    const cityList = [...majorCities];
+  // Memoized dynamic city list that includes the initial location if it's not in the default list
+  const cityList = useMemo(() => {
+    const cities = [...majorCities];
     
     // If the initial location is not in the list, add it
-    if (initialLocation && !cityList.includes(initialLocation)) {
+    if (initialLocation && !cities.includes(initialLocation)) {
       // Also check if a similar location without "United States" exists
       const locationWithoutUS = initialLocation.replace(', United States', '');
-      const existingLocation = cityList.find(city => city.includes(locationWithoutUS));
+      const existingLocation = cities.find(city => city.includes(locationWithoutUS));
       
       if (!existingLocation) {
-        cityList.splice(cityList.length - 1, 0, initialLocation); // Add before "Anywhere"
+        cities.splice(cities.length - 1, 0, initialLocation); // Add before "Anywhere"
       }
     }
     
-    return cityList;
-  };
+    return cities;
+  }, [initialLocation]);
 
   // Update state when initial values change
   useEffect(() => {
@@ -110,7 +110,7 @@ export function JobSearch({ onSearch, isLoading, initialQuery = "", initialLocat
                   <SelectValue placeholder="Select a location" />
                 </SelectTrigger>
                 <SelectContent>
-                  {getCityList().map((city) => (
+                  {cityList.map((city) => (
                     <SelectItem key={city} value={city}>
                       {city}
                     </SelectItem>

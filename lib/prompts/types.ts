@@ -13,28 +13,45 @@ export interface PromptConfig {
   tags: string[]
 }
 
+export interface JsonSchema {
+  type: string
+  properties?: Record<string, JsonSchema>
+  required?: string[]
+  items?: JsonSchema
+  enum?: any[]
+  description?: string
+}
+
 export interface ResponseFormat {
   type: 'json' | 'text' | 'structured'
-  schema?: Record<string, any>
+  schema?: JsonSchema
   examples?: string[]
+}
+
+export interface PromptMetadata {
+  [key: string]: string | number | boolean | null
 }
 
 export interface PromptContext {
   userId?: string
   sessionId?: string
-  metadata?: Record<string, any>
+  metadata?: PromptMetadata
+}
+
+export interface PromptVariables {
+  [key: string]: string | number | boolean | object | null
 }
 
 export interface PromptRequest {
   promptId: string
-  variables: Record<string, any>
+  variables: PromptVariables
   context?: PromptContext
   overrides?: Partial<PromptConfig>
 }
 
-export interface PromptResponse {
+export interface PromptResponse<T = any> {
   success: boolean
-  data?: any
+  data?: T
   error?: string
   usage?: {
     promptTokens: number
@@ -79,6 +96,9 @@ export interface CoverLetterRequest {
   existingCoverLetter?: string
 }
 
+// Import types from external APIs
+import { SerpApiJobResult } from '@/lib/api/serp-api-types'
+
 // Import types from existing application
 export interface JobSearchResult {
   id: string
@@ -87,12 +107,12 @@ export interface JobSearchResult {
   description: string
   matchingScore?: number
   matchingSummary?: string
-  scoreDetails?: any
+  scoreDetails?: EnhancedScoreResult | ScoreDetail
   location?: string
   salary?: string
   applyUrl?: string
   snippet?: string
-  originalData?: any
+  originalData?: SerpApiJobResult
   enhancedScoreDetails?: EnhancedScoreResult
 }
 

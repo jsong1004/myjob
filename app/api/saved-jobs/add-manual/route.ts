@@ -3,6 +3,7 @@ import { initFirebaseAdmin } from "@/lib/firebase-admin-init"
 import { getFirestore } from "firebase-admin/firestore"
 import { getAuth } from "firebase-admin/auth"
 import { SavedJob, JobSearchResult } from "@/lib/types"
+import { safeJsonParse } from "@/lib/utils/json-parser"
 import { logActivity } from "@/lib/activity-logger"
 
 export async function POST(req: NextRequest) {
@@ -179,9 +180,10 @@ async function getMatchingScores(jobs: JobSearchResult[], resume: string, userId
     const data = await openrouterRes.json()
     const aiResponse = data.choices?.[0]?.message?.content || ""
     
-    try {
-      const matchedJobs: { id: string, score: number, summary: string }[] = JSON.parse(aiResponse)
-      const matchedJobsMap = new Map(matchedJobs.map((j: { id: string; score: number; summary: string; }) => [j.id, j]))
+    const parseResult = safeJsonParse<{ id: string, score: number, summary: string }[]>(aiResponse)
+    
+    if (parseResult.success && Array.isArray(parseResult.data)) {
+      const matchedJobsMap = new Map(parseResult.data.map((j: { id: string; score: number; summary: string; }) => [j.id, j]))
 
       const scoredJobs = jobs.map((job) => {
         const matchedJob = matchedJobsMap.get(job.id)
@@ -191,28 +193,32 @@ async function getMatchingScores(jobs: JobSearchResult[], resume: string, userId
         return { ...job, matchingScore: 0, matchingSummary: "AI analysis failed for this job." }
       })
       allScoredJobs.push(...scoredJobs)
-
-      // Log the activity
-      const timeTaken = (Date.now() - startTime) / 1000
-      const totalTokens = data.usage?.total_tokens || jobs.length * 100 // Rough estimate
-      
-      await logActivity({
-        userId,
-        activityType: 'job_scoring',
-        tokenUsage: totalTokens,
-        timeTaken,
-        metadata: { 
-          model: 'openai/gpt-4o-mini',
-          jobs_scored: jobs.length,
-          scoring_type: 'manual_job_addition'
-        },
-      })
-
-    } catch (parseError) {
-      console.error("[AddManual] Failed to parse AI response:", parseError)
-      console.error("[AddManual] Raw AI response:", aiResponse)
-      return jobs.map((job) => ({ ...job, matchingScore: 0, matchingSummary: "Could not parse AI response." }))
+    } else {
+      console.warn('Failed to parse AI scoring response:', parseResult.error)
+      // Return jobs with default scores
+      const defaultScoredJobs = jobs.map((job) => ({ 
+        ...job, 
+        matchingScore: 0, 
+        matchingSummary: "JSON parsing failed for AI analysis." 
+      }))
+      allScoredJobs.push(...defaultScoredJobs)
     }
+
+    // Log the activity
+    const timeTaken = (Date.now() - startTime) / 1000
+    const totalTokens = data.usage?.total_tokens || jobs.length * 100 // Rough estimate
+    
+    await logActivity({
+      userId,
+      activityType: 'job_scoring',
+      tokenUsage: totalTokens,
+      timeTaken,
+      metadata: { 
+        model: 'openai/gpt-4o-mini',
+        jobs_scored: jobs.length,
+        scoring_type: 'manual_job_addition'
+      },
+    })
   } catch (error) {
     console.error("[AddManual] Error during scoring:", error)
     return jobs.map(job => ({ ...job, matchingScore: 0, matchingSummary: "Scoring failed." }))

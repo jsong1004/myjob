@@ -18,7 +18,7 @@ import { Resume } from "@/lib/types"
 import { auth, storage } from "@/lib/firebase"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast"
 
 interface UserProfile {
   displayName: string

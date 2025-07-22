@@ -14,27 +14,29 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 }
 
-// Debug logging for production
-if (typeof window !== 'undefined') {
-  console.log('CLIENT Firebase Config Debug:', {
-    apiKey: firebaseConfig.apiKey ? 'SET' : 'MISSING',
-    authDomain: firebaseConfig.authDomain ? 'SET' : 'MISSING',
-    projectId: firebaseConfig.projectId ? 'SET' : 'MISSING',
-    storageBucket: firebaseConfig.storageBucket ? 'SET' : 'MISSING',
-    messagingSenderId: firebaseConfig.messagingSenderId ? 'SET' : 'MISSING',
-    appId: firebaseConfig.appId ? 'SET' : 'MISSING',
-    nodeEnv: process.env.NODE_ENV
-  })
-} else {
-  console.log('SERVER Firebase Config Debug:', {
-    apiKey: firebaseConfig.apiKey ? 'SET' : 'MISSING',
-    authDomain: firebaseConfig.authDomain ? 'SET' : 'MISSING',
-    projectId: firebaseConfig.projectId ? 'SET' : 'MISSING',
-    storageBucket: firebaseConfig.storageBucket ? 'SET' : 'MISSING',
-    messagingSenderId: firebaseConfig.messagingSenderId ? 'SET' : 'MISSING',
-    appId: firebaseConfig.appId ? 'SET' : 'MISSING',
-    nodeEnv: process.env.NODE_ENV
-  })
+// Debug logging for development only
+if (process.env.NODE_ENV === 'development') {
+  if (typeof window !== 'undefined') {
+    console.log('CLIENT Firebase Config Debug:', {
+      apiKey: firebaseConfig.apiKey ? 'SET' : 'MISSING',
+      authDomain: firebaseConfig.authDomain ? 'SET' : 'MISSING',
+      projectId: firebaseConfig.projectId ? 'SET' : 'MISSING',
+      storageBucket: firebaseConfig.storageBucket ? 'SET' : 'MISSING',
+      messagingSenderId: firebaseConfig.messagingSenderId ? 'SET' : 'MISSING',
+      appId: firebaseConfig.appId ? 'SET' : 'MISSING',
+      nodeEnv: process.env.NODE_ENV
+    })
+  } else {
+    console.log('SERVER Firebase Config Debug:', {
+      apiKey: firebaseConfig.apiKey ? 'SET' : 'MISSING',
+      authDomain: firebaseConfig.authDomain ? 'SET' : 'MISSING',
+      projectId: firebaseConfig.projectId ? 'SET' : 'MISSING',
+      storageBucket: firebaseConfig.storageBucket ? 'SET' : 'MISSING',
+      messagingSenderId: firebaseConfig.messagingSenderId ? 'SET' : 'MISSING',
+      appId: firebaseConfig.appId ? 'SET' : 'MISSING',
+      nodeEnv: process.env.NODE_ENV
+    })
+  }
 }
 
 // Check if we have all required config

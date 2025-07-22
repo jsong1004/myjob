@@ -14,6 +14,7 @@ import Link from "next/link"
 import { Header } from "@/components/header"
 import { AuthProvider, useAuth } from "@/components/auth-provider"
 import { ChatMessage } from "@/lib/types"
+import { safeJsonParse } from "@/lib/utils/json-parser"
 import { auth } from "@/lib/firebase"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Textarea } from "@/components/ui/textarea"
@@ -185,14 +186,13 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
         
         if (res.ok) {
           const data = await res.json()
-          try {
-            // Try to parse the AI response as JSON array
-            const suggestions = JSON.parse(data.reply)
-            if (Array.isArray(suggestions)) {
-              setAiSuggestions(suggestions.slice(0, 3)) // Take first 3 suggestions
-            }
-          } catch {
-            // If parsing fails, use default suggestions
+          const parseResult = safeJsonParse<string[]>(data.reply)
+          
+          if (parseResult.success && Array.isArray(parseResult.data)) {
+            setAiSuggestions(parseResult.data.slice(0, 3)) // Take first 3 suggestions
+          } else {
+            console.warn('AI suggestions parsing failed:', parseResult.error)
+            // Use default suggestions as fallback
             setAiSuggestions([
               "Make the professional summary more concise",
               "Add more specific metrics and achievements", 

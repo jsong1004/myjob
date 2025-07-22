@@ -15,7 +15,7 @@ import { Plus, X, Upload, FileText, ChevronRight, ChevronLeft, Loader2 } from "l
 import { useAuth } from "@/components/auth-provider"
 import { useRouter } from "next/navigation"
 import { validateFeedbackFile } from "@/lib/file-parser"
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast"
 import { auth } from "@/lib/firebase"
 
 interface OnboardingData {
