@@ -64,7 +64,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
     if (coverLetterCreated !== undefined && typeof coverLetterCreated !== 'boolean') {
       return NextResponse.json({ error: "Cover letter created status must be a boolean" }, { status: 400 })
     }
-    if (status !== undefined && !['saved', 'applied', 'interviewing', 'offer', 'rejected', 'withdrawn'].includes(status)) {
+    if (status !== undefined && !['saved', 'notinterested', 'applied', 'interviewing', 'offer', 'rejected', 'withdrawn'].includes(status)) {
       return NextResponse.json({ error: "Invalid status value" }, { status: 400 })
     }
     if (notes !== undefined && typeof notes !== 'string') {

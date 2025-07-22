@@ -40,7 +40,7 @@ export interface CoverLetter {
 }
 
 // Application status enum
-export type ApplicationStatus = 'saved' | 'applied' | 'interviewing' | 'offer' | 'rejected' | 'withdrawn'
+export type ApplicationStatus = 'saved' | 'notinterested' | 'applied' | 'interviewing' | 'offer' | 'rejected' | 'withdrawn'
 
 // Saved job document interface
 export interface SavedJob {

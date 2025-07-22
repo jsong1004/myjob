@@ -224,6 +224,7 @@ function SavedJobsPageContent() {
   const getStatusColor = (status: ApplicationStatus): string => {
     switch (status) {
       case 'saved': return 'bg-gray-100 text-gray-800'
+      case 'notinterested': return 'bg-gray-100 text-gray-600'
       case 'applied': return 'bg-blue-100 text-blue-800'
       case 'interviewing': return 'bg-yellow-100 text-yellow-800'
       case 'offer': return 'bg-green-100 text-green-800'
@@ -236,6 +237,7 @@ function SavedJobsPageContent() {
   const getStatusLabel = (status: ApplicationStatus): string => {
     switch (status) {
       case 'saved': return 'Saved'
+      case 'notinterested': return 'Not Interested'
       case 'applied': return 'Applied'
       case 'interviewing': return 'Interviewing'
       case 'offer': return 'Offer'
@@ -663,6 +665,7 @@ function SavedJobsPageContent() {
                     <SelectContent>
                       <SelectItem value="all">All Statuses</SelectItem>
                       <SelectItem value="saved">Saved</SelectItem>
+                      <SelectItem value="notinterested">Not Interested</SelectItem>
                       <SelectItem value="applied">Applied</SelectItem>
                       <SelectItem value="interviewing">Interviewing</SelectItem>
                       <SelectItem value="offer">Offer</SelectItem>
