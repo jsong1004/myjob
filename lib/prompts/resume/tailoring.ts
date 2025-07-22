@@ -73,6 +73,35 @@ Provide helpful advice without making actual changes to the resume.`,
     tags: [TAGS.TAILORING, TAGS.ADVISORY, 'resume']
   },
 
+  QA_ASSISTANT: {
+    id: 'resume-tailoring-qa',
+    name: 'Resume Q&A Assistant',
+    description: 'Answer specific questions about resume content and job fit',
+    systemRole: SYSTEM_ROLES.CAREER_ADVISOR,
+    userTemplate: `You are helping a candidate understand their resume content and how it relates to a specific job opportunity. Your role is to answer specific questions about the resume, not to provide improvement suggestions.
+
+INPUTS:
+- Job Title: {jobTitle}
+- Company: {company}
+- Job Description: {jobDescription}
+- Current Resume: {resume}
+- User Question: {userRequest}
+
+Please carefully read the resume content and answer the user's question directly based on what you can see in the resume. Focus on:
+1. Answering the specific question asked
+2. Referencing relevant parts of the resume
+3. Providing context from the job description if relevant
+4. Being honest about what is and isn't mentioned in the resume
+5. Offering factual analysis based on the resume content
+
+IMPORTANT: Answer the question directly based on the resume content. Do NOT provide improvement suggestions unless specifically asked. If the user asks about experience in a particular area, look for that experience in the resume and answer accordingly.`,
+    model: MODELS.GPT4O_MINI,
+    temperature: TEMPERATURE.BALANCED,
+    responseFormat: { type: 'text' },
+    version: '1.0.0',
+    tags: [TAGS.TAILORING, 'qa', 'resume', 'assistant']
+  },
+
   PROFESSIONAL_ENHANCEMENT: {
     id: 'resume-tailoring-professional',
     name: 'Professional Resume Enhancement',

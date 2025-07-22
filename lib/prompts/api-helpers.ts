@@ -288,7 +288,7 @@ export async function executeJobSummary(jobs: JobSearchResult[]): Promise<JobSea
 export async function executeResumeTailoring(request: ResumeTailoringRequest): Promise<{ reply: string; updatedResume?: string; usage?: PromptResponse['usage'] }> {
   try {
     // Choose the appropriate prompt based on mode
-    const promptId = request.mode === 'agent' ? 'resume-tailoring-ats' : 'resume-tailoring-advisory'
+    const promptId = request.mode === 'agent' ? 'resume-tailoring-ats' : 'resume-tailoring-qa'
     
     // Execute the tailoring prompt
     const response = await promptManager.executePrompt({
