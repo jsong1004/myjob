@@ -22,6 +22,10 @@ export async function GET(req: NextRequest) {
   try {
     console.log('[CronBatchJobs] Starting scheduled batch job processing')
     
+    // Check for force run parameter
+    const { searchParams } = new URL(req.url)
+    const forceRun = searchParams.get('force') === 'true'
+    
     // Verify the request is from an authorized source
     const authHeader = req.headers.get('authorization')
     const cronSecret = process.env.CRON_SECRET
@@ -38,28 +42,38 @@ export async function GET(req: NextRequest) {
     }
 
     // Check if batch processing should run (avoid weekends for cost savings)
+    // Use PST timezone since the scheduler is configured for America/Los_Angeles
     const now = new Date()
-    const dayOfWeek = now.getDay() // 0 = Sunday, 6 = Saturday
-    const hour = now.getHours()
+    const pstTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}))
+    const dayOfWeek = pstTime.getDay() // 0 = Sunday, 6 = Saturday
+    const hour = pstTime.getHours()
     
-    // Only run Monday-Friday, between 1 AM and 5 AM
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
-      console.log('[CronBatchJobs] Skipping batch processing on weekends')
-      return NextResponse.json({
-        message: 'Batch processing skipped - weekend',
-        skipped: true,
-        executionTime: Date.now() - startTime
-      })
-    }
+    console.log(`[CronBatchJobs] Current PST time: ${pstTime.toISOString()}, hour: ${hour}, day: ${dayOfWeek}`)
+    console.log(`[CronBatchJobs] Force run: ${forceRun}`)
     
-    if (hour < 1 || hour > 5) {
-      console.log(`[CronBatchJobs] Skipping batch processing outside allowed hours (${hour}:00)`)
-      return NextResponse.json({
-        message: 'Batch processing skipped - outside allowed hours',
-        skipped: true,
-        currentHour: hour,
-        executionTime: Date.now() - startTime
-      })
+    // Skip time checks if force run is enabled
+    if (!forceRun) {
+      // Only run Monday-Friday, between 1 AM and 5 AM PST
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
+        console.log('[CronBatchJobs] Skipping batch processing on weekends')
+        return NextResponse.json({
+          message: 'Batch processing skipped - weekend',
+          skipped: true,
+          executionTime: Date.now() - startTime
+        })
+      }
+      
+      if (hour < 1 || hour > 5) {
+        console.log(`[CronBatchJobs] Skipping batch processing outside allowed hours (${hour}:00 PST)`)
+        return NextResponse.json({
+          message: 'Batch processing skipped - outside allowed hours',
+          skipped: true,
+          currentHour: hour,
+          executionTime: Date.now() - startTime
+        })
+      }
+    } else {
+      console.log('[CronBatchJobs] Force run enabled - bypassing time checks')
     }
 
     console.log('[CronBatchJobs] Calling batch processing endpoint...')
