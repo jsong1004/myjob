@@ -9,6 +9,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Lint**: `pnpm lint` or `npm run lint`
 - **Production server**: `pnpm start` or `npm run start`
 
+### MCP Server Commands
+
+- **Install MCP server**: `pnpm mcp:install`
+- **Build MCP server**: `pnpm mcp:build`
+- **Start MCP server**: `pnpm mcp:start`
+- **Test MCP server**: `pnpm mcp:test`
+- **Develop MCP server**: `pnpm mcp:dev`
+
 Note: This project uses pnpm (evident from pnpm-lock.yaml), so prefer pnpm commands when available.
 
 ## Architecture Overview
@@ -35,6 +43,7 @@ This is a Next.js 15 job search application built with:
 - **Company Details**: Comprehensive company information pages using The Companies API (app/companies/[name]/page.tsx)
 - **MD to PDF Converter**: Convert Markdown resume files to professionally formatted PDFs (app/md-to-pdf/page.tsx)
 - **User Authentication**: Firebase Auth with Google sign-in and email/password
+- **MCP Server**: Model Context Protocol server exposing job search capabilities to AI agents (mcp-server/)
 
 ### Project Structure
 
@@ -44,6 +53,7 @@ This is a Next.js 15 job search application built with:
 - `/lib/` - Utility functions, Firebase config, and TypeScript types
 - `/hooks/` - Custom React hooks
 - `/public/` - Static assets and placeholders
+- `/mcp-server/` - Model Context Protocol server for AI agent integration
 
 ### Important Implementation Details
 
