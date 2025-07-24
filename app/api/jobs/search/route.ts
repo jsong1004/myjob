@@ -3,8 +3,7 @@ import { getJson } from "serpapi";
 
 import { initFirebaseAdmin } from "@/lib/firebase-admin-init";
 import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
-import { filterExistingJobs, saveJobsIfNotExist } from "@/lib/seen-jobs";
+import { filterExistingJobs, saveJobsIfNotExist, searchJobsInDatabase, filterOutSavedJobs } from "@/lib/seen-jobs";
 import { JobSearchResult } from "@/lib/types";
 
 // State name to abbreviation mapping
@@ -95,272 +94,286 @@ export async function POST(req: NextRequest) {
 
     console.log(`[JobSearch] Using SerpAPI key: ${apiKey.substring(0, 10)}...`);
 
-    // Fetch ALL jobs from SerpApi using pagination loop
-    let allSerpApiJobs: any[] = [];
-    let pageToken: string | null = null;
-    let pageCount = 0;
-    const maxPages = 10; // Safety limit to prevent infinite loops
-    
-    do {
-      pageCount++;
-      console.log(`[JobSearch] Fetching page ${pageCount}${pageToken ? ` with token: ${pageToken.substring(0, 20)}...` : ' (first page)'}`);
-      
-      const serpApiParams: any = {
-        engine: "google_jobs",
-        api_key: apiKey,
-        q: query,
-        location: location || "United States",
-        hl: "en",
-        gl: "us",
-        timeout: 20000, // 20 seconds timeout
-      };
-      
-      if (pageToken) {
-        serpApiParams.next_page_token = pageToken;
-      }
-      
-      console.log(`[JobSearch] SerpAPI request params for page ${pageCount}:`, serpApiParams);
-      const pageResults = await getJson(serpApiParams);
-      
-      console.log(`[JobSearch] Page ${pageCount} response received`);
-      console.log(`[JobSearch] Raw SerpAPI response keys:`, Object.keys(pageResults || {}));
-      console.log(`[JobSearch] Jobs found in page ${pageCount}: ${pageResults.jobs_results?.length || 0}`);
-      
-      if (pageResults.error) {
-        console.error(`[JobSearch] SerpAPI error on page ${pageCount}:`, pageResults.error);
-        return NextResponse.json({ error: "SerpAPI error: " + pageResults.error }, { status: 500 });
-      }
+    // STEP 1: Search database first for existing jobs
+    console.log(`[JobSearch] === STEP 1: Searching Database First ===`);
+    const databaseJobs = await searchJobsInDatabase(query, location, 100); // Get up to 100 jobs from database
+    console.log(`[JobSearch] Found ${databaseJobs.length} jobs in database`);
 
-      // Add jobs from this page to the total
-      if (pageResults.jobs_results && pageResults.jobs_results.length > 0) {
-        allSerpApiJobs = [...allSerpApiJobs, ...pageResults.jobs_results];
-        console.log(`[JobSearch] Total jobs collected so far: ${allSerpApiJobs.length}`);
-      }
-      
-      // Check for next page token
-      pageToken = pageResults.serpapi_pagination?.next_page_token || null;
-      console.log(`[JobSearch] Next page token: ${pageToken ? 'Present' : 'None'}`);
-      
-      if (pageResults.serpapi_pagination) {
-        console.log(`[JobSearch] Full pagination object:`, pageResults.serpapi_pagination);
-      }
-      
-      // If no more jobs on this page, stop pagination
-      if (!pageResults.jobs_results || pageResults.jobs_results.length === 0) {
-        console.log(`[JobSearch] No more jobs found on page ${pageCount}, stopping pagination`);
-        break;
-      }
-      
-      // Safety check for infinite loops
-      if (pageCount >= maxPages) {
-        console.warn(`[JobSearch] Reached maximum page limit (${maxPages}), stopping pagination`);
-        break;
-      }
-      
-    } while (pageToken);
-    
-    console.log(`[JobSearch] Pagination complete. Total pages fetched: ${pageCount}`);
-    console.log(`[JobSearch] Total jobs collected: ${allSerpApiJobs.length}`);
+    let jobsToReturn: JobSearchResult[] = databaseJobs;
+    let needsSerpApiCall = false;
+    const MIN_JOBS_THRESHOLD = 10; // Minimum jobs needed before falling back to SerpAPI
 
-    if (allSerpApiJobs.length === 0) {
-      console.warn(`[JobSearch] No jobs found across all pages`);
-      return NextResponse.json({ jobs: [] });
+    // STEP 2: Filter out saved jobs for authenticated users
+    if (userId && databaseJobs.length > 0) {
+      console.log(`[JobSearch] === STEP 2: Filtering Saved Jobs ===`);
+      const unsavedDatabaseJobs = await filterOutSavedJobs(databaseJobs, userId);
+      console.log(`[JobSearch] After filtering saved jobs: ${unsavedDatabaseJobs.length} unsaved jobs from database`);
+      
+      jobsToReturn = unsavedDatabaseJobs;
+      
+      // Check if we have enough jobs from database
+      if (unsavedDatabaseJobs.length < MIN_JOBS_THRESHOLD) {
+        console.log(`[JobSearch] Not enough new jobs from database (${unsavedDatabaseJobs.length} < ${MIN_JOBS_THRESHOLD}), will fetch from SerpAPI`);
+        needsSerpApiCall = true;
+      } else {
+        console.log(`[JobSearch] Sufficient jobs found in database (${unsavedDatabaseJobs.length} >= ${MIN_JOBS_THRESHOLD}), skipping SerpAPI call`);
+      }
+    } else if (!userId && databaseJobs.length < MIN_JOBS_THRESHOLD) {
+      // For unauthenticated users, also check if we have enough jobs
+      console.log(`[JobSearch] Unauthenticated user: not enough jobs from database (${databaseJobs.length} < ${MIN_JOBS_THRESHOLD}), will fetch from SerpAPI`);
+      needsSerpApiCall = true;
+    } else if (!userId) {
+      console.log(`[JobSearch] Unauthenticated user: sufficient jobs found in database (${databaseJobs.length} >= ${MIN_JOBS_THRESHOLD}), skipping SerpAPI call`);
     }
 
-    // Log first job for debugging
-    console.log(`[JobSearch] First job sample:`, JSON.stringify(allSerpApiJobs[0], null, 2));
-
-    // Normalize SerpApi results to JobSearchResult interface
-    const unfilteredJobs: JobSearchResult[] = (allSerpApiJobs || []).map((job: any, index: number) => {
-      // Processing job silently to reduce console noise
+    // STEP 3: Fallback to SerpAPI if needed
+    let allSerpApiJobs: Record<string, unknown>[] = [];
+    if (needsSerpApiCall) {
+      console.log(`[JobSearch] === STEP 3: Fetching from SerpAPI (Fallback) ===`);
       
-      let qualifications: string[] = [];
-      let responsibilities: string[] = [];
-      let benefits: string[] = [];
+      let pageToken: string | null = null;
+      let pageCount = 0;
+      const maxPages = 10; // Safety limit to prevent infinite loops
       
-      if (Array.isArray(job.job_highlights)) {
-        for (const highlight of job.job_highlights) {
-          if (highlight.title?.toLowerCase().includes("qualification")) {
-            qualifications = highlight.items || [];
-          } else if (highlight.title?.toLowerCase().includes("responsibilit")) {
-            responsibilities = highlight.items || [];
-          } else if (highlight.title?.toLowerCase().includes("benefit")) {
-            benefits = highlight.items || [];
-          }
+      do {
+        pageCount++;
+        console.log(`[JobSearch] Fetching SerpAPI page ${pageCount}${pageToken ? ` with token: ${pageToken.substring(0, 20)}...` : ' (first page)'}`);
+        
+        const serpApiParams: Record<string, unknown> = {
+          engine: "google_jobs",
+          api_key: apiKey,
+          q: query,
+          location: location || "United States",
+          hl: "en",
+          gl: "us",
+          timeout: 20000, // 20 seconds timeout
+        };
+        
+        if (pageToken) {
+          serpApiParams.next_page_token = pageToken;
         }
-      }
+        
+        console.log(`[JobSearch] SerpAPI request params for page ${pageCount}:`, serpApiParams);
+        const pageResults = await getJson(serpApiParams);
+        
+        console.log(`[JobSearch] Page ${pageCount} response received`);
+        console.log(`[JobSearch] Raw SerpAPI response keys:`, Object.keys(pageResults || {}));
+        console.log(`[JobSearch] Jobs found in page ${pageCount}: ${pageResults.jobs_results?.length || 0}`);
+        
+        if (pageResults.error) {
+          console.error(`[JobSearch] SerpAPI error on page ${pageCount}:`, pageResults.error);
+          return NextResponse.json({ error: "SerpAPI error: " + pageResults.error }, { status: 500 });
+        }
+
+        // Add jobs from this page to the total
+        if (pageResults.jobs_results && pageResults.jobs_results.length > 0) {
+          allSerpApiJobs = [...allSerpApiJobs, ...pageResults.jobs_results];
+          console.log(`[JobSearch] Total SerpAPI jobs collected so far: ${allSerpApiJobs.length}`);
+        }
+        
+        // Check for next page token
+        pageToken = pageResults.serpapi_pagination?.next_page_token || null;
+        console.log(`[JobSearch] Next page token: ${pageToken ? 'Present' : 'None'}`);
+        
+        if (pageResults.serpapi_pagination) {
+          console.log(`[JobSearch] Full pagination object:`, pageResults.serpapi_pagination);
+        }
+        
+        // If no more jobs on this page, stop pagination
+        if (!pageResults.jobs_results || pageResults.jobs_results.length === 0) {
+          console.log(`[JobSearch] No more jobs found on page ${pageCount}, stopping pagination`);
+          break;
+        }
+        
+        // Safety check for infinite loops
+        if (pageCount >= maxPages) {
+          console.warn(`[JobSearch] Reached maximum page limit (${maxPages}), stopping pagination`);
+          break;
+        }
+        
+      } while (pageToken);
       
-      // Improved salary extraction
-      let salary = job.salary || job.detected_extensions?.salary || "";
-      if (!salary && Array.isArray(job.extensions)) {
-        const salaryExt = job.extensions.find((ext: string) => /\$|salary|per\s+hour|per\s+year|\d+k|\d+,\d+/i.test(ext));
-        if (salaryExt) salary = salaryExt;
+      console.log(`[JobSearch] SerpAPI pagination complete. Total pages fetched: ${pageCount}`);
+      console.log(`[JobSearch] Total SerpAPI jobs collected: ${allSerpApiJobs.length}`);
+
+      // Log first job for debugging if we have jobs
+      if (allSerpApiJobs.length > 0) {
+        console.log(`[JobSearch] First SerpAPI job sample:`, JSON.stringify(allSerpApiJobs[0], null, 2));
       }
+    } else {
+      console.log(`[JobSearch] Skipping SerpAPI call - sufficient jobs found in database`);
+    }
+
+    // STEP 4: Process SerpAPI jobs if we fetched any
+    let processedSerpApiJobs: JobSearchResult[] = [];
+    if (allSerpApiJobs.length > 0) {
+      console.log(`[JobSearch] === STEP 4: Processing SerpAPI Jobs ===`);
       
-      // Additional salary extraction from job highlights
-      if (!salary && Array.isArray(job.job_highlights)) {
-        for (const highlight of job.job_highlights) {
-          if (highlight.items && Array.isArray(highlight.items)) {
-            const salaryItem = highlight.items.find((item: string) => /\$|salary|per\s+hour|per\s+year|\d+k|\d+,\d+/i.test(item));
-            if (salaryItem) {
-              salary = salaryItem;
-              break;
+      // Normalize SerpApi results to JobSearchResult interface
+      processedSerpApiJobs = (allSerpApiJobs || []).map((job: Record<string, unknown>) => {
+        // Processing job silently to reduce console noise
+        
+        let qualifications: string[] = [];
+        let responsibilities: string[] = [];
+        let benefits: string[] = [];
+        
+        // Safely access job_highlights with type checking
+        const jobHighlights = job.job_highlights as Array<{title?: string, items?: string[]}> | undefined;
+        if (Array.isArray(jobHighlights)) {
+          for (const highlight of jobHighlights) {
+            if (highlight.title?.toLowerCase().includes("qualification")) {
+              qualifications = highlight.items || [];
+            } else if (highlight.title?.toLowerCase().includes("responsibilit")) {
+              responsibilities = highlight.items || [];
+            } else if (highlight.title?.toLowerCase().includes("benefit")) {
+              benefits = highlight.items || [];
             }
           }
         }
-      }
-      
-      // Generate a more unique ID if job_id is missing or not unique enough
-      let jobId = job.job_id;
-      if (!jobId) {
-        // Fallback to a combination of title, company, and location for uniqueness
-        jobId = `${job.title || 'unknown'}_${job.company_name || job.company || 'unknown'}_${job.location || 'unknown'}`.replace(/[^a-zA-Z0-9]/g, '_');
-        console.warn(`[JobSearch] Missing job_id for job, using fallback: ${jobId}`);
-      }
-      
-      const processedJob = {
-        id: jobId, // Use the job_id from SerpAPI or fallback
-        title: job.title || "",
-        company: job.company_name || job.company || "",
-        location: job.location || "",
-        description: job.description || job.snippet || "",
-        qualifications,
-        responsibilities,
-        benefits,
-        salary,
-        postedAt: job.detected_extensions?.posted_at || job.posted_at || "",
-        applyUrl: job.apply_options?.[0]?.link || job.apply_link || job.link || "",
-        source: job.source || "Google Jobs",
-        matchingScore: 0,
-        matchingSummary: "",
-        summary: "",
-      };
-      
-      // Removed detailed job logging to reduce console noise
-      
-      return processedJob;
-    });
-    
-    console.log(`[JobSearch] Processed ${unfilteredJobs.length} jobs from SerpApi`);
-
-    // Remove duplicate jobs based on job ID
-    const uniqueJobsMap = new Map<string, JobSearchResult>();
-    const duplicateIds = new Set<string>();
-    
-    unfilteredJobs.forEach(job => {
-      if (uniqueJobsMap.has(job.id)) {
-        duplicateIds.add(job.id);
-      } else {
-        uniqueJobsMap.set(job.id, job);
-      }
-    });
-    
-    const uniqueJobs = Array.from(uniqueJobsMap.values());
-    console.log(`[JobSearch] Deduplication summary:`);
-    console.log(`[JobSearch] - Total jobs processed: ${unfilteredJobs.length}`);
-    console.log(`[JobSearch] - Unique jobs: ${uniqueJobs.length}`);
-    console.log(`[JobSearch] - Duplicates removed: ${unfilteredJobs.length - uniqueJobs.length}`);
-    console.log(`[JobSearch] - Duplicate IDs found: ${duplicateIds.size}`);
-    
-    if (duplicateIds.size > 0) {
-      console.log(`[JobSearch] Most common duplicate IDs:`, Array.from(duplicateIds).slice(0, 5));
-    }
-
-    // Apply location filtering based on state
-    const expectedState = getExpectedState(location);
-    let locationFilteredJobs = uniqueJobs;
-    
-    if (expectedState) {
-      console.log(`[JobSearch] Filtering jobs for state: ${expectedState} (from search location: ${location})`);
-      console.log(`[JobSearch] Note: Jobs with "Anywhere" or "Remote" in location will be included regardless of state`);
-      
-      let flexibleJobsCount = 0;
-      
-      locationFilteredJobs = uniqueJobs.filter(job => {
-        // Always include jobs with "Anywhere" or "Remote" in location
-        if (job.location) {
-          const locationLower = job.location.toLowerCase();
-          if (locationLower.includes('anywhere') || locationLower.includes('remote')) {
-            flexibleJobsCount++;
-            return true;
+        
+        // Improved salary extraction with type safety
+        const detectedExtensions = job.detected_extensions as {salary?: string, posted_at?: string} | undefined;
+        let salary = (job.salary as string) || detectedExtensions?.salary || "";
+        
+        const extensions = job.extensions as string[] | undefined;
+        if (!salary && Array.isArray(extensions)) {
+          const salaryExt = extensions.find((ext: string) => /\$|salary|per\s+hour|per\s+year|\d+k|\d+,\d+/i.test(ext));
+          if (salaryExt) salary = salaryExt;
+        }
+        
+        // Additional salary extraction from job highlights
+        if (!salary && Array.isArray(jobHighlights)) {
+          for (const highlight of jobHighlights) {
+            if (highlight.items && Array.isArray(highlight.items)) {
+              const salaryItem = highlight.items.find((item: string) => /\$|salary|per\s+hour|per\s+year|\d+k|\d+,\d+/i.test(item));
+              if (salaryItem) {
+                salary = salaryItem;
+                break;
+              }
+            }
           }
         }
         
-        const jobState = extractStateFromLocation(job.location);
-        return jobState === expectedState;
+        // Generate a more unique ID if job_id is missing or not unique enough
+        let jobId = job.job_id as string;
+        if (!jobId) {
+          // Fallback to a combination of title, company, and location for uniqueness
+          const title = job.title as string || 'unknown';
+          const company = (job.company_name as string) || (job.company as string) || 'unknown';
+          const location = job.location as string || 'unknown';
+          jobId = `${title}_${company}_${location}`.replace(/[^a-zA-Z0-9]/g, '_');
+          console.warn(`[JobSearch] Missing job_id for job, using fallback: ${jobId}`);
+        }
+        
+        // Safely access apply_options and detected_extensions
+        const applyOptions = job.apply_options as Array<{link?: string}> | undefined;
+        const applyUrl = applyOptions?.[0]?.link || (job.apply_link as string) || (job.link as string) || "";
+        const postedAt = detectedExtensions?.posted_at || (job.posted_at as string) || "";
+        
+        const processedJob: JobSearchResult = {
+          id: jobId,
+          title: (job.title as string) || "",
+          company: (job.company_name as string) || (job.company as string) || "",
+          location: (job.location as string) || "",
+          description: (job.description as string) || (job.snippet as string) || "",
+          qualifications,
+          responsibilities,
+          benefits,
+          salary,
+          postedAt,
+          applyUrl,
+          source: (job.source as string) || "Google Jobs",
+          matchingScore: 0,
+          matchingSummary: "",
+          summary: "",
+        };
+        
+        // Removed detailed job logging to reduce console noise
+        
+        return processedJob;
       });
       
-      console.log(`[JobSearch] Location filtering summary:`);
-      console.log(`[JobSearch] - Jobs before filtering: ${uniqueJobs.length}`);
-      console.log(`[JobSearch] - Jobs after filtering: ${locationFilteredJobs.length}`);
-      console.log(`[JobSearch] - Flexible jobs included (Anywhere/Remote): ${flexibleJobsCount}`);
-      console.log(`[JobSearch] - State-specific jobs: ${locationFilteredJobs.length - flexibleJobsCount}`);
-      console.log(`[JobSearch] - Jobs removed by location filter: ${uniqueJobs.length - locationFilteredJobs.length}`);
+      console.log(`[JobSearch] Processed ${processedSerpApiJobs.length} jobs from SerpApi`);
     } else {
-      console.log(`[JobSearch] No state detected in search location: "${location}" - skipping location filter`);
+      console.log(`[JobSearch] No SerpAPI jobs to process`);
     }
 
-    // Conditional filtering logic based on authentication status
-    let jobsToReturn: JobSearchResult[];
-
-    if (userId) {
-      // SCENARIO 2: AUTHENTICATED USER
-      console.log(`[JobSearch] Authenticated user flow for ${userId}`);
+    // STEP 5: Combine database jobs with SerpAPI jobs (if any)
+    console.log(`[JobSearch] === STEP 5: Combining Results ===`);
+    let allCombinedJobs: JobSearchResult[] = [];
+    
+    if (needsSerpApiCall && processedSerpApiJobs.length > 0) {
+      // If we fetched SerpAPI jobs, we need to combine them with database jobs
+      // First, remove duplicates between database and SerpAPI jobs
+      const serpApiJobIds = new Set(processedSerpApiJobs.map(job => job.id));
+      const uniqueDatabaseJobs = jobsToReturn.filter(job => !serpApiJobIds.has(job.id));
       
-      // Fetch user's personal saved jobs
-      const userSavedJobIds = new Set<string>();
-      try {
-        const db = getFirestore();
-        const savedJobsSnapshot = await db.collection("savedJobs").where("userId", "==", userId).get();
-        savedJobsSnapshot.forEach(doc => userSavedJobIds.add(doc.data().jobId));
-        console.log(`[JobSearch] User has ${userSavedJobIds.size} saved jobs`);
-      } catch (error) {
-        console.error(`[JobSearch] Error fetching user saved jobs:`, error);
-        // Continue without filtering if there's an error
+      // Combine unique database jobs with SerpAPI jobs
+      allCombinedJobs = [...uniqueDatabaseJobs, ...processedSerpApiJobs];
+      console.log(`[JobSearch] Combined ${uniqueDatabaseJobs.length} database jobs + ${processedSerpApiJobs.length} SerpAPI jobs = ${allCombinedJobs.length} total jobs`);
+      
+      // Apply location filtering to SerpAPI jobs
+      const expectedState = getExpectedState(location);
+      if (expectedState) {
+        console.log(`[JobSearch] Applying location filtering to combined results for state: ${expectedState}`);
+        
+        allCombinedJobs = allCombinedJobs.filter(job => {
+          // Always include jobs with "Anywhere" or "Remote" in location
+          if (job.location) {
+            const locationLower = job.location.toLowerCase();
+            if (locationLower.includes('anywhere') || locationLower.includes('remote')) {
+              return true;
+            }
+          }
+          
+          const jobState = extractStateFromLocation(job.location);
+          return jobState === expectedState;
+        });
+        
+        console.log(`[JobSearch] After location filtering: ${allCombinedJobs.length} jobs`);
       }
-
-      // Filter out jobs the user has already saved
-      const filteredJobs = locationFilteredJobs.filter(job => !userSavedJobIds.has(job.id));
-      console.log(`[JobSearch] After filtering saved jobs: ${filteredJobs.length} jobs (removed ${locationFilteredJobs.length - filteredJobs.length} already saved)`);
-
-      // Perform system-level processing (save new jobs to global 'jobs' collection without summaries)
-      console.log(`[JobSearch] Filtering out existing jobs in database`);
-      const newJobs = await filterExistingJobs(filteredJobs);
-      console.log(`[JobSearch] Found ${newJobs.length} new jobs after filtering existing jobs.`);
-
-      // Save new jobs to jobs collection without summaries for faster performance
-      if (newJobs.length > 0) {
-        const jobsWithoutSummaries = newJobs.map(job => ({
-          ...job,
-          summary: "", // No summary for faster search
-        }));
-        await saveJobsIfNotExist(jobsWithoutSummaries, userId);
-        console.log(`[JobSearch] Saved ${jobsWithoutSummaries.length} new jobs to jobs collection (without summaries).`);
+      
+      // Filter out saved jobs for authenticated users (for SerpAPI jobs)
+      if (userId) {
+        const finalFilteredJobs = await filterOutSavedJobs(allCombinedJobs, userId);
+        console.log(`[JobSearch] After filtering saved jobs from combined results: ${finalFilteredJobs.length} jobs`);
+        
+        // Save new SerpAPI jobs to database
+        if (processedSerpApiJobs.length > 0) {
+          console.log(`[JobSearch] Saving new SerpAPI jobs to database`);
+          const newSerpApiJobs = await filterExistingJobs(processedSerpApiJobs);
+          if (newSerpApiJobs.length > 0) {
+            const jobsWithoutSummaries = newSerpApiJobs.map(job => ({
+              ...job,
+              summary: "", // No summary for faster search
+            }));
+            await saveJobsIfNotExist(jobsWithoutSummaries, userId);
+            console.log(`[JobSearch] Saved ${jobsWithoutSummaries.length} new SerpAPI jobs to database`);
+          }
+        }
+        
+        jobsToReturn = finalFilteredJobs;
+      } else {
+        jobsToReturn = allCombinedJobs;
       }
-
-      // Return filtered jobs without summaries for faster performance
-      jobsToReturn = filteredJobs.map(job => ({
-        ...job,
-        summary: "", // No summary for faster search
-        matchingScore: 0,
-        matchingSummary: "",
-      }));
-
     } else {
-      // SCENARIO 1: UNAUTHENTICATED USER
-      console.log(`[JobSearch] Unauthenticated user flow.`);
-      
-      // Return all jobs without summaries for faster performance
-      jobsToReturn = locationFilteredJobs.map(job => ({
-        ...job,
-        summary: "", // No summary for faster search
-        matchingScore: 0,
-        matchingSummary: "",
-      }));
+      // We're using only database jobs
+      console.log(`[JobSearch] Using only database jobs: ${jobsToReturn.length} jobs`);
     }
 
-    console.log(`[JobSearch] Returning ${jobsToReturn.length} jobs to client.`);
-    return NextResponse.json({ jobs: jobsToReturn });
+    // STEP 6: Final result preparation
+    console.log(`[JobSearch] === STEP 6: Preparing Final Results ===`);
+    
+    // Ensure jobs don't have scoring data for faster performance
+    const finalJobsToReturn = jobsToReturn.map(job => ({
+      ...job,
+      summary: "", // No summary for faster search
+      matchingScore: 0,
+      matchingSummary: "",
+    }));
+
+    console.log(`[JobSearch] Returning ${finalJobsToReturn.length} jobs to client.`);
+    return NextResponse.json({ jobs: finalJobsToReturn });
 
   } catch (error) {
     console.error(`[JobSearch] UNEXPECTED ERROR:`, error);
