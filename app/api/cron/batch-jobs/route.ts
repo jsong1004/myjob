@@ -153,7 +153,7 @@ export async function POST(req: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': authHeader
+        'Authorization': authHeader!
       },
       body: JSON.stringify({
         dryRun: body.dryRun || false,

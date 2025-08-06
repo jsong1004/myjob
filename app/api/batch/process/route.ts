@@ -50,12 +50,13 @@ export async function POST(req: NextRequest) {
         initFirebaseAdmin()
         const decoded = await getAuth().verifyIdToken(token)
         
-        // Check if user is admin (you may want to add admin role checking)
+        // Check if user is admin using email (consistent with other admin endpoints)
         const db = getFirestore()
         const userDoc = await db.collection('users').doc(decoded.uid).get()
         const userData = userDoc.data()
         
-        isAuthorized = userData?.role === 'admin'
+        // Allow specific admin email or users with admin role
+        isAuthorized = userData?.email === 'jsong@koreatous.com' || userData?.role === 'admin'
       } catch (error) {
         console.error('[BatchProcess] Auth verification failed:', error)
       }
