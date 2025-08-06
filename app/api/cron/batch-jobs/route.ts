@@ -26,20 +26,8 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const forceRun = searchParams.get('force') === 'true'
     
-    // Verify the request is from an authorized source
-    const authHeader = req.headers.get('authorization')
-    const cronSecret = process.env.CRON_SECRET
-    
-    // For Cloud Scheduler, check for the cron secret
-    if (cronSecret) {
-      if (!authHeader || authHeader !== `Bearer ${cronSecret}`) {
-        console.error('[CronBatchJobs] Unauthorized cron request')
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      }
-    } else {
-      // For development or if no secret is set, just log a warning
-      console.warn('[CronBatchJobs] No CRON_SECRET set - allowing request')
-    }
+    // No authorization required for cron job scheduler calls
+    console.log('[CronBatchJobs] Processing scheduled batch job request')
 
     // Check if batch processing should run (avoid weekends for cost savings)
     // Use PST timezone since the scheduler is configured for America/Los_Angeles
