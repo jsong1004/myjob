@@ -25,6 +25,42 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Title and company are required" }, { status: 400 })
     }
 
+    // Enhanced duplicate prevention: check for content-based duplicates before creating new job
+    // Check for content-based duplicates (same title, company, location)
+    const existingJobsByContent = await adminDb.collection("savedJobs")
+      .where("userId", "==", userId)
+      .get() // Get all user's saved jobs to check content similarity
+
+    // Check for content-based duplicates
+    const contentDuplicate = existingJobsByContent.docs.find(doc => {
+      const data = doc.data()
+      const existingTitle = (data.title || "").toLowerCase().trim()
+      const existingCompany = (data.company || "").toLowerCase().trim()
+      const existingLocation = (data.location || "").toLowerCase().trim()
+      
+      const newTitle = title.toLowerCase().trim()
+      const newCompany = company.toLowerCase().trim()
+      const newLocation = (location || "").toLowerCase().trim()
+      
+      // Consider it a duplicate if title, company, and location all match
+      return existingTitle === newTitle && 
+             existingCompany === newCompany && 
+             existingLocation === newLocation
+    })
+    
+    if (contentDuplicate) {
+      const duplicateData = contentDuplicate.data()
+      return NextResponse.json({ 
+        error: "Similar job already saved",
+        duplicate: {
+          id: contentDuplicate.id,
+          title: duplicateData.title,
+          company: duplicateData.company,
+          location: duplicateData.location
+        }
+      }, { status: 409 })
+    }
+
     // Generate a unique jobId for manually added jobs
     const jobId = `manual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 

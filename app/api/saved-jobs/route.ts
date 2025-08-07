@@ -52,13 +52,50 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required job fields" }, { status: 400 })
     }
 
-    // Prevent duplicate saves for the same user and job
-    const existing = await adminDb.collection("savedJobs")
+    // Enhanced duplicate prevention: check both jobId and content-based duplicates
+    // First check for exact jobId match (existing logic)
+    const existingById = await adminDb.collection("savedJobs")
       .where("userId", "==", userId)
       .where("jobId", "==", jobId)
       .get()
-    if (!existing.empty) {
+    if (!existingById.empty) {
       return NextResponse.json({ error: "Job already saved" }, { status: 409 })
+    }
+
+    // Also check for content-based duplicates (same title, company, location)
+    // This prevents saving the same job from different sources or manual additions
+    const existingByContent = await adminDb.collection("savedJobs")
+      .where("userId", "==", userId)
+      .get() // Get all user's saved jobs to check content similarity
+
+    // Check for content-based duplicates
+    const contentDuplicate = existingByContent.docs.find(doc => {
+      const data = doc.data()
+      const existingTitle = (data.title || "").toLowerCase().trim()
+      const existingCompany = (data.company || "").toLowerCase().trim()
+      const existingLocation = (data.location || "").toLowerCase().trim()
+      
+      const newTitle = title.toLowerCase().trim()
+      const newCompany = company.toLowerCase().trim()
+      const newLocation = (location || "").toLowerCase().trim()
+      
+      // Consider it a duplicate if title, company, and location all match
+      return existingTitle === newTitle && 
+             existingCompany === newCompany && 
+             existingLocation === newLocation
+    })
+    
+    if (contentDuplicate) {
+      const duplicateData = contentDuplicate.data()
+      return NextResponse.json({ 
+        error: "Similar job already saved",
+        duplicate: {
+          id: contentDuplicate.id,
+          title: duplicateData.title,
+          company: duplicateData.company,
+          location: duplicateData.location
+        }
+      }, { status: 409 })
     }
 
     // Get user's default resume for scoring

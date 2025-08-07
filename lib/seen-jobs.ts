@@ -48,6 +48,7 @@ export async function saveJobsIfNotExist(jobs: JobSearchResult[], userId: string
       ...jobDataWithoutScoring,
       job_id: job.id, // Keep job_id for backward compatibility
       company_name: job.company, // Keep company_name for backward compatibility
+      isAvailable: true, // Default to available for new jobs
       userId,
       seenAt: FieldValue.serverTimestamp(),
     }, { merge: true });
@@ -92,6 +93,13 @@ export async function searchJobsInDatabase(
     
     jobsSnapshot.forEach(doc => {
       const data = doc.data();
+      
+      // Skip jobs that are marked as unavailable
+      if (data.isAvailable === false) {
+        console.log(`[DatabaseSearch] Skipping unavailable job: ${data.title} at ${data.company_name || data.company}`);
+        return;
+      }
+      
       // Convert database document to JobSearchResult format
       const job: JobSearchResult = {
         id: data.job_id || doc.id,

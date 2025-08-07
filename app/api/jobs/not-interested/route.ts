@@ -42,11 +42,34 @@ export async function POST(req: NextRequest) {
 
     console.log(`[NotInterested] Marking job ${jobId} as not interested for user ${userId}`)
 
-    // Check if this job is already saved by the user
+    // Check if this job is already saved by the user (by jobId)
     const existingJobQuery = await adminDb.collection("savedJobs")
       .where("userId", "==", userId)
       .where("jobId", "==", jobId)
       .get()
+
+    // Also check for content-based duplicates to prevent duplicate documents
+    const allUserJobs = await adminDb.collection("savedJobs")
+      .where("userId", "==", userId)
+      .get()
+
+    const contentDuplicate = allUserJobs.docs.find(doc => {
+      if (doc.id === existingJobQuery.docs[0]?.id) return false // Skip the exact same document we found above
+      
+      const data = doc.data()
+      const existingTitle = (data.title || "").toLowerCase().trim()
+      const existingCompany = (data.company || "").toLowerCase().trim()
+      const existingLocation = (data.location || "").toLowerCase().trim()
+      
+      const newTitle = (jobData?.title || "").toLowerCase().trim()
+      const newCompany = (jobData?.company || "").toLowerCase().trim()
+      const newLocation = (jobData?.location || "").toLowerCase().trim()
+      
+      // Consider it a duplicate if title, company, and location all match
+      return existingTitle === newTitle && 
+             existingCompany === newCompany && 
+             existingLocation === newLocation
+    })
 
     if (!existingJobQuery.empty) {
       // Update existing saved job to "notinterested" status
@@ -62,6 +85,21 @@ export async function POST(req: NextRequest) {
         message: "Job marked as not interested",
         jobId,
         action: "updated"
+      })
+    } else if (contentDuplicate) {
+      // If there's a content-based duplicate, update that instead of creating new document
+      await contentDuplicate.ref.update({
+        status: 'notinterested',
+        updatedAt: Timestamp.now()
+      })
+      
+      console.log(`[NotInterested] Updated content-based duplicate job to notinterested status`)
+      
+      return NextResponse.json({ 
+        message: "Job marked as not interested (updated similar existing job)",
+        jobId,
+        duplicateJobId: contentDuplicate.id,
+        action: "updated_duplicate"
       })
     } else {
       // Create new savedJob entry with "notinterested" status

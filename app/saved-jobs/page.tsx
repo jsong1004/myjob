@@ -112,29 +112,63 @@ function SavedJobsPageContent() {
     if (!user || !auth?.currentUser) return
     try {
       const token = await auth.currentUser.getIdToken()
-      const response = await fetch(`/api/saved-jobs/${jobId}`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updates),
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setSavedJobs((prev) => 
-          prev.map((job) => 
-            job.jobId === jobId 
-              ? { ...job, ...updates }
-              : job
+      
+      // If setting status to "No Longer Available", call special endpoint that updates both collections
+      if (updates.status === 'nolongeravailable') {
+        const response = await fetch(`/api/saved-jobs/${jobId}/mark-unavailable`, {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ...updates,
+            notes: updates.notes || `Marked as no longer available on ${new Date().toLocaleDateString()}`
+          }),
+        })
+        
+        if (response.ok) {
+          setSavedJobs((prev) => 
+            prev.map((job) => 
+              job.jobId === jobId 
+                ? { ...job, ...updates }
+                : job
+            )
           )
-        )
-        setEditingJob(null)
-        setNotes('')
-        setReminderDate('')
-        setReminderNote('')
+          setEditingJob(null)
+          setNotes('')
+          setReminderDate('')
+          setReminderNote('')
+        } else {
+          const errorData = await response.json()
+          alert(errorData.error || 'Failed to mark job as unavailable.')
+        }
       } else {
-        alert('Failed to update job tracking.')
+        // Regular status update
+        const response = await fetch(`/api/saved-jobs/${jobId}`, {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(updates),
+        })
+        if (response.ok) {
+          const data = await response.json()
+          setSavedJobs((prev) => 
+            prev.map((job) => 
+              job.jobId === jobId 
+                ? { ...job, ...updates }
+                : job
+            )
+          )
+          setEditingJob(null)
+          setNotes('')
+          setReminderDate('')
+          setReminderNote('')
+        } else {
+          alert('Failed to update job tracking.')
+        }
       }
     } catch {
       alert('Error updating job tracking.')
@@ -230,6 +264,7 @@ function SavedJobsPageContent() {
       case 'offer': return 'bg-green-100 text-green-800'
       case 'rejected': return 'bg-red-100 text-red-800'
       case 'withdrawn': return 'bg-gray-100 text-gray-600'
+      case 'nolongeravailable': return 'bg-orange-100 text-orange-800'
       default: return 'bg-gray-100 text-gray-800'
     }
   }
@@ -243,6 +278,7 @@ function SavedJobsPageContent() {
       case 'offer': return 'Offer'
       case 'rejected': return 'Rejected'
       case 'withdrawn': return 'Withdrawn'
+      case 'nolongeravailable': return 'No Longer Available'
       default: return 'Saved'
     }
   }
@@ -671,6 +707,7 @@ function SavedJobsPageContent() {
                       <SelectItem value="offer">Offer</SelectItem>
                       <SelectItem value="rejected">Rejected</SelectItem>
                       <SelectItem value="withdrawn">Withdrawn</SelectItem>
+                      <SelectItem value="nolongeravailable">No Longer Available</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -990,6 +1027,7 @@ function SavedJobsPageContent() {
                         <SelectItem value="offer">Offer</SelectItem>
                         <SelectItem value="rejected">Rejected</SelectItem>
                         <SelectItem value="withdrawn">Withdrawn</SelectItem>
+                        <SelectItem value="nolongeravailable">No Longer Available</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
