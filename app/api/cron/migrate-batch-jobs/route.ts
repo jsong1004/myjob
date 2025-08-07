@@ -267,8 +267,33 @@ export async function POST(req: NextRequest) {
   try {
     console.log('[MigrateBatchJobs] Manual migration trigger')
     
-    // For manual triggers from admin panel, we might want to check auth
-    // But for now, keeping it open for simplicity
+    // Check for authorization header for manual triggers from admin panel
+    const authHeader = req.headers.get("authorization")
+    if (authHeader) {
+      try {
+        const token = authHeader.replace("Bearer ", "")
+        const { getAuth } = await import("firebase-admin/auth")
+        initFirebaseAdmin()
+        const decoded = await getAuth().verifyIdToken(token)
+        
+        // Check if user is admin
+        const db = getFirestore()
+        const userDoc = await db.collection('users').doc(decoded.uid).get()
+        const userData = userDoc.data()
+        
+        // Allow specific admin email or users with admin role
+        const isAuthorized = userData?.email === 'jsong@koreatous.com' || userData?.role === 'admin'
+        
+        if (!isAuthorized) {
+          return NextResponse.json({ error: "Unauthorized - Admin access required" }, { status: 401 })
+        }
+        
+        console.log('[MigrateBatchJobs] Authorized admin user:', userData?.email)
+      } catch (error) {
+        console.error('[MigrateBatchJobs] Auth verification failed:', error)
+        return NextResponse.json({ error: "Invalid authentication token" }, { status: 401 })
+      }
+    }
     
     const body = await req.json().catch(() => ({}))
     

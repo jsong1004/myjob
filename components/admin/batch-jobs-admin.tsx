@@ -17,7 +17,8 @@ import {
   Clock,
   AlertTriangle,
   CheckCircle,
-  Loader2
+  Loader2,
+  ArrowRightLeft
 } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
 import { auth } from "@/lib/firebase"
@@ -46,9 +47,16 @@ interface BatchStats {
 export function BatchJobsAdmin() {
   const { user } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
+  const [isMigrating, setIsMigrating] = useState(false)
   const [batchRuns, setBatchRuns] = useState<BatchRun[]>([])
   const [stats, setStats] = useState<BatchStats | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [migrationResult, setMigrationResult] = useState<{
+    success: boolean
+    migratedCount: number
+    duplicatesSkipped: number
+    deletedCount: number
+  } | null>(null)
 
   useEffect(() => {
     if (user) {
@@ -126,6 +134,52 @@ export function BatchJobsAdmin() {
     }
   }
 
+  const triggerMigration = async (dryRun: boolean = false) => {
+    setIsMigrating(true)
+    setError(null)
+    setMigrationResult(null)
+    
+    try {
+      if (!auth?.currentUser) return
+      
+      const token = await auth.currentUser.getIdToken()
+      
+      const response = await fetch('/api/cron/migrate-batch-jobs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          dryRun,
+          force: true
+        })
+      })
+      
+      const result = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Migration failed')
+      }
+      
+      // Show migration results
+      setMigrationResult({
+        success: result.success,
+        migratedCount: result.migratedCount || 0,
+        duplicatesSkipped: result.duplicatesSkipped || 0,
+        deletedCount: result.deletedCount || 0
+      })
+      
+      // Clear result after 10 seconds
+      setTimeout(() => setMigrationResult(null), 10000)
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to trigger migration')
+    } finally {
+      setIsMigrating(false)
+    }
+  }
+
   const getNextRunDate = () => {
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
@@ -158,7 +212,7 @@ export function BatchJobsAdmin() {
           <Button 
             variant="outline" 
             onClick={loadBatchData}
-            disabled={isLoading}
+            disabled={isLoading || isMigrating}
           >
             <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
@@ -166,7 +220,7 @@ export function BatchJobsAdmin() {
           
           <Button 
             onClick={() => triggerManualBatch(true)}
-            disabled={isLoading}
+            disabled={isLoading || isMigrating}
             variant="secondary"
           >
             {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
@@ -175,10 +229,19 @@ export function BatchJobsAdmin() {
           
           <Button 
             onClick={() => triggerManualBatch(false)}
-            disabled={isLoading}
+            disabled={isLoading || isMigrating}
           >
             {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
             Run Now
+          </Button>
+          
+          <Button 
+            onClick={() => triggerMigration(false)}
+            disabled={isLoading || isMigrating}
+            variant="outline"
+          >
+            {isMigrating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRightLeft className="mr-2 h-4 w-4" />}
+            Migrate Batch Jobs
           </Button>
         </div>
       </div>
@@ -187,6 +250,18 @@ export function BatchJobsAdmin() {
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {migrationResult && migrationResult.success && (
+        <Alert className="border-green-500 bg-green-50">
+          <CheckCircle className="h-4 w-4 text-green-600" />
+          <AlertDescription className="text-green-800">
+            Migration completed successfully! 
+            Migrated: {migrationResult.migratedCount} jobs, 
+            Skipped: {migrationResult.duplicatesSkipped} duplicates, 
+            Deleted: {migrationResult.deletedCount} batch_jobs
+          </AlertDescription>
         </Alert>
       )}
 
@@ -334,14 +409,41 @@ export function BatchJobsAdmin() {
                 </Badge>
               </div>
 
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <h3 className="font-medium">Batch Jobs Migration</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Migrates batch_jobs to jobs collection
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Can be triggered manually or via scheduler
+                  </p>
+                </div>
+                <Badge variant="secondary">
+                  <ArrowRightLeft className="mr-1 h-3 w-3" />
+                  Manual
+                </Badge>
+              </div>
+
               <div className="space-y-2">
-                <h4 className="text-sm font-medium">Schedule Details:</h4>
+                <h4 className="text-sm font-medium">Batch Processing Details:</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
                   <li>• Runs Monday through Friday at 2:00 AM UTC</li>
                   <li>• Searches 25+ popular job titles</li>
                   <li>• Covers 12 major tech locations</li>
                   <li>• Processes up to 50 jobs per query</li>
                   <li>• Automatic duplicate detection</li>
+                </ul>
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium">Migration Process:</h4>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>• Moves jobs from batch_jobs to main jobs collection</li>
+                  <li>• Preserves all job metadata and batch information</li>
+                  <li>• Skips duplicates automatically</li>
+                  <li>• Deletes processed batch_jobs after successful migration</li>
+                  <li>• Can be run manually or scheduled after batch processing</li>
                 </ul>
               </div>
             </CardContent>

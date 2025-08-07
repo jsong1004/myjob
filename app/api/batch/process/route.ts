@@ -128,23 +128,32 @@ export async function POST(req: NextRequest) {
 
     // Track existing jobs to avoid duplicates
     const existingJobIds = new Set<string>()
+    const existingJobKeys = new Set<string>() // For fallback duplicate detection
     
-    // Get existing jobs from jobs collection to avoid duplicates
-    // Check both today's batch and recent jobs
-    const todayStart = new Date()
-    todayStart.setHours(0, 0, 0, 0)
+    // Get ALL existing jobs from jobs collection to avoid duplicates
+    // Don't limit to just today's batch - check all jobs
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
     
-    // Query jobs collection instead of batch_jobs
+    // Query recent jobs to build duplicate detection index
     const existingJobs = await db.collection('jobs')
-      .where('batchId', '==', batchId)
+      .where('createdAt', '>=', Timestamp.fromDate(sevenDaysAgo))
       .get()
     
     existingJobs.forEach(doc => {
       const jobData = doc.data()
-      existingJobIds.add(jobData.sourceJobId || jobData.job_id || doc.id)
+      // Add both the ID and a composite key for better duplicate detection
+      const jobId = jobData.sourceJobId || jobData.job_id || doc.id
+      existingJobIds.add(jobId)
+      
+      // Create a composite key for jobs without stable IDs
+      if (jobData.title && jobData.company) {
+        const jobKey = `${jobData.title}-${jobData.company}-${jobData.location}`.toLowerCase()
+        existingJobKeys.add(jobKey)
+      }
     })
     
-    console.log(`[BatchProcess] Found ${existingJobIds.size} existing jobs for today`)
+    console.log(`[BatchProcess] Found ${existingJobIds.size} existing jobs from last 7 days for duplicate detection`)
 
     // Process each query-location combination
     for (const query of queries.slice(0, 20)) { // Limit to prevent excessive API calls
@@ -182,12 +191,21 @@ export async function POST(req: NextRequest) {
           
           for (const rawJob of jobs) {
             try {
+              // Create a stable ID - prefer job_id, but create deterministic fallback
+              const title = rawJob.title || ""
+              const company = rawJob.company_name || rawJob.company || ""
+              const jobLocation = rawJob.location || ""
+              
+              // Generate a stable ID based on job content, not timestamp
+              const stableId = rawJob.job_id || 
+                `${title}-${company}-${jobLocation}`.replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase()
+              
               // Convert to JobSearchResult format
               const jobResult: JobSearchResult = {
-                id: rawJob.job_id || `${rawJob.title}-${rawJob.company_name}-${Date.now()}-${Math.random()}`,
-                title: rawJob.title || "",
-                company: rawJob.company_name || rawJob.company || "",
-                location: rawJob.location || "",
+                id: stableId,
+                title: title,
+                company: company,
+                location: jobLocation,
                 description: rawJob.description || rawJob.snippet || "",
                 qualifications: extractQualifications(rawJob),
                 responsibilities: extractResponsibilities(rawJob),
@@ -199,8 +217,11 @@ export async function POST(req: NextRequest) {
                 matchingScore: 0
               }
 
-              // Skip if we already have this job
-              if (existingJobIds.has(jobResult.id)) {
+              // Create composite key for duplicate detection
+              const jobKey = `${title}-${company}-${jobLocation}`.toLowerCase()
+              
+              // Skip if we already have this job (check both ID and composite key)
+              if (existingJobIds.has(jobResult.id) || existingJobKeys.has(jobKey)) {
                 result.duplicates++
                 continue
               }
@@ -209,6 +230,7 @@ export async function POST(req: NextRequest) {
               const batchJob = enhanceJobForBatch(jobResult, query, location, batchId)
               enhancedJobs.push(batchJob)
               existingJobIds.add(jobResult.id)
+              existingJobKeys.add(jobKey)
               result.newJobs++
               
             } catch (jobError) {
