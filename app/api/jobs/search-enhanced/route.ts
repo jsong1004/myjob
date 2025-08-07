@@ -7,6 +7,7 @@ import {
   JobFilters, 
   EnhancedJobSearchResult, 
   BatchJob,
+  JobDocument,
   ExperienceLevel,
   JobType,
   WorkArrangement,
@@ -14,7 +15,8 @@ import {
   PostedWithin
 } from "@/lib/types"
 import { 
-  batchJobToSearchResult, 
+  batchJobToSearchResult,
+  jobDocumentToSearchResult, 
   generateBatchId,
   extractExperienceLevel,
   extractJobType,
@@ -40,7 +42,7 @@ interface SearchRequest {
 interface SearchResponse {
   jobs: EnhancedJobSearchResult[]
   total: number
-  batchHitRate: number
+  databaseHitRate: number
   executionTime: number
   appliedFilters: JobFilters
   suggestions?: {
@@ -87,13 +89,49 @@ export async function POST(req: NextRequest) {
 
     const db = getFirestore()
 
-    // Step 1: Search batch jobs first
-    console.log(`[EnhancedSearch] Searching batch jobs...`)
-    const batchJobs = await searchBatchJobs(db, query, location, filters)
-    console.log(`[EnhancedSearch] Found ${batchJobs.length} jobs in batch`)
+    // Step 1: Search jobs collection (includes both batch and live jobs)
+    console.log(`[EnhancedSearch] Searching jobs collection...`)
+    const jobDocuments = await searchJobs(db, query, location, filters)
+    console.log(`[EnhancedSearch] Found ${jobDocuments.length} jobs in database`)
 
-    let allJobs = batchJobs.map(batchJobToSearchResult)
-    let batchJobCount = allJobs.length
+    // Convert JobDocument to EnhancedJobSearchResult format
+    let allJobs = jobDocuments.map(jobDocumentToSearchResult)
+    const databaseJobCount = allJobs.length
+    
+    // Step 1.5: Filter out user's saved jobs and "not interested" jobs if authenticated
+    if (userId) {
+      console.log(`[EnhancedSearch] Filtering out saved and not-interested jobs for user ${userId}`)
+      
+      // Get all saved jobs (includes both saved and notinterested statuses)
+      const savedJobsSnapshot = await db.collection('savedJobs')
+        .where('userId', '==', userId)
+        .select('jobId', 'status')
+        .get()
+      
+      const excludedJobIds = new Set<string>()
+      let savedCount = 0
+      let notInterestedCount = 0
+      
+      savedJobsSnapshot.forEach(doc => {
+        const data = doc.data()
+        const jobId = data.jobId
+        const status = data.status
+        
+        if (jobId) {
+          // Exclude both saved jobs and jobs marked as "not interested"
+          if (status === 'saved' || status === 'notinterested') {
+            excludedJobIds.add(jobId)
+            if (status === 'saved') savedCount++
+            else if (status === 'notinterested') notInterestedCount++
+          }
+        }
+      })
+      
+      console.log(`[EnhancedSearch] User has ${savedCount} saved jobs and ${notInterestedCount} not-interested jobs`)
+      const beforeCount = allJobs.length
+      allJobs = allJobs.filter(job => !excludedJobIds.has(job.id))
+      console.log(`[EnhancedSearch] Filtered out ${beforeCount - allJobs.length} jobs (saved + not-interested)`)
+    }
 
     // Step 2: If insufficient results, supplement with live API
     const minResultsThreshold = Math.min(20, limit)
@@ -130,7 +168,7 @@ export async function POST(req: NextRequest) {
 
     // Step 6: Log search analytics
     const executionTime = Date.now() - startTime
-    const batchHitRate = batchJobCount / Math.max(allJobs.length, 1)
+    const databaseHitRate = databaseJobCount / Math.max(allJobs.length, 1)
     
     try {
       await db.collection('search_analytics').add({
@@ -138,7 +176,7 @@ export async function POST(req: NextRequest) {
         location,
         filters,
         resultCount: total,
-        batchHitRate,
+        databaseHitRate,
         executionTime,
         userId,
         timestamp: Timestamp.now()
@@ -153,13 +191,13 @@ export async function POST(req: NextRequest) {
     const response: SearchResponse = {
       jobs: paginatedJobs,
       total,
-      batchHitRate,
+      databaseHitRate,
       executionTime,
       appliedFilters: filters,
       suggestions
     }
 
-    console.log(`[EnhancedSearch] Search completed: ${total} total, ${batchHitRate.toFixed(2)} batch hit rate, ${executionTime}ms`)
+    console.log(`[EnhancedSearch] Search completed: ${total} total, ${databaseHitRate.toFixed(2)} database hit rate, ${executionTime}ms`)
 
     return NextResponse.json(response)
 
@@ -174,19 +212,21 @@ export async function POST(req: NextRequest) {
 }
 
 /**
- * Search batch jobs collection with filters
+ * Search jobs collection with filters (replaces searchBatchJobs)
  */
-async function searchBatchJobs(
+async function searchJobs(
   db: FirebaseFirestore.Firestore, 
   query: string, 
   location: string, 
   filters: JobFilters
-): Promise<BatchJob[]> {
+): Promise<JobDocument[]> {
   const today = generateBatchId()
   const yesterday = generateBatchId(new Date(Date.now() - 24 * 60 * 60 * 1000))
+  const twoDaysAgo = generateBatchId(new Date(Date.now() - 48 * 60 * 60 * 1000))
   
-  let batchQuery = db.collection('batch_jobs')
-    .where('batchId', 'in', [today, yesterday]) // Search today and yesterday
+  // Query jobs collection directly (includes both batch and live jobs)
+  let jobsQuery = db.collection('jobs')
+    .where('batchId', 'in', [today, yesterday, twoDaysAgo]) // Search recent batch jobs
   
   // Apply basic location filter
   if (location && location !== "United States" && location !== "Anywhere") {
@@ -194,16 +234,16 @@ async function searchBatchJobs(
     const stateMatch = location.match(/([A-Z]{2})\b/)
     if (stateMatch) {
       const state = stateMatch[1]
-      batchQuery = batchQuery.where('location', '>=', state)
+      jobsQuery = jobsQuery.where('location', '>=', state)
         .where('location', '<=', state + '\uf8ff')
     }
   }
   
-  const snapshot = await batchQuery.limit(200).get() // Limit to prevent excessive results
+  const snapshot = await jobsQuery.limit(200).get() // Limit to prevent excessive results
   
-  let jobs: BatchJob[] = []
+  let jobs: JobDocument[] = []
   snapshot.forEach(doc => {
-    jobs.push({ id: doc.id, ...doc.data() } as BatchJob)
+    jobs.push({ job_id: doc.id, ...doc.data() } as JobDocument)
   })
 
   // Apply text search filtering (simple implementation)

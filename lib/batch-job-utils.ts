@@ -1,6 +1,7 @@
 import { 
   BatchJob, 
-  JobSearchResult, 
+  JobSearchResult,
+  JobDocument, 
   ExperienceLevel, 
   JobType, 
   WorkArrangement, 
@@ -439,6 +440,55 @@ export function batchJobToSearchResult(batchJob: BatchJob): EnhancedJobSearchRes
     isBatchResult: true,
     searchRelevance: 0, // Will be calculated based on search query
     lastUpdated: batchJob.scrapedAt.toDate().toISOString()
+  }
+}
+
+/**
+ * Convert JobDocument to EnhancedJobSearchResult
+ * Used when searching the unified jobs collection
+ */
+export function jobDocumentToSearchResult(jobDoc: JobDocument): EnhancedJobSearchResult {
+  // Extract experience level, job type, etc. from the document
+  const experienceLevel = jobDoc.searchQuery ? 
+    extractExperienceLevel(jobDoc.title, jobDoc.description || '') : undefined
+  const jobType = jobDoc.searchQuery ? 
+    extractJobType(jobDoc.description || '') : undefined
+  const workArrangement = jobDoc.searchQuery ? 
+    extractWorkArrangement(jobDoc.location, jobDoc.description || '') : undefined
+  const companySize = jobDoc.searchQuery ? 
+    extractCompanySize(jobDoc.company, jobDoc.description || '') : undefined
+  
+  return {
+    id: jobDoc.job_id,
+    title: jobDoc.title,
+    company: jobDoc.company || jobDoc.company_name || '',
+    location: jobDoc.location,
+    description: jobDoc.description,
+    qualifications: jobDoc.qualifications || [],
+    responsibilities: jobDoc.responsibilities || [],
+    benefits: jobDoc.benefits || [],
+    salary: jobDoc.salary || '',
+    postedAt: jobDoc.postedAt || '',
+    applyUrl: jobDoc.applyUrl || '',
+    source: jobDoc.source || 'Database',
+    matchingScore: 0, // Will be calculated separately if needed
+    
+    // Enhanced fields (if available from batch processing)
+    experienceLevel,
+    jobType,
+    workArrangement,
+    companySize,
+    freshness: jobDoc.batchId ? calculateJobFreshness(jobDoc.postedAt || '') : undefined,
+    
+    // Additional metadata
+    isBatchResult: jobDoc.isFromBatch || false,
+    searchRelevance: 0, // Will be calculated based on search query
+    lastUpdated: jobDoc.scrapedAt ? 
+      (jobDoc.scrapedAt as any).toDate?.().toISOString() || jobDoc.scrapedAt.toString() : 
+      new Date().toISOString(),
+    
+    // Include summary if available
+    summary: jobDoc.summary || jobDoc.enhancedData?.summary
   }
 }
 

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Bookmark, Sparkles, TrendingUp, Eye, ChevronUp, ChevronDown } from "lucide-react"
+import { Bookmark, Sparkles, TrendingUp, Eye, ChevronUp, ChevronDown, EyeOff } from "lucide-react"
 import { MatchingScoreDialog } from "@/components/matching-score-dialog"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { AuthModal } from "@/components/auth-modal"
@@ -49,7 +49,7 @@ export function JobResults({ results }: JobResultsProps) {
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin')
   const [pendingJobToSave, setPendingJobToSave] = useState<Job | null>(null)
-  const [pendingAction, setPendingAction] = useState<'save' | 'tailor' | null>(null)
+  const [pendingAction, setPendingAction] = useState<'save' | 'tailor' | 'notinterested' | null>(null)
   const [sortField, setSortField] = useState<keyof Job | null>('title')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
 
@@ -172,6 +172,46 @@ export function JobResults({ results }: JobResultsProps) {
     }
   }, [user, auth, savedJobs, toast])
 
+  const handleNotInterested = useCallback(async (job: Job) => {
+    if (!user || !auth?.currentUser) {
+      // Store the job to save and show auth modal
+      setPendingJobToSave(job)
+      setPendingAction('notinterested')
+      setAuthMode('signin')
+      setShowAuthModal(true)
+      return
+    }
+
+    try {
+      const token = await auth.currentUser.getIdToken()
+      const response = await fetch("/api/jobs/not-interested", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          jobId: job.id,
+          jobData: {
+            title: job.title,
+            company: job.company,
+            location: job.location,
+            description: job.description,
+            salary: job.salary,
+          },
+        }),
+      })
+
+      if (response.ok) {
+        toast({ title: "Job marked as not interested and will be hidden from future searches" })
+      } else {
+        toast({ title: "Failed to mark job as not interested", variant: "destructive" })
+      }
+    } catch (err) {
+      toast({ title: "Error marking job as not interested", variant: "destructive" })
+    }
+  }, [user, auth, toast])
+
   // Handle pending actions after authentication
   useEffect(() => {
     if (user && pendingJobToSave && pendingAction) {
@@ -179,11 +219,13 @@ export function JobResults({ results }: JobResultsProps) {
         handleSaveJob(pendingJobToSave)
       } else if (pendingAction === 'tailor') {
         handleTailorResume(pendingJobToSave)
+      } else if (pendingAction === 'notinterested') {
+        handleNotInterested(pendingJobToSave)
       }
       setPendingJobToSave(null)
       setPendingAction(null)
     }
-  }, [user, pendingJobToSave, pendingAction, handleSaveJob])
+  }, [user, pendingJobToSave, pendingAction, handleSaveJob, handleNotInterested])
 
   const handleTailorResume = async (job: Job) => {
     if (!user || !auth?.currentUser) {
@@ -282,8 +324,8 @@ export function JobResults({ results }: JobResultsProps) {
     if (!sortField) return results
     
     return [...results].sort((a, b) => {
-      let aValue = a[sortField]
-      let bValue = b[sortField]
+      const aValue = a[sortField]
+      const bValue = b[sortField]
       
       // Handle empty values first
       if (!aValue && !bValue) return 0
@@ -478,6 +520,15 @@ export function JobResults({ results }: JobResultsProps) {
                       >
                         <Sparkles className="h-5 w-5" />
                         Tailor Resume
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleNotInterested(job)}
+                        className="gap-2 text-red-600 hover:text-red-700"
+                      >
+                        <EyeOff className="h-4 w-4" />
+                        Don't Show
                       </Button>
                     </div>
                   </TableCell>

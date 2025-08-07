@@ -9,14 +9,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Lint**: `pnpm lint` or `npm run lint`
 - **Production server**: `pnpm start` or `npm run start`
 
-### MCP Server Commands
-
-- **Install MCP server**: `pnpm mcp:install`
-- **Build MCP server**: `pnpm mcp:build`
-- **Start MCP server**: `pnpm mcp:start`
-- **Test MCP server**: `pnpm mcp:test`
-- **Develop MCP server**: `pnpm mcp:dev`
-
 Note: This project uses pnpm (evident from pnpm-lock.yaml), so prefer pnpm commands when available.
 
 ## Architecture Overview
@@ -43,7 +35,6 @@ This is a Next.js 15 job search application built with:
 - **Company Details**: Comprehensive company information pages using The Companies API (app/companies/[name]/page.tsx)
 - **MD to PDF Converter**: Convert Markdown resume files to professionally formatted PDFs (app/md-to-pdf/page.tsx)
 - **User Authentication**: Firebase Auth with Google sign-in and email/password
-- **MCP Server**: Model Context Protocol server exposing job search capabilities to AI agents (mcp-server/)
 
 ### Project Structure
 
@@ -53,7 +44,6 @@ This is a Next.js 15 job search application built with:
 - `/lib/` - Utility functions, Firebase config, and TypeScript types
 - `/hooks/` - Custom React hooks
 - `/public/` - Static assets and placeholders
-- `/mcp-server/` - Model Context Protocol server for AI agent integration
 
 ### Important Implementation Details
 
@@ -103,4 +93,54 @@ THE_COMPANIES_API_TOKEN=
 - Uses server-side session storage for job search results
 - Implements proper error handling for API failures
 - Firebase emulators are configured but commented out in development
-- The application is designed for v0.dev integration and Vercel deployment
+- The application is designed for v0.dev integration and deployed on Google Cloud Run
+
+### Advanced Features
+
+- **Multi-Agent AI Systems**: 8 specialized agents for job scoring and resume tailoring
+- **Centralized Prompt Management**: Comprehensive prompt system with caching and variants
+- **Batch Job Processing**: Automated nightly job scraping with Cloud Scheduler
+- **Enhanced Loading States**: Educational content during AI processing
+- **Admin Dashboard**: Complete user management and GitHub integration
+- **Professional PDF Generation**: Markdown to PDF conversion with Puppeteer
+
+### AI Integration Details
+
+- **Job Scoring**: Multi-agent system with technical skills, experience, achievements, education, soft skills, and career progression analysis
+- **Resume Tailoring**: 8 specialized agents for targeted resume optimization
+- **Cover Letter Generation**: AI-powered personalized cover letters with multiple variants
+- **Prompt Variants**: Professional, Creative, Technical, Entry-Level templates
+- **Response Caching**: Intelligent caching system for performance optimization
+
+### Cloud Infrastructure
+
+- **Deployment**: Google Cloud Run with Docker containers
+- **Database**: Firebase Firestore with composite indexes
+- **Storage**: Firebase Storage for file uploads and profile photos
+- **Batch Processing**: Cloud Scheduler for automated job processing
+- **Monitoring**: Admin dashboard with real-time batch run monitoring
+
+## 📚 Comprehensive Documentation
+
+For detailed technical documentation and development guides:
+
+- **[📋 Project Index](docs/PROJECT_INDEX.md)** - Master documentation hub with complete project overview
+- **[🔌 API Reference](docs/API_REFERENCE.md)** - Complete API documentation for all 30 endpoints
+- **[🧩 Component Guide](docs/COMPONENT_GUIDE.md)** - Component architecture and development patterns
+
+### Key Documentation Files
+
+- **[lib/types.ts](lib/types.ts)** - Complete TypeScript definitions for all data structures
+- **[lib/prompts/](lib/prompts/)** - Centralized AI prompt management system
+- **[components/](components/)** - 60+ React components with shadcn/ui foundation
+- **[app/api/](app/api/)** - 30 API endpoints for all platform functionality
+- **[docs/](docs/)** - Technical documentation and implementation guides
+
+### Important File Locations
+
+- **Authentication**: `components/auth-provider.tsx`, `components/auth-modal.tsx`
+- **Job Search**: `components/job-search.tsx`, `components/enhanced-job-search.tsx`
+- **AI Features**: `lib/prompts/`, `app/api/openrouter/`, `app/api/resume/tailor-multi-agent/`
+- **Admin Panel**: `components/admin/`, `app/admin/`, `app/api/admin/`
+- **Batch Processing**: `app/api/cron/batch-jobs/`, `app/api/batch/process/`
+- **Database Types**: `lib/types.ts` (User, Resume, SavedJob, CoverLetter interfaces)

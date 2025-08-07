@@ -84,6 +84,55 @@ export interface JobSearchResult {
   summary?: string
 }
 
+// Job document interface for jobs collection (unified from batch_jobs)
+export interface JobDocument {
+  // Primary identification
+  job_id: string          // Unique job identifier
+  
+  // Core job fields
+  title: string
+  company: string
+  company_name?: string   // Backward compatibility
+  location: string
+  description: string
+  
+  // Job details
+  salary?: string
+  qualifications?: string[]
+  responsibilities?: string[]
+  benefits?: string[]
+  
+  // Batch metadata (from batch_jobs migration)
+  batchId?: string        // Date when batch processed (e.g., "2024-01-15")
+  searchQuery?: string    // Original search query used
+  searchLocation?: string // Original location query
+  scrapedAt?: Timestamp   // When scraped from SerpAPI
+  isFromBatch?: boolean   // Flag indicating if from batch processing
+  
+  // Source information
+  source: string          // "Google Jobs", "Database", etc.
+  sourceJobId?: string    // Original SerpAPI job ID
+  applyUrl?: string
+  postedAt?: string
+  
+  // User tracking
+  userId?: string         // User who first encountered this job
+  seenAt?: Timestamp      // When first seen by a user
+  
+  // Enhanced data
+  summary?: string
+  enhancedData?: {
+    summary?: string
+    keyHighlights?: string[]
+    techStack?: string[]
+    requirements?: string[]
+  }
+  
+  // Migration metadata
+  migratedAt?: Timestamp  // When migrated from batch_jobs
+  migratedFrom?: string   // Source collection ("batch_jobs")
+}
+
 // AI matching breakdown interface
 export interface MatchingBreakdown {
   overall: number

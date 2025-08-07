@@ -22,18 +22,20 @@ export async function GET(req: NextRequest) {
     initFirebaseAdmin()
     const db = getFirestore()
     
-    // Get recent batch jobs (today and yesterday)
+    // Get recent jobs from the unified jobs collection
     const today = generateBatchId()
     const yesterday = generateBatchId(new Date(Date.now() - 24 * 60 * 60 * 1000))
+    const twoDaysAgo = generateBatchId(new Date(Date.now() - 48 * 60 * 60 * 1000))
     
-    console.log(`[FiltersAPI] Querying batch jobs for ${yesterday} and ${today}`)
+    console.log(`[FiltersAPI] Querying jobs collection for recent jobs`)
     
-    const snapshot = await db.collection('batch_jobs')
-      .where('batchId', 'in', [today, yesterday])
+    // Query jobs collection (includes both batch and live jobs)
+    const snapshot = await db.collection('jobs')
+      .where('batchId', 'in', [today, yesterday, twoDaysAgo])
       .limit(5000) // Limit to prevent timeout
       .get()
     
-    console.log(`[FiltersAPI] Found ${snapshot.size} batch jobs to analyze`)
+    console.log(`[FiltersAPI] Found ${snapshot.size} jobs to analyze`)
     
     // Aggregate data for filter options
     const locations = new Map<string, number>()

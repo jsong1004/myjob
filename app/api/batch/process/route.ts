@@ -120,17 +120,19 @@ export async function POST(req: NextRequest) {
     // Track existing jobs to avoid duplicates
     const existingJobIds = new Set<string>()
     
-    // Get existing batch jobs from today to avoid duplicates
+    // Get existing jobs from jobs collection to avoid duplicates
+    // Check both today's batch and recent jobs
     const todayStart = new Date()
     todayStart.setHours(0, 0, 0, 0)
     
-    const existingBatchJobs = await db.collection('batch_jobs')
+    // Query jobs collection instead of batch_jobs
+    const existingJobs = await db.collection('jobs')
       .where('batchId', '==', batchId)
       .get()
     
-    existingBatchJobs.forEach(doc => {
+    existingJobs.forEach(doc => {
       const jobData = doc.data()
-      existingJobIds.add(jobData.sourceJobId || doc.id)
+      existingJobIds.add(jobData.sourceJobId || jobData.job_id || doc.id)
     })
     
     console.log(`[BatchProcess] Found ${existingJobIds.size} existing jobs for today`)
@@ -207,17 +209,56 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          // Save jobs to Firestore (unless dry run)
+          // Save jobs directly to jobs collection (unless dry run)
           if (!dryRun && enhancedJobs.length > 0) {
             const batch = db.batch()
             
             for (const job of enhancedJobs) {
-              const docRef = db.collection('batch_jobs').doc(job.id)
-              batch.set(docRef, job)
+              // Convert BatchJob to JobDocument format for jobs collection
+              const jobDocument = {
+                // Primary identification
+                job_id: job.id,
+                
+                // Core job fields
+                title: job.title,
+                company: job.company,
+                company_name: job.company, // Backward compatibility
+                location: job.location,
+                description: job.description,
+                
+                // Job details
+                salary: job.salary || '',
+                qualifications: job.qualifications || [],
+                responsibilities: job.responsibilities || [],
+                benefits: job.benefits || [],
+                
+                // Batch metadata
+                batchId: job.batchId,
+                searchQuery: job.searchQuery,
+                searchLocation: job.searchLocation,
+                scrapedAt: job.scrapedAt || Timestamp.now(),
+                isFromBatch: true,
+                
+                // Source information
+                source: job.source || 'Google Jobs',
+                sourceJobId: job.sourceJobId || '',
+                applyUrl: job.applyUrl || '',
+                postedAt: job.postedAt || '',
+                
+                // Enhanced data
+                summary: job.summary || '',
+                enhancedData: job.enhancedData || null,
+                
+                // Creation timestamp
+                createdAt: Timestamp.now()
+              }
+              
+              const docRef = db.collection('jobs').doc(job.id)
+              batch.set(docRef, jobDocument, { merge: true })
             }
             
             await batch.commit()
-            console.log(`[BatchProcess] Saved ${enhancedJobs.length} jobs to batch_jobs collection`)
+            console.log(`[BatchProcess] Saved ${enhancedJobs.length} jobs directly to jobs collection`)
           }
           
           result.queriesProcessed++

@@ -7,12 +7,7 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
-    "start": "next start",
-    "mcp:install": "cd mcp-server && npm install",
-    "mcp:build": "cd mcp-server && npm run build",
-    "mcp:start": "cd mcp-server && ./start.sh",
-    "mcp:test": "cd mcp-server && node test-server.js",
-    "mcp:dev": "cd mcp-server && npm run dev"
+    "start": "next start"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
