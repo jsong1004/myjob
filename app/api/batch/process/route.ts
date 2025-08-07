@@ -40,11 +40,14 @@ export async function POST(req: NextRequest) {
   const startTime = Date.now()
   
   try {
-    // Verify admin access or allow system calls
+    // Check if this is a system call first (for cron jobs)
+    const isSystemCall = req.headers.get('x-system-call') === 'true'
+    
+    // Verify admin access only if not a system call
     const authHeader = req.headers.get("authorization")
     let isAuthorized = false
     
-    if (authHeader) {
+    if (!isSystemCall && authHeader) {
       try {
         const token = authHeader.replace("Bearer ", "")
         initFirebaseAdmin()
@@ -62,11 +65,17 @@ export async function POST(req: NextRequest) {
       }
     }
     
-    // Allow system calls (for cron jobs) by checking for special header or no auth
-    const isSystemCall = req.headers.get('x-system-call') === 'true'
-    
     if (!isAuthorized && !isSystemCall) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    
+    // Initialize Firebase Admin after authorization check for system calls
+    if (!initFirebaseAdmin()) {
+      console.error('[BatchProcess] Failed to initialize Firebase Admin')
+      return NextResponse.json({ 
+        error: "Firebase Admin initialization failed",
+        detail: "Missing or invalid service account credentials"
+      }, { status: 500 })
     }
 
     const body = await req.json().catch(() => ({})) as BatchProcessRequest
