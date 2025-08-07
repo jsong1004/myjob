@@ -8,6 +8,17 @@ import { getAuth } from "firebase-admin/auth"
  * This identifies and removes duplicate jobs based on title, company, and location
  */
 
+// GET method for checking duplicates (dry run only)
+export async function GET(req: NextRequest) {
+  // Force dry run for GET requests (read-only operation)
+  const request = new NextRequest(req.url, {
+    method: 'POST',
+    headers: req.headers,
+    body: JSON.stringify({ dryRun: true })
+  })
+  return POST(request)
+}
+
 export async function POST(req: NextRequest) {
   const startTime = Date.now()
   

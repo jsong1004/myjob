@@ -18,7 +18,8 @@ import {
   AlertTriangle,
   CheckCircle,
   Loader2,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Trash2
 } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
 import { auth } from "@/lib/firebase"
@@ -48,6 +49,7 @@ export function BatchJobsAdmin() {
   const { user } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [isMigrating, setIsMigrating] = useState(false)
+  const [isCleaning, setIsCleaning] = useState(false)
   const [batchRuns, setBatchRuns] = useState<BatchRun[]>([])
   const [stats, setStats] = useState<BatchStats | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -56,6 +58,11 @@ export function BatchJobsAdmin() {
     migratedCount: number
     duplicatesSkipped: number
     deletedCount: number
+  } | null>(null)
+  const [cleanupResult, setCleanupResult] = useState<{
+    success: boolean
+    duplicatesFound: number
+    duplicatesDeleted: number
   } | null>(null)
 
   useEffect(() => {
@@ -180,6 +187,89 @@ export function BatchJobsAdmin() {
     }
   }
 
+  const cleanupDuplicates = async () => {
+    setIsCleaning(true)
+    setError(null)
+    setCleanupResult(null)
+    
+    try {
+      if (!auth?.currentUser) return
+      
+      const token = await auth.currentUser.getIdToken()
+      
+      // First do a dry run to check
+      const dryRunResponse = await fetch('/api/admin/cleanup-duplicates', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ dryRun: true })
+      })
+      
+      const dryRunResult = await dryRunResponse.json()
+      
+      if (!dryRunResponse.ok) {
+        throw new Error(dryRunResult.error || 'Cleanup check failed')
+      }
+      
+      if (dryRunResult.duplicatesFound === 0) {
+        setCleanupResult({
+          success: true,
+          duplicatesFound: 0,
+          duplicatesDeleted: 0
+        })
+        setTimeout(() => setCleanupResult(null), 5000)
+        return
+      }
+      
+      // Ask for confirmation
+      const confirmDelete = window.confirm(
+        `Found ${dryRunResult.duplicatesFound} duplicate jobs.\n\n` +
+        `Do you want to delete them?\n\n` +
+        `This action cannot be undone!`
+      )
+      
+      if (!confirmDelete) {
+        return
+      }
+      
+      // Perform actual deletion
+      const deleteResponse = await fetch('/api/admin/cleanup-duplicates', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ dryRun: false })
+      })
+      
+      const deleteResult = await deleteResponse.json()
+      
+      if (!deleteResponse.ok) {
+        throw new Error(deleteResult.error || 'Cleanup failed')
+      }
+      
+      // Show cleanup results
+      setCleanupResult({
+        success: deleteResult.success,
+        duplicatesFound: dryRunResult.duplicatesFound,
+        duplicatesDeleted: deleteResult.duplicatesDeleted || 0
+      })
+      
+      // Clear result after 10 seconds
+      setTimeout(() => setCleanupResult(null), 10000)
+      
+      // Refresh data
+      await loadBatchData()
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to cleanup duplicates')
+    } finally {
+      setIsCleaning(false)
+    }
+  }
+
   const getNextRunDate = () => {
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
@@ -237,11 +327,20 @@ export function BatchJobsAdmin() {
           
           <Button 
             onClick={() => triggerMigration(false)}
-            disabled={isLoading || isMigrating}
+            disabled={isLoading || isMigrating || isCleaning}
             variant="outline"
           >
             {isMigrating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRightLeft className="mr-2 h-4 w-4" />}
             Migrate Batch Jobs
+          </Button>
+          
+          <Button 
+            onClick={cleanupDuplicates}
+            disabled={isLoading || isMigrating || isCleaning}
+            variant="destructive"
+          >
+            {isCleaning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+            Cleanup Duplicates
           </Button>
         </div>
       </div>
@@ -261,6 +360,23 @@ export function BatchJobsAdmin() {
             Migrated: {migrationResult.migratedCount} jobs, 
             Skipped: {migrationResult.duplicatesSkipped} duplicates, 
             Deleted: {migrationResult.deletedCount} batch_jobs
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {cleanupResult && (
+        <Alert className={cleanupResult.duplicatesDeleted > 0 ? "border-green-500 bg-green-50" : "border-blue-500 bg-blue-50"}>
+          <CheckCircle className={`h-4 w-4 ${cleanupResult.duplicatesDeleted > 0 ? "text-green-600" : "text-blue-600"}`} />
+          <AlertDescription className={cleanupResult.duplicatesDeleted > 0 ? "text-green-800" : "text-blue-800"}>
+            {cleanupResult.duplicatesDeleted > 0 ? (
+              <>
+                Cleanup completed! 
+                Found: {cleanupResult.duplicatesFound} duplicates, 
+                Deleted: {cleanupResult.duplicatesDeleted} jobs
+              </>
+            ) : (
+              "No duplicate jobs found. Your database is clean!"
+            )}
           </AlertDescription>
         </Alert>
       )}
