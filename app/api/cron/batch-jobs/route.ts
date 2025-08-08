@@ -1,20 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 
-/**
- * Cron endpoint for nightly batch job processing
- * This endpoint is designed to be called by external cron services like Vercel Cron,
- * GitHub Actions, or external cron services.
- * 
- * For Vercel deployment, add this to vercel.json:
- * {
- *   "crons": [
- *     {
- *       "path": "/api/cron/batch-jobs",
- *       "schedule": "0 2 * * *"
- *     }
- *   ]
- * }
- */
 
 export async function GET(req: NextRequest) {
   const startTime = Date.now()

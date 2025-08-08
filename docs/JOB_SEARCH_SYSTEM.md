@@ -1100,20 +1100,16 @@ export const SEARCH_CONFIG = {
 ### Debugging Commands
 ```bash
 # Check batch processing status
-curl https://your-domain.com/api/admin/batch-runs \
+curl https://myjob.ai-biz.app/api/admin/batch-runs \
   -H "Authorization: Bearer YOUR_TOKEN"
 
 # Trigger manual batch run (dry run)
-curl -X POST https://your-domain.com/api/cron/batch-jobs \
+curl -X POST https://myjob.ai-biz.app/api/cron/batch-jobs \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"dryRun": true}'
 
 # Test search without caching
-curl "https://your-domain.com/api/jobs/search?q=software+engineer&location=San+Francisco&noCache=true"
+curl "https://myjob.ai-biz.app/api/jobs/search?q=software+engineer&location=San+Francisco&noCache=true"
 ```
 
----
-
-*Last Updated: January 2024*
-*Version: 1.0.0*

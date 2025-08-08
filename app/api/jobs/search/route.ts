@@ -5,6 +5,7 @@ import { initFirebaseAdmin } from "@/lib/firebase-admin-init";
 import { getAuth } from "firebase-admin/auth";
 import { filterExistingJobs, saveJobsIfNotExist, searchJobsInDatabase, filterOutSavedJobs } from "@/lib/seen-jobs";
 import { JobSearchResult } from "@/lib/types";
+import { processLocation, isAnywhereLocation } from "@/lib/utils/location-correction";
 
 // State name to abbreviation mapping
 const STATE_ABBREVIATIONS: { [key: string]: string } = {
@@ -53,23 +54,37 @@ function getExpectedState(searchLocation: string): string | null {
 
 export async function POST(req: NextRequest) {
   try {
-    const { query, location, resume, useMultiAgent = true, forceLegacyScoring = false } = await req.json();
-    console.log(`\n=== [JobSearch] Starting Job Search ===`);
-    console.log(`[JobSearch] Query: "${query}"`);
-    console.log(`[JobSearch] Location: "${location}"`);
-    console.log(`[JobSearch] Resume provided: ${!!resume}`);
-    console.log(`[JobSearch] Resume length: ${resume?.length || 0} characters`);
-    console.log(`[JobSearch] Multi-agent scoring: ${useMultiAgent}`);
-    console.log(`[JobSearch] Force legacy scoring: ${forceLegacyScoring}`);
+    const body = await req.json();
+    const { query, resume, useMultiAgent = true, forceLegacyScoring = false } = body;
     
-    // Debug environment variables
-    console.log(`[JobSearch] Environment check:`);
-    console.log(`[JobSearch] - SERPAPI_KEY exists: ${!!process.env.SERPAPI_KEY}`);
-    console.log(`[JobSearch] - OPENROUTER_API_KEY exists: ${!!process.env.OPENROUTER_API_KEY}`);
-    console.log(`[JobSearch] - NODE_ENV: ${process.env.NODE_ENV}`);
+    // Process location with spelling corrections and handle undefined
+    const rawLocation = body.location;
+    const location = processLocation(rawLocation);
+    const isSearchingEverywhere = isAnywhereLocation(location);
     
-    if (resume) {
-      console.log(`[JobSearch] Resume preview (first 200 chars):`, resume.substring(0, 200) + '...');
+    // Use server-side logging to avoid contaminating response
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`\n=== [JobSearch] Starting Job Search ===`);
+      console.log(`[JobSearch] Query: "${query}"`);
+      console.log(`[JobSearch] Raw Location: "${rawLocation}"`);
+      console.log(`[JobSearch] Processed Location: "${location}"`);
+      console.log(`[JobSearch] Search Everywhere: ${isSearchingEverywhere}`);
+      console.log(`[JobSearch] Resume provided: ${!!resume}`);
+      console.log(`[JobSearch] Resume length: ${resume?.length || 0} characters`);
+      console.log(`[JobSearch] Multi-agent scoring: ${useMultiAgent}`);
+      console.log(`[JobSearch] Force legacy scoring: ${forceLegacyScoring}`);
+    }
+    
+    // Debug environment variables (only in development)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[JobSearch] Environment check:`);
+      console.log(`[JobSearch] - SERPAPI_KEY exists: ${!!process.env.SERPAPI_KEY}`);
+      console.log(`[JobSearch] - OPENROUTER_API_KEY exists: ${!!process.env.OPENROUTER_API_KEY}`);
+      console.log(`[JobSearch] - NODE_ENV: ${process.env.NODE_ENV}`);
+      
+      if (resume) {
+        console.log(`[JobSearch] Resume preview (first 200 chars):`, resume.substring(0, 200) + '...');
+      }
     }
     
     const apiKey = process.env.SERPAPI_KEY;
@@ -87,17 +102,27 @@ export async function POST(req: NextRequest) {
             const decodedToken = await getAuth().verifyIdToken(token);
             userId = decodedToken.uid;
         } catch (error) {
-            console.log(`[JobSearch] Token verification failed:`, error);
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`[JobSearch] Token verification failed:`, error);
+            }
             // Continue without userId for unauthenticated search
         }
     }
 
-    console.log(`[JobSearch] Using SerpAPI key: ${apiKey.substring(0, 10)}...`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[JobSearch] Using SerpAPI key: ${apiKey.substring(0, 10)}...`);
+    }
 
     // STEP 1: Search database first for existing jobs
-    console.log(`[JobSearch] === STEP 1: Searching Database First ===`);
-    const databaseJobs = await searchJobsInDatabase(query, location, 100); // Get up to 100 jobs from database
-    console.log(`[JobSearch] Found ${databaseJobs.length} jobs in database`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[JobSearch] === STEP 1: Searching Database First ===`);
+    }
+    // Pass processed location to database search, or undefined for "anywhere" searches
+    const searchLocation = isSearchingEverywhere ? undefined : location;
+    const databaseJobs = await searchJobsInDatabase(query, searchLocation, 100); // Get up to 100 jobs from database
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[JobSearch] Found ${databaseJobs.length} jobs in database`);
+    }
 
     let jobsToReturn: JobSearchResult[] = databaseJobs;
     let needsSerpApiCall = false;
@@ -105,31 +130,45 @@ export async function POST(req: NextRequest) {
 
     // STEP 2: Filter out saved jobs for authenticated users
     if (userId && databaseJobs.length > 0) {
-      console.log(`[JobSearch] === STEP 2: Filtering Saved Jobs ===`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[JobSearch] === STEP 2: Filtering Saved Jobs ===`);
+      }
       const unsavedDatabaseJobs = await filterOutSavedJobs(databaseJobs, userId);
-      console.log(`[JobSearch] After filtering saved jobs: ${unsavedDatabaseJobs.length} unsaved jobs from database`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[JobSearch] After filtering saved jobs: ${unsavedDatabaseJobs.length} unsaved jobs from database`);
+      }
       
       jobsToReturn = unsavedDatabaseJobs;
       
       // Check if we have enough jobs from database
       if (unsavedDatabaseJobs.length < MIN_JOBS_THRESHOLD) {
-        console.log(`[JobSearch] Not enough new jobs from database (${unsavedDatabaseJobs.length} < ${MIN_JOBS_THRESHOLD}), will fetch from SerpAPI`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[JobSearch] Not enough new jobs from database (${unsavedDatabaseJobs.length} < ${MIN_JOBS_THRESHOLD}), will fetch from SerpAPI`);
+        }
         needsSerpApiCall = true;
       } else {
-        console.log(`[JobSearch] Sufficient jobs found in database (${unsavedDatabaseJobs.length} >= ${MIN_JOBS_THRESHOLD}), skipping SerpAPI call`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[JobSearch] Sufficient jobs found in database (${unsavedDatabaseJobs.length} >= ${MIN_JOBS_THRESHOLD}), skipping SerpAPI call`);
+        }
       }
     } else if (!userId && databaseJobs.length < MIN_JOBS_THRESHOLD) {
       // For unauthenticated users, also check if we have enough jobs
-      console.log(`[JobSearch] Unauthenticated user: not enough jobs from database (${databaseJobs.length} < ${MIN_JOBS_THRESHOLD}), will fetch from SerpAPI`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[JobSearch] Unauthenticated user: not enough jobs from database (${databaseJobs.length} < ${MIN_JOBS_THRESHOLD}), will fetch from SerpAPI`);
+      }
       needsSerpApiCall = true;
     } else if (!userId) {
-      console.log(`[JobSearch] Unauthenticated user: sufficient jobs found in database (${databaseJobs.length} >= ${MIN_JOBS_THRESHOLD}), skipping SerpAPI call`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[JobSearch] Unauthenticated user: sufficient jobs found in database (${databaseJobs.length} >= ${MIN_JOBS_THRESHOLD}), skipping SerpAPI call`);
+      }
     }
 
     // STEP 3: Fallback to SerpAPI if needed
     let allSerpApiJobs: Record<string, unknown>[] = [];
     if (needsSerpApiCall) {
-      console.log(`[JobSearch] === STEP 3: Fetching from SerpAPI (Fallback) ===`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[JobSearch] === STEP 3: Fetching from SerpAPI (Fallback) ===`);
+      }
       
       let pageToken: string | null = null;
       let pageCount = 0;
@@ -137,28 +176,41 @@ export async function POST(req: NextRequest) {
       
       do {
         pageCount++;
-        console.log(`[JobSearch] Fetching SerpAPI page ${pageCount}${pageToken ? ` with token: ${pageToken.substring(0, 20)}...` : ' (first page)'}`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[JobSearch] Fetching SerpAPI page ${pageCount}${pageToken ? ` with token: ${pageToken.substring(0, 20)}...` : ' (first page)'}`);
+        }
         
         const serpApiParams: Record<string, unknown> = {
           engine: "google_jobs",
           api_key: apiKey,
           q: query,
-          location: location || "United States",
+          // For remote/anywhere searches, use "United States" as the location
+          // but append "remote" to the query to find remote jobs
+          location: isSearchingEverywhere ? "United States" : (location || "United States"),
           hl: "en",
           gl: "us",
           timeout: 20000, // 20 seconds timeout
         };
         
+        // If searching everywhere, add "remote" to the query
+        if (isSearchingEverywhere) {
+          serpApiParams.q = `${query} remote`;
+        }
+        
         if (pageToken) {
           serpApiParams.next_page_token = pageToken;
         }
         
-        console.log(`[JobSearch] SerpAPI request params for page ${pageCount}:`, serpApiParams);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[JobSearch] SerpAPI request params for page ${pageCount}:`, serpApiParams);
+        }
         const pageResults = await getJson(serpApiParams);
         
-        console.log(`[JobSearch] Page ${pageCount} response received`);
-        console.log(`[JobSearch] Raw SerpAPI response keys:`, Object.keys(pageResults || {}));
-        console.log(`[JobSearch] Jobs found in page ${pageCount}: ${pageResults.jobs_results?.length || 0}`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[JobSearch] Page ${pageCount} response received`);
+          console.log(`[JobSearch] Raw SerpAPI response keys:`, Object.keys(pageResults || {}));
+          console.log(`[JobSearch] Jobs found in page ${pageCount}: ${pageResults.jobs_results?.length || 0}`);
+        }
         
         if (pageResults.error) {
           console.error(`[JobSearch] SerpAPI error on page ${pageCount}:`, pageResults.error);
@@ -168,46 +220,60 @@ export async function POST(req: NextRequest) {
         // Add jobs from this page to the total
         if (pageResults.jobs_results && pageResults.jobs_results.length > 0) {
           allSerpApiJobs = [...allSerpApiJobs, ...pageResults.jobs_results];
-          console.log(`[JobSearch] Total SerpAPI jobs collected so far: ${allSerpApiJobs.length}`);
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`[JobSearch] Total SerpAPI jobs collected so far: ${allSerpApiJobs.length}`);
+          }
         }
         
         // Check for next page token
         pageToken = pageResults.serpapi_pagination?.next_page_token || null;
-        console.log(`[JobSearch] Next page token: ${pageToken ? 'Present' : 'None'}`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[JobSearch] Next page token: ${pageToken ? 'Present' : 'None'}`);
+        }
         
-        if (pageResults.serpapi_pagination) {
+        if (pageResults.serpapi_pagination && process.env.NODE_ENV === 'development') {
           console.log(`[JobSearch] Full pagination object:`, pageResults.serpapi_pagination);
         }
         
         // If no more jobs on this page, stop pagination
         if (!pageResults.jobs_results || pageResults.jobs_results.length === 0) {
-          console.log(`[JobSearch] No more jobs found on page ${pageCount}, stopping pagination`);
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`[JobSearch] No more jobs found on page ${pageCount}, stopping pagination`);
+          }
           break;
         }
         
         // Safety check for infinite loops
         if (pageCount >= maxPages) {
-          console.warn(`[JobSearch] Reached maximum page limit (${maxPages}), stopping pagination`);
+          if (process.env.NODE_ENV === 'development') {
+            console.warn(`[JobSearch] Reached maximum page limit (${maxPages}), stopping pagination`);
+          }
           break;
         }
         
       } while (pageToken);
       
-      console.log(`[JobSearch] SerpAPI pagination complete. Total pages fetched: ${pageCount}`);
-      console.log(`[JobSearch] Total SerpAPI jobs collected: ${allSerpApiJobs.length}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[JobSearch] SerpAPI pagination complete. Total pages fetched: ${pageCount}`);
+        console.log(`[JobSearch] Total SerpAPI jobs collected: ${allSerpApiJobs.length}`);
+      }
 
       // Log first job for debugging if we have jobs
-      if (allSerpApiJobs.length > 0) {
+      if (allSerpApiJobs.length > 0 && process.env.NODE_ENV === 'development') {
         console.log(`[JobSearch] First SerpAPI job sample:`, JSON.stringify(allSerpApiJobs[0], null, 2));
       }
     } else {
-      console.log(`[JobSearch] Skipping SerpAPI call - sufficient jobs found in database`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[JobSearch] Skipping SerpAPI call - sufficient jobs found in database`);
+      }
     }
 
     // STEP 4: Process SerpAPI jobs if we fetched any
     let processedSerpApiJobs: JobSearchResult[] = [];
     if (allSerpApiJobs.length > 0) {
-      console.log(`[JobSearch] === STEP 4: Processing SerpAPI Jobs ===`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[JobSearch] === STEP 4: Processing SerpAPI Jobs ===`);
+      }
       
       // Normalize SerpApi results to JobSearchResult interface
       processedSerpApiJobs = (allSerpApiJobs || []).map((job: Record<string, unknown>) => {
@@ -262,7 +328,9 @@ export async function POST(req: NextRequest) {
           const company = (job.company_name as string) || (job.company as string) || 'unknown';
           const location = job.location as string || 'unknown';
           jobId = `${title}_${company}_${location}`.replace(/[^a-zA-Z0-9]/g, '_');
-          console.warn(`[JobSearch] Missing job_id for job, using fallback: ${jobId}`);
+          if (process.env.NODE_ENV === 'development') {
+            console.warn(`[JobSearch] Missing job_id for job, using fallback: ${jobId}`);
+          }
         }
         
         // Safely access apply_options and detected_extensions
@@ -293,13 +361,19 @@ export async function POST(req: NextRequest) {
         return processedJob;
       });
       
-      console.log(`[JobSearch] Processed ${processedSerpApiJobs.length} jobs from SerpApi`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[JobSearch] Processed ${processedSerpApiJobs.length} jobs from SerpApi`);
+      }
     } else {
-      console.log(`[JobSearch] No SerpAPI jobs to process`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[JobSearch] No SerpAPI jobs to process`);
+      }
     }
 
     // STEP 5: Combine database jobs with SerpAPI jobs (if any)
-    console.log(`[JobSearch] === STEP 5: Combining Results ===`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[JobSearch] === STEP 5: Combining Results ===`);
+    }
     let allCombinedJobs: JobSearchResult[] = [];
     
     if (needsSerpApiCall && processedSerpApiJobs.length > 0) {
@@ -310,12 +384,16 @@ export async function POST(req: NextRequest) {
       
       // Combine unique database jobs with SerpAPI jobs
       allCombinedJobs = [...uniqueDatabaseJobs, ...processedSerpApiJobs];
-      console.log(`[JobSearch] Combined ${uniqueDatabaseJobs.length} database jobs + ${processedSerpApiJobs.length} SerpAPI jobs = ${allCombinedJobs.length} total jobs`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[JobSearch] Combined ${uniqueDatabaseJobs.length} database jobs + ${processedSerpApiJobs.length} SerpAPI jobs = ${allCombinedJobs.length} total jobs`);
+      }
       
       // Apply location filtering to SerpAPI jobs
       const expectedState = getExpectedState(location);
       if (expectedState) {
-        console.log(`[JobSearch] Applying location filtering to combined results for state: ${expectedState}`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[JobSearch] Applying location filtering to combined results for state: ${expectedState}`);
+        }
         
         allCombinedJobs = allCombinedJobs.filter(job => {
           // Always include jobs with "Anywhere" or "Remote" in location
@@ -330,17 +408,23 @@ export async function POST(req: NextRequest) {
           return jobState === expectedState;
         });
         
-        console.log(`[JobSearch] After location filtering: ${allCombinedJobs.length} jobs`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[JobSearch] After location filtering: ${allCombinedJobs.length} jobs`);
+        }
       }
       
       // Filter out saved jobs for authenticated users (for SerpAPI jobs)
       if (userId) {
         const finalFilteredJobs = await filterOutSavedJobs(allCombinedJobs, userId);
-        console.log(`[JobSearch] After filtering saved jobs from combined results: ${finalFilteredJobs.length} jobs`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[JobSearch] After filtering saved jobs from combined results: ${finalFilteredJobs.length} jobs`);
+        }
         
         // Save new SerpAPI jobs to database
         if (processedSerpApiJobs.length > 0) {
-          console.log(`[JobSearch] Saving new SerpAPI jobs to database`);
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`[JobSearch] Saving new SerpAPI jobs to database`);
+          }
           const newSerpApiJobs = await filterExistingJobs(processedSerpApiJobs);
           if (newSerpApiJobs.length > 0) {
             const jobsWithoutSummaries = newSerpApiJobs.map(job => ({
@@ -348,7 +432,9 @@ export async function POST(req: NextRequest) {
               summary: "", // No summary for faster search
             }));
             await saveJobsIfNotExist(jobsWithoutSummaries, userId);
-            console.log(`[JobSearch] Saved ${jobsWithoutSummaries.length} new SerpAPI jobs to database`);
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`[JobSearch] Saved ${jobsWithoutSummaries.length} new SerpAPI jobs to database`);
+            }
           }
         }
         
@@ -358,21 +444,45 @@ export async function POST(req: NextRequest) {
       }
     } else {
       // We're using only database jobs
-      console.log(`[JobSearch] Using only database jobs: ${jobsToReturn.length} jobs`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[JobSearch] Using only database jobs: ${jobsToReturn.length} jobs`);
+      }
     }
 
     // STEP 6: Final result preparation
-    console.log(`[JobSearch] === STEP 6: Preparing Final Results ===`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[JobSearch] === STEP 6: Preparing Final Results ===`);
+    }
+    
+    // Deduplicate jobs based on job ID (in case there are any duplicates)
+    const uniqueJobsMap = new Map<string, JobSearchResult>();
+    for (const job of jobsToReturn) {
+      // Only add if we haven't seen this job ID before
+      if (!uniqueJobsMap.has(job.id)) {
+        uniqueJobsMap.set(job.id, job);
+      } else if (process.env.NODE_ENV === 'development') {
+        console.log(`[JobSearch] Duplicate job found and removed: ${job.id} - ${job.title} at ${job.company}`);
+      }
+    }
+    
+    // Convert map back to array
+    const uniqueJobs = Array.from(uniqueJobsMap.values());
+    
+    if (process.env.NODE_ENV === 'development' && uniqueJobs.length !== jobsToReturn.length) {
+      console.log(`[JobSearch] Deduplication removed ${jobsToReturn.length - uniqueJobs.length} duplicate jobs`);
+    }
     
     // Ensure jobs don't have scoring data for faster performance
-    const finalJobsToReturn = jobsToReturn.map(job => ({
+    const finalJobsToReturn = uniqueJobs.map(job => ({
       ...job,
       summary: "", // No summary for faster search
       matchingScore: 0,
       matchingSummary: "",
     }));
 
-    console.log(`[JobSearch] Returning ${finalJobsToReturn.length} jobs to client.`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[JobSearch] Returning ${finalJobsToReturn.length} unique jobs to client.`);
+    }
     return NextResponse.json({ jobs: finalJobsToReturn });
 
   } catch (error) {

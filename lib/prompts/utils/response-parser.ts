@@ -36,8 +36,10 @@ export class ResponseParser {
       const jsonStr = jsonMatch[1] || content
       return JSON.parse(jsonStr.trim())
     } catch (error) {
-      console.error('Failed to parse JSON response:', error)
-      console.error('Content:', content)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to parse JSON response:', error)
+        console.error('Content:', content)
+      }
       throw new Error(`Failed to parse JSON response: ${error}`)
     }
   }

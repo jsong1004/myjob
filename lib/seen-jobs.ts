@@ -77,11 +77,15 @@ export async function searchJobsInDatabase(
   const db = getFirestore();
 
   try {
-    console.log(`[DatabaseSearch] Searching database for query: "${query}", location: "${location || 'any'}"`);
+    // Only log in development to avoid response contamination
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[DatabaseSearch] Searching database for query: "${query}", location: "${location || 'anywhere'}"`);
+    }
     
     // Convert query to lowercase for case-insensitive searching
     const queryLower = query.toLowerCase();
     const locationLower = location?.toLowerCase() || '';
+    const isSearchingEverywhere = !location || location === '';
 
     // Get all jobs from the database (we'll filter in memory for more flexible search)
     // In a production system, you might want to use more sophisticated indexing
@@ -96,7 +100,9 @@ export async function searchJobsInDatabase(
       
       // Skip jobs that are marked as unavailable
       if (data.isAvailable === false) {
-        console.log(`[DatabaseSearch] Skipping unavailable job: ${data.title} at ${data.company_name || data.company}`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[DatabaseSearch] Skipping unavailable job: ${data.title} at ${data.company_name || data.company}`);
+        }
         return;
       }
       
@@ -121,7 +127,9 @@ export async function searchJobsInDatabase(
       allJobs.push(job);
     });
 
-    console.log(`[DatabaseSearch] Found ${allJobs.length} total jobs in database`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[DatabaseSearch] Found ${allJobs.length} total jobs in database`);
+    }
 
     // Filter jobs based on query matching (title, company, description)
     const matchingJobs = allJobs.filter(job => {
@@ -133,20 +141,26 @@ export async function searchJobsInDatabase(
       // Job matches if query is found in title, company, description, or qualifications
       const queryMatches = titleMatch || companyMatch || descriptionMatch || qualificationsMatch;
       
-      // Location filtering (if specified)
+      // Location filtering
       let locationMatches = true;
-      if (locationLower) {
+      if (isSearchingEverywhere) {
+        // When searching everywhere, include all jobs (no location filter)
+        locationMatches = true;
+      } else if (locationLower) {
         const jobLocationLower = job.location.toLowerCase();
-        // Include remote jobs and jobs that contain the search location
+        // Include jobs that match the location, remote jobs, and anywhere jobs
         locationMatches = jobLocationLower.includes(locationLower) ||
                          jobLocationLower.includes('remote') ||
-                         jobLocationLower.includes('anywhere');
+                         jobLocationLower.includes('anywhere') ||
+                         jobLocationLower.includes('work from home');
       }
       
       return queryMatches && locationMatches;
     });
 
-    console.log(`[DatabaseSearch] Found ${matchingJobs.length} matching jobs after filtering`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[DatabaseSearch] Found ${matchingJobs.length} matching jobs after filtering`);
+    }
 
     // Sort by relevance (title matches first, then company matches)
     const sortedJobs = matchingJobs.sort((a, b) => {
@@ -168,12 +182,17 @@ export async function searchJobsInDatabase(
 
     // Return limited results
     const finalJobs = sortedJobs.slice(0, limit);
-    console.log(`[DatabaseSearch] Returning ${finalJobs.length} jobs (limited to ${limit})`);
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[DatabaseSearch] Returning ${finalJobs.length} jobs (limited to ${limit})`);
+    }
     
     return finalJobs;
 
   } catch (error) {
-    console.error(`[DatabaseSearch] Error searching database:`, error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error(`[DatabaseSearch] Error searching database:`, error);
+    }
     return [];
   }
 }
@@ -196,7 +215,9 @@ export async function filterOutSavedJobs(
   const db = getFirestore();
 
   try {
-    console.log(`[SavedJobsFilter] Filtering ${jobs.length} jobs for user ${userId}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[SavedJobsFilter] Filtering ${jobs.length} jobs for user ${userId}`);
+    }
     
     // Get all saved job IDs for this user
     const savedJobsSnapshot = await db.collection('savedJobs')
@@ -211,17 +232,23 @@ export async function filterOutSavedJobs(
       }
     });
 
-    console.log(`[SavedJobsFilter] User has ${savedJobIds.size} saved jobs`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[SavedJobsFilter] User has ${savedJobIds.size} saved jobs`);
+    }
 
     // Filter out jobs that are already saved
     const unsavedJobs = jobs.filter(job => !savedJobIds.has(job.id));
     
-    console.log(`[SavedJobsFilter] After filtering: ${unsavedJobs.length} unsaved jobs (removed ${jobs.length - unsavedJobs.length} saved jobs)`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[SavedJobsFilter] After filtering: ${unsavedJobs.length} unsaved jobs (removed ${jobs.length - unsavedJobs.length} saved jobs)`);
+    }
     
     return unsavedJobs;
 
   } catch (error) {
-    console.error(`[SavedJobsFilter] Error filtering saved jobs:`, error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error(`[SavedJobsFilter] Error filtering saved jobs:`, error);
+    }
     return jobs; // Return original jobs if filtering fails
   }
 } 

@@ -10,6 +10,12 @@ import {
   generateBatchId 
 } from "@/lib/batch-job-utils"
 import { JobSearchResult, BatchJob } from "@/lib/types"
+import { 
+  generateJobSignature,
+  findSimilarJobs,
+  normalizeCompanyName,
+  normalizeJobTitle 
+} from "@/lib/utils/job-similarity"
 
 /**
  * Batch job processing endpoint
@@ -129,6 +135,9 @@ export async function POST(req: NextRequest) {
     // Track existing jobs to avoid duplicates
     const existingJobIds = new Set<string>()
     const existingJobKeys = new Set<string>() // For fallback duplicate detection
+    const existingJobsForSimilarity: Array<{ id: string; title: string; company: string; location: string }> = []
+    const contentSignatures = new Map<string, string>() // signature -> job_id
+    const similarityThreshold = 85 // 85% similarity threshold for duplicate detection
     
     // Get ALL existing jobs from jobs collection to avoid duplicates
     // Don't limit to just today's batch - check all jobs
@@ -147,13 +156,27 @@ export async function POST(req: NextRequest) {
       existingJobIds.add(jobId)
       
       // Create a composite key for jobs without stable IDs
-      if (jobData.title && jobData.company) {
-        const jobKey = `${jobData.title}-${jobData.company}-${jobData.location}`.toLowerCase()
+      const title = jobData.title || ''
+      const company = jobData.company || jobData.company_name || ''
+      const location = jobData.location || ''
+      
+      if (title && company) {
+        const jobKey = `${title}-${company}-${location}`.toLowerCase()
         existingJobKeys.add(jobKey)
+        
+        // Build similarity index
+        existingJobsForSimilarity.push({ id: jobId, title, company, location })
+        
+        // Generate and store content signature
+        const signature = generateJobSignature(title, company, location)
+        if (signature) {
+          contentSignatures.set(signature, jobId)
+        }
       }
     })
     
     console.log(`[BatchProcess] Found ${existingJobIds.size} existing jobs from last 7 days for duplicate detection`)
+    console.log(`[BatchProcess] Built similarity index with ${existingJobsForSimilarity.length} jobs`)
 
     // Process each query-location combination
     for (const query of queries.slice(0, 20)) { // Limit to prevent excessive API calls
@@ -225,12 +248,49 @@ export async function POST(req: NextRequest) {
                 result.duplicates++
                 continue
               }
+              
+              // Check for similar jobs based on content signature
+              const signature = generateJobSignature(title, company, jobLocation)
+              if (contentSignatures.has(signature)) {
+                result.duplicates++
+                const similarJobId = contentSignatures.get(signature)
+                if (process.env.NODE_ENV === 'development') {
+                  console.log(`[BatchProcess] Skipping job ${jobResult.id} - exact signature match with ${similarJobId}`)
+                }
+                continue
+              }
+              
+              // Check for similar jobs using similarity algorithm
+              const similarJobs = findSimilarJobs(
+                { title, company, location: jobLocation },
+                existingJobsForSimilarity,
+                similarityThreshold
+              )
+              
+              if (similarJobs.length > 0) {
+                const mostSimilar = similarJobs[0]
+                result.duplicates++
+                if (process.env.NODE_ENV === 'development') {
+                  console.log(`[BatchProcess] Skipping job "${title}" at "${company}" - ${mostSimilar.similarity}% similar to existing job ${mostSimilar.job.id}`)
+                }
+                continue
+              }
 
               // Enhance with batch metadata
               const batchJob = enhanceJobForBatch(jobResult, query, location, batchId)
               enhancedJobs.push(batchJob)
               existingJobIds.add(jobResult.id)
               existingJobKeys.add(jobKey)
+              
+              // Add to similarity index for current batch
+              existingJobsForSimilarity.push({ 
+                id: jobResult.id, 
+                title, 
+                company, 
+                location: jobLocation 
+              })
+              contentSignatures.set(signature, jobResult.id)
+              
               result.newJobs++
               
             } catch (jobError) {

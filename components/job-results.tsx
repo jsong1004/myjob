@@ -455,8 +455,8 @@ export function JobResults({ results }: JobResultsProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedResults.map((job, index) => (
-                <TableRow key={`${job.id}-${index}`} className="hover:bg-muted/50">
+              {sortedResults.map((job) => (
+                <TableRow key={job.id} className="hover:bg-muted/50">
                   <TableCell>
                     <div className="font-medium">
                       {job.applyUrl ? (
