@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Loader2, AlertCircle, ArrowUpDown, Users, Mail, Calendar, Trash2 } from "lucide-react"
+import { Loader2, AlertCircle, ArrowUpDown, Users, Mail, Calendar, Trash2, Clock } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
 import { auth } from "@/lib/firebase"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -47,6 +47,7 @@ export function AdminUserManagement() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null)
+  const [fixingTimestampsUserId, setFixingTimestampsUserId] = useState<string | null>(null)
   
   // State for filtering
   const [emailFilter, setEmailFilter] = useState("")
@@ -143,6 +144,73 @@ export function AdminUserManagement() {
     if (!dateString) return "N/A"
     const date = new Date(dateString)
     return isNaN(date.getTime()) ? "Invalid Date" : date.toLocaleDateString()
+  }
+
+  const handleFixTimestamps = async (userId: string, userName: string) => {
+    if (!user || !auth?.currentUser || !isAdmin) return
+
+    setFixingTimestampsUserId(userId)
+    try {
+      const token = await auth.currentUser.getIdToken()
+      const response = await fetch("/api/admin/fix-user-timestamps", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        toast({
+          title: "Timestamps Fixed",
+          description: `${userName}'s timestamps have been corrected.`,
+        })
+        // Refresh the users list
+        const fetchUsers = async () => {
+          if (!user || !auth?.currentUser || !isAdmin) return
+          setLoading(true)
+          setError(null)
+          try {
+            const token = await auth.currentUser.getIdToken()
+            const response = await fetch("/api/admin/users", {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            })
+            if (response.ok) {
+              const data = await response.json()
+              setUsers(data.users || [])
+            } else {
+              const errorData = await response.json()
+              setError(errorData.error || "Failed to fetch users.")
+            }
+          } catch (err) {
+            setError("An error occurred while fetching users.")
+          } finally {
+            setLoading(false)
+          }
+        }
+        await fetchUsers()
+      } else {
+        const errorData = await response.json()
+        toast({
+          title: "Error",
+          description: errorData.error || "Failed to fix timestamps.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error fixing timestamps:", error)
+      toast({
+        title: "Error",
+        description: "An error occurred while fixing timestamps.",
+        variant: "destructive",
+      })
+    } finally {
+      setFixingTimestampsUserId(null)
+    }
   }
 
   const handleDeleteUser = async (userId: string, userName: string) => {
@@ -339,22 +407,39 @@ export function AdminUserManagement() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {userData.uid !== user?.id && (
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                disabled={deletingUserId === userData.uid}
-                              >
-                                {deletingUserId === userData.uid ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Trash2 className="h-4 w-4" />
-                                )}
-                              </Button>
-                            </AlertDialogTrigger>
+                        <div className="flex items-center gap-1">
+                          {userData.email === "jsong@koreatous.com" && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              className="h-8 w-8 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                              disabled={fixingTimestampsUserId === userData.uid}
+                              onClick={() => handleFixTimestamps(userData.uid, userData.name)}
+                              title="Fix Timestamps (Swap Joined/Last Active dates)"
+                            >
+                              {fixingTimestampsUserId === userData.uid ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Clock className="h-4 w-4" />
+                              )}
+                            </Button>
+                          )}
+                          {userData.uid !== user?.id && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  disabled={deletingUserId === userData.uid}
+                                >
+                                  {deletingUserId === userData.uid ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Delete User</AlertDialogTitle>
@@ -382,8 +467,9 @@ export function AdminUserManagement() {
                                 </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
-                          </AlertDialog>
-                        )}
+                            </AlertDialog>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

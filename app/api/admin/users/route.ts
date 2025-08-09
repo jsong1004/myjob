@@ -93,6 +93,20 @@ export async function GET(req: NextRequest) {
             console.log(`[Admin][Users] User ${user.name || user.email} (${userId}): resumes=${counts.resumeCount}, savedJobs=${counts.savedJobsCount}, coverLetters=${counts.coverLettersCount}`)
           }
 
+          // Debug: Log the raw timestamps for Jaehee Song
+          if (user.email === "jsong@koreatous.com") {
+            console.log(`[Admin][Users][DEBUG] Raw data for ${user.email}:`, {
+              createdAt: user.createdAt,
+              updatedAt: user.updatedAt,
+              createdAtDate: user.createdAt?.toDate ? user.createdAt.toDate() : null,
+              updatedAtDate: user.updatedAt?.toDate ? user.updatedAt.toDate() : null,
+              createdAtISOString: user.createdAt?.toDate ? user.createdAt.toDate().toISOString() : null,
+              updatedAtISOString: user.updatedAt?.toDate ? user.updatedAt.toDate().toISOString() : null,
+              createdAtFormatted: user.createdAt?.toDate ? user.createdAt.toDate().toLocaleDateString() : null,
+              updatedAtFormatted: user.updatedAt?.toDate ? user.updatedAt.toDate().toLocaleDateString() : null
+            })
+          }
+
           return {
             ...user,
             uid: user.id, // Ensure uid is always the document ID (Firebase Auth UID)
