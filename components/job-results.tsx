@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Bookmark, Sparkles, TrendingUp, Eye, ChevronUp, ChevronDown, EyeOff } from "lucide-react"
+import { Bookmark, Sparkles, TrendingUp, Eye, ChevronUp, ChevronDown, EyeOff, Check, Loader2 } from "lucide-react"
 import { MatchingScoreDialog } from "@/components/matching-score-dialog"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { AuthModal } from "@/components/auth-modal"
@@ -52,6 +52,8 @@ export function JobResults({ results }: JobResultsProps) {
   const [pendingAction, setPendingAction] = useState<'save' | 'tailor' | 'notinterested' | null>(null)
   const [sortField, setSortField] = useState<keyof Job | null>('title')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+  const [notInterestedJobs, setNotInterestedJobs] = useState<Set<string>>(new Set())
+  const [loadingNotInterested, setLoadingNotInterested] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     const fetchSavedJobs = async () => {
@@ -182,6 +184,9 @@ export function JobResults({ results }: JobResultsProps) {
       return
     }
 
+    // Add immediate visual feedback - set loading state
+    setLoadingNotInterested(prev => new Set(prev).add(job.id))
+
     try {
       const token = await auth.currentUser.getIdToken()
       const response = await fetch("/api/jobs/not-interested", {
@@ -203,12 +208,21 @@ export function JobResults({ results }: JobResultsProps) {
       })
 
       if (response.ok) {
+        // Mark as not interested immediately for UI feedback
+        setNotInterestedJobs(prev => new Set(prev).add(job.id))
         toast({ title: "Job marked as not interested and will be hidden from future searches" })
       } else {
         toast({ title: "Failed to mark job as not interested", variant: "destructive" })
       }
     } catch (err) {
       toast({ title: "Error marking job as not interested", variant: "destructive" })
+    } finally {
+      // Remove loading state
+      setLoadingNotInterested(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(job.id)
+        return newSet
+      })
     }
   }, [user, auth, toast])
 
@@ -456,7 +470,14 @@ export function JobResults({ results }: JobResultsProps) {
             </TableHeader>
             <TableBody>
               {sortedResults.map((job) => (
-                <TableRow key={job.id} className="hover:bg-muted/50">
+                <TableRow 
+                  key={job.id} 
+                  className={`hover:bg-muted/50 ${
+                    notInterestedJobs.has(job.id) 
+                      ? "opacity-60 bg-gray-50/50" 
+                      : ""
+                  }`}
+                >
                   <TableCell>
                     <div className="font-medium">
                       {job.applyUrl ? (
@@ -521,15 +542,38 @@ export function JobResults({ results }: JobResultsProps) {
                         <Sparkles className="h-5 w-5" />
                         Tailor Resume
                       </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => handleNotInterested(job)}
-                        className="gap-2 text-red-600 hover:text-red-700"
-                      >
-                        <EyeOff className="h-4 w-4" />
-                        Don't Show
-                      </Button>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleNotInterested(job)}
+                              disabled={loadingNotInterested.has(job.id) || notInterestedJobs.has(job.id)}
+                              className={`gap-2 ${
+                                notInterestedJobs.has(job.id) 
+                                  ? "text-gray-500 hover:text-gray-600 bg-gray-50" 
+                                  : "text-red-600 hover:text-red-700"
+                              }`}
+                            >
+                              {loadingNotInterested.has(job.id) ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : notInterestedJobs.has(job.id) ? (
+                                <Check className="h-4 w-4" />
+                              ) : (
+                                <EyeOff className="h-4 w-4" />
+                              )}
+                              {notInterestedJobs.has(job.id) ? "Hidden" : "Don't Show"}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {notInterestedJobs.has(job.id) 
+                              ? "This job has been hidden from future searches" 
+                              : "Hide this job from future search results"
+                            }
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
                   </TableCell>
                 </TableRow>

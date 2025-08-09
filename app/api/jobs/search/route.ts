@@ -101,11 +101,18 @@ export async function POST(req: NextRequest) {
             initFirebaseAdmin();
             const decodedToken = await getAuth().verifyIdToken(token);
             userId = decodedToken.uid;
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`[JobSearch] Authenticated user ID: ${userId}`);
+            }
         } catch (error) {
             if (process.env.NODE_ENV === 'development') {
               console.log(`[JobSearch] Token verification failed:`, error);
             }
             // Continue without userId for unauthenticated search
+        }
+    } else {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[JobSearch] No authorization token provided - unauthenticated search`);
         }
     }
 
@@ -122,6 +129,14 @@ export async function POST(req: NextRequest) {
     const databaseJobs = await searchJobsInDatabase(query, searchLocation, 100); // Get up to 100 jobs from database
     if (process.env.NODE_ENV === 'development') {
       console.log(`[JobSearch] Found ${databaseJobs.length} jobs in database`);
+      // Check specifically for the problematic job
+      const problematicJob = databaseJobs.find(job => 
+        job.title.toLowerCase().includes('advanced analytics') && 
+        job.company.toLowerCase().includes('children')
+      );
+      if (problematicJob) {
+        console.log(`[JobSearch] FOUND PROBLEMATIC JOB IN DATABASE: ${problematicJob.id} - ${problematicJob.title} at ${problematicJob.company}`);
+      }
     }
 
     let jobsToReturn: JobSearchResult[] = databaseJobs;
@@ -136,6 +151,16 @@ export async function POST(req: NextRequest) {
       const unsavedDatabaseJobs = await filterOutSavedJobs(databaseJobs, userId);
       if (process.env.NODE_ENV === 'development') {
         console.log(`[JobSearch] After filtering saved jobs: ${unsavedDatabaseJobs.length} unsaved jobs from database`);
+        // Check if the problematic job was filtered out
+        const problematicJobAfterFilter = unsavedDatabaseJobs.find(job => 
+          job.title.toLowerCase().includes('advanced analytics') && 
+          job.company.toLowerCase().includes('children')
+        );
+        if (problematicJobAfterFilter) {
+          console.log(`[JobSearch] PROBLEMATIC JOB STILL PRESENT AFTER FILTERING: ${problematicJobAfterFilter.id} - ${problematicJobAfterFilter.title} at ${problematicJobAfterFilter.company}`);
+        } else {
+          console.log(`[JobSearch] Problematic job was successfully filtered out`);
+        }
       }
       
       jobsToReturn = unsavedDatabaseJobs;
@@ -482,6 +507,16 @@ export async function POST(req: NextRequest) {
 
     if (process.env.NODE_ENV === 'development') {
       console.log(`[JobSearch] Returning ${finalJobsToReturn.length} unique jobs to client.`);
+      // Final check for the problematic job
+      const finalProblematicJob = finalJobsToReturn.find(job => 
+        job.title.toLowerCase().includes('advanced analytics') && 
+        job.company.toLowerCase().includes('children')
+      );
+      if (finalProblematicJob) {
+        console.log(`[JobSearch] ❌ PROBLEMATIC JOB STILL IN FINAL RESULTS: ${finalProblematicJob.id} - ${finalProblematicJob.title} at ${finalProblematicJob.company}`);
+      } else {
+        console.log(`[JobSearch] ✅ Problematic job successfully excluded from final results`);
+      }
     }
     return NextResponse.json({ jobs: finalJobsToReturn });
 

@@ -107,8 +107,24 @@ export async function searchJobsInDatabase(
       }
       
       // Convert database document to JobSearchResult format
+      const jobId = data.job_id || doc.id;
+      
+      // Debug job ID assignment for the problematic job
+      if (process.env.NODE_ENV === 'development') {
+        const title = data.title || '';
+        const company = data.company_name || data.company || '';
+        if (title.toLowerCase().includes('advanced analytics') && company.toLowerCase().includes('children')) {
+          console.log(`[DatabaseSearch] PROBLEMATIC JOB ID ASSIGNMENT:`);
+          console.log(`  - Document ID: ${doc.id}`);
+          console.log(`  - job_id field: ${data.job_id}`);
+          console.log(`  - Final job ID: ${jobId}`);
+          console.log(`  - Title: ${title}`);
+          console.log(`  - Company: ${company}`);
+        }
+      }
+      
       const job: JobSearchResult = {
-        id: data.job_id || doc.id,
+        id: jobId,
         title: data.title || '',
         company: data.company_name || data.company || '',
         location: data.location || '',
@@ -219,25 +235,89 @@ export async function filterOutSavedJobs(
       console.log(`[SavedJobsFilter] Filtering ${jobs.length} jobs for user ${userId}`);
     }
     
-    // Get all saved job IDs for this user
+    // Get all saved jobs for this user (we need full data for content matching)
     const savedJobsSnapshot = await db.collection('savedJobs')
       .where('userId', '==', userId)
       .get();
     
     const savedJobIds = new Set<string>();
+    const savedJobsContent: Array<{
+      id: string;
+      title: string;
+      company: string;
+      location: string;
+      status: string;
+    }> = [];
+    
     savedJobsSnapshot.forEach(doc => {
-      const jobId = doc.data().jobId;
+      const data = doc.data();
+      const jobId = data.jobId;
       if (jobId) {
         savedJobIds.add(jobId);
+        
+        // Also store content for content-based matching
+        savedJobsContent.push({
+          id: jobId,
+          title: (data.title || "").toLowerCase().trim(),
+          company: (data.company || "").toLowerCase().trim(),
+          location: (data.location || "").toLowerCase().trim(),
+          status: data.status || 'no status'
+        });
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[SavedJobsFilter] Found saved job: ${jobId} (status: ${data.status || 'no status'}) - ${data.title} at ${data.company}`);
+        }
       }
     });
 
     if (process.env.NODE_ENV === 'development') {
       console.log(`[SavedJobsFilter] User has ${savedJobIds.size} saved jobs`);
+      console.log(`[SavedJobsFilter] Saved job IDs:`, Array.from(savedJobIds));
     }
 
-    // Filter out jobs that are already saved
-    const unsavedJobs = jobs.filter(job => !savedJobIds.has(job.id));
+    // Filter out jobs that are already saved (by ID or content match)
+    const unsavedJobs = jobs.filter(job => {
+      // First check for exact job ID match
+      const isIdSaved = savedJobIds.has(job.id);
+      
+      // Then check for content-based match (title + company + location)
+      const jobTitle = (job.title || "").toLowerCase().trim();
+      const jobCompany = (job.company || "").toLowerCase().trim();
+      const jobLocation = (job.location || "").toLowerCase().trim();
+      
+      const isContentSaved = savedJobsContent.some(savedJob => 
+        savedJob.title === jobTitle &&
+        savedJob.company === jobCompany &&
+        savedJob.location === jobLocation
+      );
+      
+      const isSaved = isIdSaved || isContentSaved;
+      
+      if (process.env.NODE_ENV === 'development') {
+        if (isSaved) {
+          const matchType = isIdSaved ? 'ID match' : 'Content match';
+          const matchedJob = isIdSaved 
+            ? `ID: ${job.id}` 
+            : savedJobsContent.find(savedJob => 
+                savedJob.title === jobTitle &&
+                savedJob.company === jobCompany &&
+                savedJob.location === jobLocation
+              );
+          console.log(`[SavedJobsFilter] FILTERING OUT (${matchType}): ${job.id} - ${job.title} at ${job.company}`);
+          if (isContentSaved && !isIdSaved) {
+            const matchedSavedJob = savedJobsContent.find(savedJob => 
+              savedJob.title === jobTitle &&
+              savedJob.company === jobCompany &&
+              savedJob.location === jobLocation
+            );
+            console.log(`[SavedJobsFilter]   → Matched with saved job: ${matchedSavedJob?.id} (${matchedSavedJob?.status})`);
+          }
+        } else {
+          console.log(`[SavedJobsFilter] KEEPING: ${job.id} - ${job.title} at ${job.company}`);
+        }
+      }
+      return !isSaved;
+    });
     
     if (process.env.NODE_ENV === 'development') {
       console.log(`[SavedJobsFilter] After filtering: ${unsavedJobs.length} unsaved jobs (removed ${jobs.length - unsavedJobs.length} saved jobs)`);
