@@ -43,8 +43,9 @@ function ResumesPageContent() {
   const [uploadMethod, setUploadMethod] = useState<'file' | 'text'>('file')
   const [error, setError] = useState<string | null>(null)
   const [redirectMessage, setRedirectMessage] = useState<string | null>(null)
-  const [sortField, setSortField] = useState<'name' | 'createdAt'>('createdAt')
+  const [sortField, setSortField] = useState<'name' | 'jobTitle' | 'createdAt'>('createdAt')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
+  const [nameFilter, setNameFilter] = useState('')
 
   useEffect(() => {
     if (user) {
@@ -276,7 +277,7 @@ function ResumesPageContent() {
     return new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
   }
 
-  const handleSort = (field: 'name' | 'createdAt') => {
+  const handleSort = (field: 'name' | 'jobTitle' | 'createdAt') => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
     } else {
@@ -285,7 +286,12 @@ function ResumesPageContent() {
     }
   }
 
-  const sortedResumes = [...resumes].sort((a, b) => {
+  // Filter resumes by name
+  const filteredResumes = resumes.filter(resume => 
+    resume.name.toLowerCase().includes(nameFilter.toLowerCase())
+  )
+
+  const sortedResumes = [...filteredResumes].sort((a, b) => {
     // Always put default resume on top, regardless of sort
     if (a.isDefault && !b.isDefault) return -1
     if (!a.isDefault && b.isDefault) return 1
@@ -297,6 +303,10 @@ function ResumesPageContent() {
       case 'name':
         aValue = a.name.toLowerCase()
         bValue = b.name.toLowerCase()
+        break
+      case 'jobTitle':
+        aValue = (a.jobTitle || '').toLowerCase()
+        bValue = (b.jobTitle || '').toLowerCase()
         break
       case 'createdAt':
         aValue = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt.seconds * 1000)
@@ -311,7 +321,7 @@ function ResumesPageContent() {
     return 0
   })
 
-  const SortableHeader = ({ field, children }: { field: 'name' | 'createdAt', children: React.ReactNode }) => (
+  const SortableHeader = ({ field, children }: { field: 'name' | 'jobTitle' | 'createdAt', children: React.ReactNode }) => (
     <TableHead 
       className="cursor-pointer hover:bg-muted/50 select-none"
       onClick={() => handleSort(field)}
@@ -406,14 +416,66 @@ function ResumesPageContent() {
             </Dialog>
           </div>
 
-          {resumes.length > 0 ? (
+          {/* Search and Filter Section */}
+          {resumes.length > 0 && (
+            <Card className="p-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1">
+                  <Label htmlFor="nameFilter" className="text-sm font-medium">Resume Name</Label>
+                  <div className="relative">
+                    <Input
+                      id="nameFilter"
+                      placeholder="Search by resume name..."
+                      value={nameFilter}
+                      onChange={(e) => setNameFilter(e.target.value)}
+                      className="pl-8"
+                    />
+                    <svg
+                      className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      />
+                    </svg>
+                  </div>
+                </div>
+                {nameFilter && (
+                  <div className="flex items-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setNameFilter('')}
+                      className="h-9"
+                    >
+                      Clear Filter
+                    </Button>
+                  </div>
+                )}
+              </div>
+              {nameFilter && (
+                <div className="mt-2">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {filteredResumes.length} of {resumes.length} resumes
+                  </p>
+                </div>
+              )}
+            </Card>
+          )}
+
+          {filteredResumes.length > 0 ? (
             <Card>
               <CardContent className="p-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <SortableHeader field="name">Name</SortableHeader>
-                      <TableHead>Job Title</TableHead>
+                      <SortableHeader field="jobTitle">Job Title</SortableHeader>
                       <TableHead>Content Preview</TableHead>
                       <SortableHeader field="createdAt">Created</SortableHeader>
                       <TableHead className="min-w-[200px]">Actions</TableHead>
@@ -514,13 +576,22 @@ function ResumesPageContent() {
                 </Table>
               </CardContent>
             </Card>
-          ) : (
+          ) : resumes.length === 0 ? (
             <Card className="text-center py-12">
               <CardContent>
                 <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
                 <h3 className="text-lg font-semibold mb-2">No Resumes Yet</h3>
                 <p className="text-muted-foreground mb-4">Upload your first resume to get started.</p>
                 <Button onClick={() => setIsUploadDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />Add Resume</Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="text-center py-12">
+              <CardContent>
+                <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                <h3 className="text-lg font-semibold mb-2">No Matching Resumes</h3>
+                <p className="text-muted-foreground mb-4">No resumes match your search criteria. Try adjusting your filters.</p>
+                <Button variant="outline" onClick={() => setNameFilter('')}>Clear Filter</Button>
               </CardContent>
             </Card>
           )}
