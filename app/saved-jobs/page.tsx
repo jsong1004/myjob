@@ -45,7 +45,7 @@ function SavedJobsPageContent() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
   const [titleFilter, setTitleFilter] = useState('')
   const [companyFilter, setCompanyFilter] = useState('')
-  const [statusFilter, setStatusFilter] = useState<ApplicationStatus | 'all'>('all')
+  const [statusFilter, setStatusFilter] = useState<ApplicationStatus | 'all'>('saved')
   const [isAddJobDialogOpen, setIsAddJobDialogOpen] = useState(false)
   const [newJobTitle, setNewJobTitle] = useState('')
   const [newJobCompany, setNewJobCompany] = useState('')
