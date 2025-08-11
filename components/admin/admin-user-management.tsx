@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Loader2, AlertCircle, ArrowUpDown, Users, Mail, Calendar, Trash2, Clock } from "lucide-react"
+import { Loader2, AlertCircle, ArrowUpDown, Users, Mail, Calendar, Trash2, Wrench } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
 import { auth } from "@/lib/firebase"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -47,7 +47,7 @@ export function AdminUserManagement() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null)
-  const [fixingTimestampsUserId, setFixingTimestampsUserId] = useState<string | null>(null)
+  const [repairingTimestampsUserId, setRepairingTimestampsUserId] = useState<string | null>(null)
   
   // State for filtering
   const [emailFilter, setEmailFilter] = useState("")
@@ -146,26 +146,33 @@ export function AdminUserManagement() {
     return isNaN(date.getTime()) ? "Invalid Date" : date.toLocaleDateString()
   }
 
-  const handleFixTimestamps = async (userId: string, userName: string) => {
+  const handleRepairTimestamps = async (userId: string, userName: string, userEmail: string) => {
     if (!user || !auth?.currentUser || !isAdmin) return
 
-    setFixingTimestampsUserId(userId)
+    setRepairingTimestampsUserId(userId)
     try {
       const token = await auth.currentUser.getIdToken()
-      const response = await fetch("/api/admin/fix-user-timestamps", {
+      
+      // Determine repair type based on the user
+      let repairType = "copy_updated_to_created"
+      if (userEmail === "jsong@koreatous.com") {
+        repairType = "set_specific_dates" // Set specific dates for Jaehee Song
+      }
+      
+      const response = await fetch("/api/admin/repair-user-timestamps", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify({ userId, repairType }),
       })
 
       if (response.ok) {
         const data = await response.json()
         toast({
-          title: "Timestamps Fixed",
-          description: `${userName}'s timestamps have been corrected.`,
+          title: "Timestamps Repaired",
+          description: `${userName}'s timestamps have been successfully repaired.`,
         })
         // Refresh the users list
         const fetchUsers = async () => {
@@ -197,21 +204,22 @@ export function AdminUserManagement() {
         const errorData = await response.json()
         toast({
           title: "Error",
-          description: errorData.error || "Failed to fix timestamps.",
+          description: errorData.error || "Failed to repair timestamps.",
           variant: "destructive",
         })
       }
     } catch (error) {
-      console.error("Error fixing timestamps:", error)
+      console.error("Error repairing timestamps:", error)
       toast({
         title: "Error",
-        description: "An error occurred while fixing timestamps.",
+        description: "An error occurred while repairing timestamps.",
         variant: "destructive",
       })
     } finally {
-      setFixingTimestampsUserId(null)
+      setRepairingTimestampsUserId(null)
     }
   }
+
 
   const handleDeleteUser = async (userId: string, userName: string) => {
     if (!user || !auth?.currentUser || !isAdmin) return
@@ -408,19 +416,19 @@ export function AdminUserManagement() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          {userData.email === "jsong@koreatous.com" && (
+                          {userData.createdAt === "Unknown" && (
                             <Button 
                               variant="ghost" 
                               size="sm"
-                              className="h-8 w-8 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-                              disabled={fixingTimestampsUserId === userData.uid}
-                              onClick={() => handleFixTimestamps(userData.uid, userData.name)}
-                              title="Fix Timestamps (Swap Joined/Last Active dates)"
+                              className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              disabled={repairingTimestampsUserId === userData.uid}
+                              onClick={() => handleRepairTimestamps(userData.uid, userData.name, userData.email)}
+                              title="Repair Invalid Timestamps"
                             >
-                              {fixingTimestampsUserId === userData.uid ? (
+                              {repairingTimestampsUserId === userData.uid ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
                               ) : (
-                                <Clock className="h-4 w-4" />
+                                <Wrench className="h-4 w-4" />
                               )}
                             </Button>
                           )}

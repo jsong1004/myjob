@@ -122,6 +122,39 @@ export async function GET(req: NextRequest) {
             .where("userId", "==", userId)
             .get()
 
+          // Get last activity from user-activities collection
+          let lastActivityTimestamp = null
+          try {
+            const activitiesSnapshot = await adminDb.collection("user-activities")
+              .where("userId", "==", userId)
+              .orderBy("timestamp", "desc")
+              .limit(1)
+              .get()
+            
+            if (!activitiesSnapshot.empty) {
+              const lastActivity = activitiesSnapshot.docs[0].data()
+              lastActivityTimestamp = lastActivity.timestamp
+              
+              // Debug: Log activity data for Jaehee Song
+              if (user.email === "jsong@koreatous.com") {
+                console.log(`[Admin][Users][DEBUG] Last activity for ${user.email}:`, {
+                  activityType: lastActivity.activityType,
+                  timestamp: lastActivity.timestamp,
+                  timestampFormatted: lastActivity.timestamp?.toDate ? lastActivity.timestamp.toDate().toLocaleDateString() : 'Invalid'
+                })
+              }
+            } else {
+              // Debug: Log no activities found
+              if (user.email === "jsong@koreatous.com") {
+                console.log(`[Admin][Users][DEBUG] No activities found for ${user.email}`)
+              }
+            }
+          } catch (activityError) {
+            console.warn(`[Admin][Users] Could not fetch last activity for user ${userId}:`, activityError)
+            // Fallback to user.updatedAt if activities collection query fails
+            lastActivityTimestamp = user.updatedAt
+          }
+
           const counts = {
             resumeCount: resumesSnapshot.size,
             savedJobsCount: savedJobsSnapshot.size,
@@ -153,7 +186,8 @@ export async function GET(req: NextRequest) {
             userId: userId, // Ensure we have a consistent userId field
             ...counts,
             createdAt: formatTimestampSafely(user.createdAt),
-            updatedAt: formatTimestampSafely(user.updatedAt),
+            updatedAt: formatTimestampSafely(lastActivityTimestamp || user.updatedAt),
+            lastActivity: formatTimestampSafely(lastActivityTimestamp), // Also include as separate field for debugging
           }
         } catch (error) {
           console.error(`Error fetching additional data for user ${user.uid || user.userId || user.id}:`, error)
