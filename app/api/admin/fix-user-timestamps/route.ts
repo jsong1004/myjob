@@ -39,12 +39,16 @@ export async function POST(req: NextRequest) {
     }
 
     const userData = userDoc.data()
-    console.log(`[Admin][FixTimestamps] Current user data:`, {
+    console.log(`[Admin][FixTimestamps] Current user data for ${userData?.email}:`, {
       email: userData?.email,
       createdAt: userData?.createdAt,
       updatedAt: userData?.updatedAt,
       createdAtDate: userData?.createdAt?.toDate ? userData.createdAt.toDate() : null,
       updatedAtDate: userData?.updatedAt?.toDate ? userData.updatedAt.toDate() : null,
+      createdAtISO: userData?.createdAt?.toDate ? userData.createdAt.toDate().toISOString() : null,
+      updatedAtISO: userData?.updatedAt?.toDate ? userData.updatedAt.toDate().toISOString() : null,
+      createdAtFormatted: userData?.createdAt?.toDate ? userData.createdAt.toDate().toLocaleDateString() : null,
+      updatedAtFormatted: userData?.updatedAt?.toDate ? userData.updatedAt.toDate().toLocaleDateString() : null,
     })
 
     // Swap the createdAt and updatedAt values
@@ -62,6 +66,12 @@ export async function POST(req: NextRequest) {
     })
 
     console.log(`[Admin][FixTimestamps] Successfully swapped timestamps for user ${userId}`)
+    console.log(`[Admin][FixTimestamps] After swap:`, {
+      newCreatedAt: currentUpdatedAt?.toDate ? currentUpdatedAt.toDate().toISOString() : null,
+      newUpdatedAt: currentCreatedAt?.toDate ? currentCreatedAt.toDate().toISOString() : null,
+      newCreatedAtFormatted: currentUpdatedAt?.toDate ? currentUpdatedAt.toDate().toLocaleDateString() : null,
+      newUpdatedAtFormatted: currentCreatedAt?.toDate ? currentCreatedAt.toDate().toLocaleDateString() : null,
+    })
 
     return NextResponse.json({ 
       message: "Timestamps swapped successfully",

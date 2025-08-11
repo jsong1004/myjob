@@ -6,6 +6,46 @@ import { getAuth } from "firebase-admin/auth"
 // Admin user email
 const ADMIN_EMAIL = "jsong@koreatous.com"
 
+// Helper function to safely format timestamps
+function formatTimestampSafely(timestamp: any): string {
+  if (!timestamp) return 'Unknown'
+  
+  try {
+    // Handle Firestore Timestamp objects
+    if (timestamp && typeof timestamp.toDate === 'function') {
+      return timestamp.toDate().toISOString()
+    }
+    
+    // Handle regular Date objects
+    if (timestamp instanceof Date) {
+      return timestamp.toISOString()
+    }
+    
+    // Handle timestamp strings/numbers
+    if (typeof timestamp === 'string' || typeof timestamp === 'number') {
+      const date = new Date(timestamp)
+      if (isNaN(date.getTime())) {
+        return 'Invalid Date'
+      }
+      return date.toISOString()
+    }
+    
+    // Handle Firestore Timestamp-like objects with seconds/nanoseconds
+    if (timestamp && typeof timestamp === 'object' && 'seconds' in timestamp) {
+      const date = new Date(timestamp.seconds * 1000)
+      if (isNaN(date.getTime())) {
+        return 'Invalid Date'
+      }
+      return date.toISOString()
+    }
+    
+    return 'Unknown'
+  } catch (error) {
+    console.warn('Error formatting timestamp:', timestamp, error)
+    return 'Invalid Date'
+  }
+}
+
 interface UserData {
   uid: string;
   email: string;
@@ -112,8 +152,8 @@ export async function GET(req: NextRequest) {
             uid: user.id, // Ensure uid is always the document ID (Firebase Auth UID)
             userId: userId, // Ensure we have a consistent userId field
             ...counts,
-            createdAt: user.createdAt?.toDate ? user.createdAt.toDate().toISOString() : new Date().toISOString(),
-            updatedAt: user.updatedAt?.toDate ? user.updatedAt.toDate().toISOString() : new Date().toISOString(),
+            createdAt: formatTimestampSafely(user.createdAt),
+            updatedAt: formatTimestampSafely(user.updatedAt),
           }
         } catch (error) {
           console.error(`Error fetching additional data for user ${user.uid || user.userId || user.id}:`, error)
@@ -124,8 +164,8 @@ export async function GET(req: NextRequest) {
             resumeCount: 0,
             savedJobsCount: 0,
             coverLettersCount: 0,
-            createdAt: user.createdAt?.toDate ? user.createdAt.toDate().toISOString() : new Date().toISOString(),
-            updatedAt: user.updatedAt?.toDate ? user.updatedAt.toDate().toISOString() : new Date().toISOString(),
+            createdAt: formatTimestampSafely(user.createdAt),
+            updatedAt: formatTimestampSafely(user.updatedAt),
           }
         }
       })

@@ -141,7 +141,7 @@ export function AdminUserManagement() {
   }
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return "N/A"
+    if (!dateString || dateString === 'Unknown' || dateString === 'Invalid Date') return dateString
     const date = new Date(dateString)
     return isNaN(date.getTime()) ? "Invalid Date" : date.toLocaleDateString()
   }

@@ -1,5 +1,9 @@
 # MyJob: AI-Powered Job Search Platform
 
+[![Version](https://img.shields.io/badge/version-2.5.0-blue)](https://github.com/jsong1004/myjob)
+[![Last Updated](https://img.shields.io/badge/last%20updated-August%202025-green)](https://github.com/jsong1004/myjob)
+[![License](https://img.shields.io/badge/license-MIT-orange)](LICENSE)
+
 MyJob is a comprehensive, AI-driven platform designed to revolutionize the job search process. Built with cutting-edge technology, it provides intelligent job matching, AI-powered resume optimization, cover letter generation, and comprehensive application tracking for modern job seekers.
 
 ## ✨ Core Features
@@ -15,6 +19,8 @@ MyJob is a comprehensive, AI-driven platform designed to revolutionize the job s
 - **Advanced File Processing:** Support for PDF, DOCX, TXT, and Markdown with intelligent formatting preservation
 - **Interactive AI Chat:** Real-time resume editing and optimization with AI assistance
 - **Version Control:** Multiple resume management with default selection and download capabilities
+- **Search & Sort:** Search resumes by name and sort by job title or creation date
+- **Batch Operations:** Manage multiple resumes with efficient UI controls
 
 ### 💌 Professional Cover Letter Generation
 - **AI-Powered Creation:** Personalized cover letters tailored to specific jobs and companies
@@ -23,10 +29,12 @@ MyJob is a comprehensive, AI-driven platform designed to revolutionize the job s
 - **Template Variants:** Professional, Creative, Technical, and Entry-Level templates
 
 ### 📊 Comprehensive Application Tracking
-- **Status Management:** Custom tracking (Saved, Applied, Interviewing, Offer, Rejected, Withdrawn) with color-coded indicators
+- **Status Management:** Custom tracking (Saved, Applied, Interviewing, Offer, Rejected, Withdrawn, No Longer Available) with color-coded indicators
 - **Reminder System:** Set follow-up reminders with custom notes and notifications
-- **Advanced Filtering:** Filter by job title, company, status with sortable columns
+- **Advanced Filtering:** Filter by job title, company, status with sortable columns and default "Saved" view
 - **Manual Job Addition:** Add custom job opportunities with full AI scoring integration
+- **Smart Job Filtering:** Content-based deduplication preventing duplicate job listings
+- **Visual Feedback:** Loading states and completion indicators for user actions
 
 ### 👤 Enhanced Profile & Onboarding
 - **Quick Start Onboarding:** 3-step guided setup for new users with progress tracking
@@ -48,8 +56,10 @@ MyJob is a comprehensive, AI-driven platform designed to revolutionize the job s
 ### 🔐 Secure Authentication & Admin
 - **Multi-Provider Auth:** Email/password and Google OAuth with Firebase Authentication
 - **Admin Dashboard:** Comprehensive user management, GitHub issue tracking, and system monitoring
-- **User Management:** Admin deletion capabilities with complete data cleanup
+- **User Management:** Admin deletion capabilities with complete data cleanup and timestamp management
 - **Session Security:** Automatic timeout with 1-hour idle protection
+- **User Activity Tracking:** Detailed user statistics including resumes, saved jobs, and cover letters
+- **Advanced Admin Tools:** User data correction utilities and robust error handling
 
 ## 🎯 Advanced AI Features
 
@@ -99,6 +109,23 @@ MyJob is a comprehensive, AI-driven platform designed to revolutionize the job s
 - **[TypeScript](https://www.typescriptlang.org/)** - Strict mode with comprehensive type definitions
 - **[pnpm](https://pnpm.io/)** - Fast, efficient package management
 - **[ESLint & Prettier](https://eslint.org/)** - Code quality and formatting
+
+## 🔄 Recent Improvements (August 2025)
+
+### Bug Fixes & Enhancements
+- **Enhanced Job Filtering:** Fixed job ID mismatch issues between SerpAPI and Firestore with content-based matching
+- **Improved UI Feedback:** Added visual loading states and completion indicators for "Don't Show" button
+- **Default Filter Optimization:** My Jobs page now defaults to showing "Saved" jobs for better UX
+- **Resume Management Upgrade:** Added search functionality and sortable Job Title column in My Resumes
+- **Admin Panel Fixes:** Resolved timestamp display issues with robust date handling
+- **Database Deduplication:** Comprehensive job deduplication system preventing duplicate listings
+- **Error Handling:** Improved timestamp parsing with graceful fallbacks for invalid data
+
+### Performance Optimizations
+- **Content-Based Matching:** Implemented intelligent job matching by title, company, and location
+- **Batch Processing:** Optimized database queries for better performance
+- **Caching Strategy:** Enhanced caching for job search results and AI responses
+- **Parallel Execution:** Improved concurrent processing for multi-agent operations
 
 ## 🚀 Getting Started
 
