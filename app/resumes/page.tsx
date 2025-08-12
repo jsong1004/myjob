@@ -417,7 +417,7 @@ function ResumesPageContent() {
           </div>
 
           {/* Search and Filter Section */}
-          {resumes.length > 0 && (
+          {!loading && (
             <Card className="p-4">
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="flex-1">
@@ -458,10 +458,10 @@ function ResumesPageContent() {
                   </div>
                 )}
               </div>
-              {nameFilter && (
+              {resumes.length > 0 && (
                 <div className="mt-2">
                   <p className="text-sm text-muted-foreground">
-                    Showing {filteredResumes.length} of {resumes.length} resumes
+                    {nameFilter ? `Showing ${filteredResumes.length} of ${resumes.length} resumes` : `${resumes.length} resumes total`}
                   </p>
                 </div>
               )}

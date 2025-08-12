@@ -53,6 +53,7 @@ function SavedJobsPageContent() {
   const [newJobDescription, setNewJobDescription] = useState('')
   const [newJobApplyUrl, setNewJobApplyUrl] = useState('')
   const [newJobSalary, setNewJobSalary] = useState('')
+  const [newJobSource, setNewJobSource] = useState('LinkedIn')
   const [isAddingJob, setIsAddingJob] = useState(false)
   const [rescoringJobId, setRescoringJobId] = useState<string | null>(null)
   const [jobDetailsOpen, setJobDetailsOpen] = useState<string | null>(null)
@@ -392,6 +393,7 @@ function SavedJobsPageContent() {
           description: newJobDescription,
           applyUrl: newJobApplyUrl,
           salary: newJobSalary,
+          source: newJobSource,
         }),
       })
 
@@ -406,6 +408,7 @@ function SavedJobsPageContent() {
         setNewJobDescription('')
         setNewJobApplyUrl('')
         setNewJobSalary('')
+        setNewJobSource('LinkedIn')
       } else {
         const errorData = await response.json()
         setError(errorData.error || 'Failed to add job')
@@ -616,6 +619,25 @@ function SavedJobsPageContent() {
                       onChange={(e) => setNewJobApplyUrl(e.target.value)} 
                       disabled={isAddingJob} 
                     />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="job-source">Source *</Label>
+                    <Select value={newJobSource} onValueChange={setNewJobSource} disabled={isAddingJob}>
+                      <SelectTrigger id="job-source">
+                        <SelectValue placeholder="Select source" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="LinkedIn">LinkedIn</SelectItem>
+                        <SelectItem value="Indeed">Indeed</SelectItem>
+                        <SelectItem value="Glassdoor">Glassdoor</SelectItem>
+                        <SelectItem value="AngelList">AngelList</SelectItem>
+                        <SelectItem value="Company Website">Company Website</SelectItem>
+                        <SelectItem value="Referral">Referral</SelectItem>
+                        <SelectItem value="Recruiter">Recruiter</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   
                   <div className="space-y-2">

@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     const decoded = await adminAuth.verifyIdToken(token)
     const userId = decoded.uid
     const body = await req.json()
-    const { title, company, location, description, applyUrl, salary } = body
+    const { title, company, location, description, applyUrl, salary, source } = body
 
     if (!title || !company) {
       return NextResponse.json({ error: "Title and company are required" }, { status: 400 })
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
       salary: salary || "",
       postedAt: new Date().toISOString(),
       applyUrl: applyUrl || "",
-      source: "manual",
+      source: source || "manual",
       summary: description || ""
     }
 
@@ -207,6 +207,7 @@ export async function POST(req: NextRequest) {
       location: location || "",
       summary: description || "",
       salary: salary || "",
+      source: source || "manual",
       matchingScore,
       matchingSummary,
       scoreDetails: {},
