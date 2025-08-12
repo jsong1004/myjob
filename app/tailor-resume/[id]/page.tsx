@@ -19,6 +19,7 @@ import { auth } from "@/lib/firebase"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Textarea } from "@/components/ui/textarea"
 import { ResumeTailoringLoadingInfo } from "@/components/resume-tailoring-loading-info"
+import { useToast } from "@/hooks/use-toast"
 
 interface TailorResumePageProps {
   params: Promise<{ id: string }>
@@ -28,6 +29,7 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
   const { id } = use(params)
   const { user } = useAuth()
   const router = useRouter()
+  const { toast } = useToast()
 
   const [job, setJob] = useState<any | null>(null)
   const [currentResume, setCurrentResume] = useState<string>("")
@@ -353,13 +355,21 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
       window.URL.revokeObjectURL(url)
     } catch (error) {
       console.error('Download error:', error)
-      alert('Failed to download resume as PDF. Please try again.')
+      toast({ 
+        title: "Failed to download resume as PDF", 
+        description: "Please try again.",
+        variant: "destructive" 
+      })
     }
   }
 
   const handleSaveResume = async () => {
     if (!user || !auth?.currentUser || !currentResume || !resumeName) {
-      alert("Please sign in and ensure resume content is available")
+      toast({ 
+        title: "Cannot save resume", 
+        description: "Please sign in and ensure resume content is available",
+        variant: "destructive" 
+      })
       return
     }
 
@@ -383,14 +393,22 @@ export default function TailorResumePage({ params }: TailorResumePageProps) {
       })
       
       if (res.ok) {
-        alert("Resume saved successfully!")
+        toast({ title: "Resume saved successfully!", duration: 1000 })
       } else {
         const error = await res.json()
-        alert(`Failed to save resume: ${error.error || 'Unknown error'}`)
+        toast({ 
+          title: "Failed to save resume", 
+          description: error.error || 'Unknown error',
+          variant: "destructive" 
+        })
       }
     } catch (err) {
       console.error('Save error:', err)
-      alert("Failed to save resume. Please try again.")
+      toast({ 
+        title: "Failed to save resume", 
+        description: "Please try again.",
+        variant: "destructive" 
+      })
     } finally {
       setIsSaving(false)
     }
