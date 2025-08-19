@@ -457,7 +457,7 @@ Return JSON in this exact format:
       schema: {
         type: 'object',
         properties: {
-          topStrengths: { type: 'array', items: { type: 'string' }, minItems: 5, maxItems: 5 },
+          topStrengths: { type: 'array', items: { type: 'string' } },
           reasoning: { type: 'string' },
           differentiators: { type: 'array', items: { type: 'string' } },
           roleRelevance: { type: 'string' }
@@ -569,6 +569,7 @@ Your responsibilities:
 3. Combine insights from all agents into a coherent assessment
 4. Apply final validation and adjustments
 5. Create a comprehensive hiring decision summary
+6. Generate detailed, practical interview focus areas with specific questions and red flags
 
 SCORING WEIGHTS:
 - Technical Skills: 25%
@@ -592,6 +593,15 @@ FINAL VALIDATION RULES:
 - If 3+ red flags exist, reduce score by 10-15%
 - Consider role level and seniority expectations
 
+INTERVIEW FOCUS GUIDELINES:
+- Technical Assessment: Focus on missing skills, proficiency gaps, and hands-on experience
+- Experience Validation: Verify claimed experience depth, project scope, and impact
+- Problem Solving: Test analytical thinking, approach to challenges, and solution quality
+- Cultural Fit: Assess communication style, teamwork, and alignment with company values
+- Generate 3-5 specific questions per category based on the candidate's profile
+- Identify 2-3 red flags per category that interviewers should watch for
+- Make questions practical and role-specific, not generic
+
 Return ONLY valid JSON. No explanatory text or markdown.`,
     userTemplate: `Combine all agent results into a final comprehensive assessment.
 
@@ -603,6 +613,18 @@ JOB REQUIREMENTS:
 
 CANDIDATE RESUME:
 {resume}
+
+INTERVIEW FOCUS INSTRUCTIONS:
+Based on the agent results, generate detailed interview focus areas that will help interviewers:
+1. Validate the candidate's claims and experience
+2. Assess gaps identified by the scoring agents
+3. Test problem-solving abilities relevant to the role
+4. Evaluate cultural fit and communication skills
+
+For each category, provide:
+- Specific areas to probe (based on scoring gaps)
+- Practical interview questions (3-5 per category)
+- Red flags to watch for during the interview
 
 Return JSON in this exact format:
 {
@@ -627,7 +649,32 @@ Return JSON in this exact format:
   "redFlags": ["combined red flags from all agents"],
   "positiveIndicators": ["combined positive signals"],
   "hiringRecommendation": "detailed recommendation with rationale",
-  "interviewFocus": ["key areas to probe in interviews"],
+  "interviewFocus": [
+    {
+      "category": "Technical Assessment",
+      "areas": ["specific technical areas to probe"],
+      "questions": ["sample technical questions"],
+      "redFlags": ["technical concerns to watch for"]
+    },
+    {
+      "category": "Experience Validation", 
+      "areas": ["experience areas to verify"],
+      "questions": ["sample experience questions"],
+      "redFlags": ["experience concerns to watch for"]
+    },
+    {
+      "category": "Problem Solving",
+      "areas": ["problem-solving scenarios to test"],
+      "questions": ["sample problem-solving questions"],
+      "redFlags": ["problem-solving concerns to watch for"]
+    },
+    {
+      "category": "Cultural Fit",
+      "areas": ["cultural fit areas to assess"],
+      "questions": ["sample cultural fit questions"],
+      "redFlags": ["cultural fit concerns to watch for"]
+    }
+  ],
   "executionSummary": {
     "agentsExecuted": number,
     "totalExecutionTime": "string",
@@ -650,7 +697,19 @@ Return JSON in this exact format:
           redFlags: { type: 'array', items: { type: 'string' } },
           positiveIndicators: { type: 'array', items: { type: 'string' } },
           hiringRecommendation: { type: 'string' },
-          interviewFocus: { type: 'array', items: { type: 'string' } },
+          interviewFocus: { 
+            type: 'array', 
+            items: { 
+              type: 'object',
+              properties: {
+                category: { type: 'string' },
+                areas: { type: 'array', items: { type: 'string' } },
+                questions: { type: 'array', items: { type: 'string' } },
+                redFlags: { type: 'array', items: { type: 'string' } }
+              },
+              required: ['category', 'areas', 'questions', 'redFlags']
+            }
+          },
           executionSummary: { type: 'object' }
         },
         required: ['overallScore', 'category', 'breakdown', 'hiringRecommendation']
