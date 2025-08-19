@@ -27,7 +27,7 @@ Please edit the cover letter based on the user's request. Focus on:
 5. Optimizing for the specific job and company
 
 Respond with only the complete, updated cover letter text.`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.BALANCED,
     responseFormat: { type: 'text' },
     version: '1.0.0',
@@ -56,7 +56,7 @@ Please provide specific, actionable advice about:
 5. Best practices for cover letter writing
 
 Provide helpful guidance without creating the actual cover letter content.`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.CREATIVE,
     responseFormat: { type: 'text' },
     version: '1.0.0',
@@ -86,7 +86,7 @@ Please adjust the cover letter's tone while:
 5. Keeping the letter engaging and professional
 
 Respond with only the complete, tone-adjusted cover letter text.`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.CREATIVE,
     responseFormat: { type: 'text' },
     version: '1.0.0',
@@ -116,7 +116,7 @@ Please refine the cover letter by:
 5. Making the content more specific and impactful
 
 Respond with only the complete, refined cover letter text.`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.BALANCED,
     responseFormat: { type: 'text' },
     version: '1.0.0',
@@ -146,7 +146,7 @@ Please adjust the cover letter length by:
 5. Maintaining proper flow and coherence
 
 Respond with only the complete, length-adjusted cover letter text.`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.BALANCED,
     responseFormat: { type: 'text' },
     version: '1.0.0',

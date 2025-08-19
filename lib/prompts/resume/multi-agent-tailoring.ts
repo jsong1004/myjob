@@ -53,9 +53,9 @@ Return JSON in this exact format:
   "skillsRemoved": ["Irrelevant skills removed or de-emphasized"],
   "gapsAddressed": ["How this addresses scoring weaknesses"]
 }`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.BALANCED,
-    maxTokens: TOKEN_LIMITS.MEDIUM,
+    maxTokens: TOKEN_LIMITS.LONG,
     responseFormat: {
       type: 'json_object',
       schema: {
@@ -125,7 +125,7 @@ Return JSON in this exact format:
   "actionVerbsImproved": ["Stronger action verbs incorporated"],
   "gapsAddressed": ["How this addresses experience scoring weaknesses"]
 }`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.BALANCED,
     maxTokens: TOKEN_LIMITS.LONG,
     responseFormat: {
@@ -196,9 +196,9 @@ Return JSON in this exact format:
   "weaknessesAddressed": ["Achievement gaps from scoring analysis addressed"],
   "suggestedDevelopmentAreas": ["Areas to develop for stronger candidacy"]
 }`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.BALANCED,
-    maxTokens: TOKEN_LIMITS.MEDIUM,
+    maxTokens: TOKEN_LIMITS.LONG,
     responseFormat: {
       type: 'json_object',
       schema: {
@@ -267,9 +267,9 @@ Return JSON in this exact format:
   "keywordDensityOptimized": ["How keyword density was optimized"],
   "exactMatchPhrases": ["Exact phrases from job description incorporated"]
 }`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.BALANCED,
-    maxTokens: TOKEN_LIMITS.MEDIUM,
+    maxTokens: TOKEN_LIMITS.LONG,
     responseFormat: {
       type: 'json_object',
       schema: {
@@ -338,9 +338,9 @@ Return JSON in this exact format:
   "gapsAddressed": ["How summary addresses potential concerns"],
   "valueProposition": "Core value proposition emphasized"
 }`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.CREATIVE,
-    maxTokens: TOKEN_LIMITS.MEDIUM,
+    maxTokens: TOKEN_LIMITS.LONG,
     responseFormat: {
       type: 'json_object',
       schema: {
@@ -409,9 +409,9 @@ Return JSON in this exact format:
   "continuingEducationSuggestions": ["Continuing education opportunities"],
   "gapsAddressed": ["How education concerns from scoring are addressed"]
 }`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.BALANCED,
-    maxTokens: TOKEN_LIMITS.MEDIUM,
+    maxTokens: TOKEN_LIMITS.LONG,
     responseFormat: {
       type: 'json_object',
       schema: {
@@ -480,9 +480,9 @@ Return JSON in this exact format:
   "narrativeStrategies": ["Positioning narratives for career transitions or gaps"],
   "redFlagsAddressed": ["How critical red flags are addressed"]
 }`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.BALANCED,
-    maxTokens: TOKEN_LIMITS.MEDIUM,
+    maxTokens: TOKEN_LIMITS.LONG,
     responseFormat: {
       type: 'json_object',
       schema: {
@@ -551,9 +551,9 @@ Return JSON in this exact format:
   "communicationStyleAdjustments": ["Communication style changes for industry norms"],
   "industryKeywordsAdded": ["Industry-specific keywords incorporated"]
 }`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.BALANCED,
-    maxTokens: TOKEN_LIMITS.MEDIUM,
+    maxTokens: TOKEN_LIMITS.LONG,
     responseFormat: {
       type: 'json_object',
       schema: {
@@ -638,7 +638,7 @@ Return JSON in this exact format:
   "consistencyImprovements": ["Key consistency improvements across sections"],
   "readabilityEnhancements": ["Major readability and formatting optimizations"]
 }`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.BALANCED,
     maxTokens: TOKEN_LIMITS.LONG,
     responseFormat: {

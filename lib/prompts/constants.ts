@@ -2,8 +2,10 @@
 
 // Common models used across prompts
 export const MODELS = {
-  GPT4O_MINI: 'openai/gpt-4o-mini',
-  GPT4O: 'openai/gpt-4o',
+  GPT41_MINI: 'openai/gpt-4.1-mini',
+  GPT41: 'openai/gpt-4.1',
+  GPT5_MINI: 'openai/gpt-5-mini',
+  GPT5: 'openai/gpt-5',
   CLAUDE_SONNET: 'anthropic/claude-3-sonnet',
   CLAUDE_HAIKU: 'anthropic/claude-3-haiku'
 } as const

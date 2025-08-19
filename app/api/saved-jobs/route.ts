@@ -5,6 +5,7 @@ import { getAuth } from "firebase-admin/auth"
 import { SavedJob, JobSearchResult } from "@/lib/types"
 import { executeMultiAgentJobScoring, executeEnhancedJobScoring } from "@/lib/prompts/api-helpers"
 import { logActivity } from "@/lib/activity-logger"
+import { MODELS } from "@/lib/prompts/constants"
 
 export async function GET(req: NextRequest) {
   try {
@@ -213,7 +214,7 @@ export async function POST(req: NextRequest) {
             tokenUsage: actualTokenUsage,
             timeTaken: scoringExecutionTime / 1000, // Convert to seconds
             metadata: {
-              model: useMultiAgent ? 'multi-agent-system' : 'openai/gpt-4o-mini',
+              model: useMultiAgent ? 'multi-agent-system' : MODELS.GPT5_MINI,
               jobs_scored: 1,
               scoring_type: scoringType,
               multi_agent: useMultiAgent,

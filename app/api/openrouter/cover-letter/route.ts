@@ -4,6 +4,7 @@ import { initFirebaseAdmin } from "@/lib/firebase-admin-init";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { executeCoverLetterGeneration } from "@/lib/prompts/api-helpers";
+import { MODELS } from "@/lib/prompts/constants";
 
 export async function POST(req: NextRequest) {
   const { message, resume, jobTitle, company, jobDescription, mode = 'agent', coverLetter: existingCoverLetter } = await req.json()
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
         tokenUsage: result.usage?.totalTokens || 0,
         timeTaken,
         metadata: { 
-          model: 'openai/gpt-4o-mini', 
+          model: MODELS.GPT5_MINI, 
           mode, 
           user_prompt: message,
           prompt_system: 'centralized',

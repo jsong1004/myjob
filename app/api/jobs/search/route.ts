@@ -518,7 +518,44 @@ export async function POST(req: NextRequest) {
         console.log(`[JobSearch] ✅ Problematic job successfully excluded from final results`);
       }
     }
-    return NextResponse.json({ jobs: finalJobsToReturn });
+
+    // STEP 7: Optional company enrichment (culture + news)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[JobSearch] === STEP 7: Enriching Company Info (culture/news) ===`);
+    }
+    async function fetchCompanyInfo(companyName: string) {
+      try {
+        const serpApiCompanyParams = {
+          engine: "google",
+          api_key: apiKey,
+          q: companyName,
+          hl: "en",
+          gl: "us",
+        } as const;
+        const companyResults: any = await getJson(serpApiCompanyParams);
+        let culture = "N/A" as string;
+        let news: string[] = [];
+        if (companyResults.knowledge_graph?.description) {
+          culture = companyResults.knowledge_graph.description;
+        } else if (Array.isArray(companyResults.organic_results) && companyResults.organic_results.length > 0) {
+          culture = companyResults.organic_results[0].snippet || "N/A";
+        }
+        if (Array.isArray(companyResults.news_results)) {
+          news = companyResults.news_results.slice(0, 3).map((n: any) => n.title).filter(Boolean);
+        }
+        return { culture, news };
+      } catch (err) {
+        console.warn(`[JobSearch] Failed to fetch company info for ${companyName}:`, err);
+        return { culture: "N/A", news: [] };
+      }
+    }
+
+    const finalJobsWithCompany = await Promise.all(finalJobsToReturn.map(async (job) => {
+      const { culture, news } = await fetchCompanyInfo(job.company);
+      return { ...job, companyCulture: culture, companyNews: news } as JobSearchResult & { companyCulture?: string; companyNews?: string[] };
+    }));
+
+    return NextResponse.json({ jobs: finalJobsWithCompany });
 
   } catch (error) {
     console.error(`[JobSearch] UNEXPECTED ERROR:`, error);

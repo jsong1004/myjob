@@ -3,6 +3,7 @@ import { initFirebaseAdmin } from "@/lib/firebase-admin-init"
 import { getAuth } from "firebase-admin/auth"
 import { executeJobScoring, executeEnhancedJobScoring, executeMultiAgentJobScoring } from "@/lib/prompts/api-helpers"
 import { logActivity } from "@/lib/activity-logger"
+import { MODELS } from "@/lib/prompts/constants"
 
 export async function POST(req: NextRequest) {
   try {
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
     try {
       // Determine scoring type and model
       let scoringType = 'basic'
-      let model = 'openai/gpt-4o-mini'
+      let model = MODELS.GPT5_MINI
       
       if (multiAgent) {
         scoringType = 'multi-agent'

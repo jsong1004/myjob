@@ -33,7 +33,7 @@ COVER_LETTER:
 
 SUMMARY:
 [Brief summary of the key selling points highlighted in the cover letter]`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.CREATIVE,
     responseFormat: {
       type: 'text',
@@ -74,7 +74,7 @@ COVER_LETTER:
 
 SUMMARY:
 [Summary of the creative elements and key messages]`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.VERY_CREATIVE,
     responseFormat: {
       type: 'text',
@@ -115,7 +115,7 @@ COVER_LETTER:
 
 SUMMARY:
 [Summary of technical highlights and key qualifications]`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.BALANCED,
     responseFormat: {
       type: 'text',
@@ -156,7 +156,7 @@ COVER_LETTER:
 
 SUMMARY:
 [Summary of key strengths and potential highlighted]`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.CREATIVE,
     responseFormat: {
       type: 'text',

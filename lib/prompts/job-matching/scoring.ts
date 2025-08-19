@@ -52,7 +52,7 @@ Return JSON array:
     "summary": "Fair candidate with development needs"
   }
 ]`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.PRECISE,
     responseFormat: {
       type: 'json',
@@ -106,7 +106,7 @@ Please respond with a JSON array where each object contains:
 - gaps: array of potential gaps
 - recommendations: array of specific recommendations
 - summary: brief overall assessment`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.BALANCED,
     responseFormat: {
       type: 'json',
@@ -150,7 +150,7 @@ Please respond with a JSON array where each object contains:
 - id: job identifier
 - score: number (0-100)
 - summary: brief explanation of the score`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.PRECISE,
     responseFormat: {
       type: 'json',
@@ -184,7 +184,7 @@ Jobs:
 {jobs}
 
 Provide a JSON array with id, score (0-100), and brief summary for each job.`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.PRECISE,
     responseFormat: {
       type: 'json',

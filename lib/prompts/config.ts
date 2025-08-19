@@ -3,13 +3,13 @@ import { MODELS, TEMPERATURE, TOKEN_LIMITS } from './constants'
 
 export const GLOBAL_CONFIG = {
   // Default model for all prompts
-  defaultModel: MODELS.GPT4O_MINI,
+  defaultModel: MODELS.GPT5_MINI,
   
   // Default temperature
   defaultTemperature: TEMPERATURE.BALANCED,
   
   // Default token limit
-  defaultMaxTokens: TOKEN_LIMITS.LONG,
+  defaultMaxTokens: TOKEN_LIMITS.VERY_LONG,
   
   // API configuration
   apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',

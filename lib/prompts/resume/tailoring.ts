@@ -4,43 +4,62 @@ import { MODELS, TEMPERATURE, TAGS } from '../constants'
 import { SYSTEM_ROLES } from '../shared/system-roles'
 
 export const RESUME_TAILORING_PROMPTS: Record<string, PromptConfig> = {
+// Replace the ATS_OPTIMIZED entry
   ATS_OPTIMIZED: {
     id: 'resume-tailoring-ats',
     name: 'ATS-Optimized Resume Tailoring',
     description: 'Resume optimization for ATS systems and recruiter appeal',
     systemRole: SYSTEM_ROLES.RESUME_OPTIMIZATION_SPECIALIST,
-    userTemplate: `You are helping a candidate tailor their resume for a specific job opportunity. Focus on ATS optimization while maintaining authenticity and readability.
+    userTemplate: `You are tailoring a resume strictly based on provided inputs.
 
-INPUTS:
-- Job Title: {jobTitle}
-- Company: {company}
-- Job Description: {jobDescription}
-- Current Resume: {resume}
-- User Request: {userRequest}
+  INPUTS:
+  - Job Title: {jobTitle}
+  - Company: {company}
+  - Job Description: {jobDescription}
+  - Current Resume: {resume}
+  - User Request: {userRequest}
 
-Please analyze the job requirements and make the requested changes to optimize the resume for this specific role. Focus on:
-1. Keyword optimization for ATS
-2. Highlighting relevant experience
-3. Aligning skills with job requirements
-4. Improving formatting and structure if needed
+  RULES (do all):
+  1) Do NOT invent roles, dates, companies, degrees, certifications, or metrics.
+  2) Only add content if implied by resume; if you must suggest, prefix with [SUGGESTED] and keep minimal.
+  3) Prefer concise bullets; start with strong action verbs; quantify only if numbers exist in the resume.
+  4) Optimize for ATS keywords from the job description without keyword stuffing.
+  5) No emojis, no extraneous markdown decorations.
 
-Respond with:
-UPDATED_RESUME:
-[The complete updated resume in clean markdown format - NO ** at beginning or end]
+  STEPS:
+  A) Extract 10–20 critical keywords/phrases from the job description.
+  B) Map each keyword to exact resume evidence (or mark as missing).
+  C) Apply strictly-justified edits to improve alignment.
 
-CHANGE_SUMMARY:
-[Brief summary of the key changes made and why they improve the resume for this role]
+  Respond with:
+  UPDATED_RESUME:
+  [Complete updated resume in clean markdown format — no leading/trailing ** or code fences]
 
-IMPORTANT: Do not add ** or any other markdown artifacts at the beginning or end of the resume content. Return clean, properly formatted markdown.`,
-    model: MODELS.GPT4O_MINI,
-    temperature: TEMPERATURE.BALANCED,
+  CHANGE_SUMMARY:
+  - Key edits (max 6 bullets)
+  - Sections touched
+  - Rationale per edit (brief)
+
+  MISSING_KEYWORDS:
+  [List keywords not clearly evidenced in the resume]
+
+  RISKS:
+  [Brief risks introduced by edits, if any]
+
+  FOLLOW_UP_QUESTIONS:
+  [Up to 3 short questions for missing info that would materially improve the resume]
+
+  IMPORTANT: Do not add ** or any other markdown artifacts at the beginning or end of the resume     │
+ │   content. Return clean, properly formatted markdown.`,   
+    model: MODELS.GPT5_MINI,
+    temperature: TEMPERATURE.PRECISE,
     responseFormat: {
       type: 'text',
       examples: [
-        'UPDATED_RESUME:\n[resume content]\n\nCHANGE_SUMMARY:\n[summary of changes]'
+        'UPDATED_RESUME:\n[resume]\n\nCHANGE_SUMMARY:\n[bullets]\n\nMISSING_KEYWORDS:\n[list]\n\nRISKS:\n[list]\n\nFOLLOW_UP_QUESTIONS:\n[list]'
       ]
     },
-    version: '1.0.0',
+    version: '1.1.0',
     tags: [TAGS.TAILORING, TAGS.ATS, 'resume']
   },
 
@@ -66,7 +85,7 @@ Please analyze the job requirements against the current resume and provide speci
 5. Content recommendations
 
 Provide helpful advice without making actual changes to the resume.`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.CREATIVE,
     responseFormat: { type: 'text' },
     version: '1.0.0',
@@ -106,7 +125,7 @@ IMPORTANT:
 - Do NOT provide improvement suggestions unless specifically asked
 - Be honest about what is and isn't mentioned in the sources
 - Reference specific details from the relevant source(s)`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.BALANCED,
     responseFormat: { type: 'text' },
     version: '1.0.0',
@@ -140,7 +159,7 @@ UPDATED_RESUME:
 
 CHANGE_SUMMARY:
 [Detailed summary of enhancements made and their impact]`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.BALANCED,
     responseFormat: {
       type: 'text',
@@ -179,7 +198,7 @@ UPDATED_RESUME:
 
 CHANGE_SUMMARY:
 [Summary of industry-specific changes and their relevance]`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.BALANCED,
     responseFormat: {
       type: 'text',

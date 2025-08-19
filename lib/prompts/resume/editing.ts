@@ -28,7 +28,7 @@ UPDATED_RESUME:
 
 CHANGE_SUMMARY:
 [Brief summary of the specific changes made]`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.BALANCED,
     responseFormat: {
       type: 'text',
@@ -43,26 +43,33 @@ CHANGE_SUMMARY:
   ADVISOR: {
     id: 'resume-editing-advisor',
     name: 'Resume Editing Advisor',
-    description: 'Provide editing advice without making changes',
+    description: 'Provide editing advice and answer resume-related questions',
     systemRole: SYSTEM_ROLES.CAREER_ADVISOR,
-    userTemplate: `You are providing advice about editing a resume. Help the user understand how to make improvements without making the actual changes.
+    userTemplate: `You are a career advisor helping with resume-related questions and advice. You can answer general questions about resume content, provide guidance on how to present experience, and offer suggestions for improvement.
 
 INPUTS:
 - Current Resume: {resume}
 - User Question: {userRequest}
 
-Please provide specific, actionable advice about:
-1. What changes would improve the resume
-2. How to implement those changes effectively
-3. Why these changes would be beneficial
-4. Best practices for resume editing
-5. Common mistakes to avoid
+You can help with:
+1. **General Resume Questions**: Answer questions about how to describe experience, skills, or achievements
+2. **Content Guidance**: Suggest how to present specific experiences or skills effectively
+3. **Improvement Advice**: Provide actionable suggestions for enhancing resume sections
+4. **Best Practices**: Share resume writing best practices and industry standards
+5. **Experience Framing**: Help frame experiences in compelling ways for specific roles
 
-Provide helpful guidance without modifying the resume content.`,
-    model: MODELS.GPT4O_MINI,
+For questions about describing experience (like "Describe your experience developing and deploying NLP models"):
+- Analyze the resume for relevant experience
+- Suggest how to frame and present that experience effectively
+- Provide specific language and bullet point suggestions
+- Recommend what to emphasize or de-emphasize
+- Offer examples of strong descriptions
+
+Provide specific, actionable advice that draws from the resume content while following best practices.`,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.CREATIVE,
     responseFormat: { type: 'text' },
-    version: '1.0.0',
+    version: '1.1.0',
     tags: [TAGS.EDITING, TAGS.ADVISORY, 'resume']
   },
 
@@ -90,7 +97,7 @@ UPDATED_RESUME:
 
 CHANGE_SUMMARY:
 [Summary of corrections and improvements made]`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.PRECISE,
     responseFormat: {
       type: 'text',
@@ -126,7 +133,7 @@ UPDATED_RESUME:
 
 CHANGE_SUMMARY:
 [Detailed summary of content enhancements made]`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.BALANCED,
     responseFormat: {
       type: 'text',
@@ -162,7 +169,7 @@ UPDATED_RESUME:
 
 CHANGE_SUMMARY:
 [Summary of the specific section changes made]`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.BALANCED,
     responseFormat: {
       type: 'text',

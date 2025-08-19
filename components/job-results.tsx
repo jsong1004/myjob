@@ -32,6 +32,8 @@ interface Job {
   matchingScore: number // AI score, required
   matchingSummary?: string
   summary?: string // Add this for job summary
+  companyCulture?: string
+  companyNews?: string[]
 }
 
 interface JobResultsProps {
@@ -593,16 +595,30 @@ export function JobResults({ results }: JobResultsProps) {
         {jobDetailsOpen && (
           <Dialog open={!!jobDetailsOpen} onOpenChange={() => setJobDetailsOpen(null)}>
             <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>
-                  {sortedResults.find(job => job.id === jobDetailsOpen)?.title} at {sortedResults.find(job => job.id === jobDetailsOpen)?.company}
-                </DialogTitle>
+              <DialogHeader className="flex flex-row items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <DialogTitle>
+                    {sortedResults.find(job => job.id === jobDetailsOpen)?.title} at {sortedResults.find(job => job.id === jobDetailsOpen)?.company}
+                  </DialogTitle>
+                </div>
+                {(() => {
+                  const job = sortedResults.find(job => job.id === jobDetailsOpen)
+                  if (!job || !job.applyUrl) return null
+                  return (
+                    <div className="flex items-center h-full pt-8">
+                      <Button asChild className="ml-4">
+                        <a href={job.applyUrl} target="_blank" rel="noopener noreferrer">
+                          Apply for this job
+                        </a>
+                      </Button>
+                    </div>
+                  )
+                })()}
               </DialogHeader>
-              <div className="space-y-4">
+              <div className="space-y-4 -mt-8">
                 {(() => {
                   const job = sortedResults.find(job => job.id === jobDetailsOpen)
                   if (!job) return null
-                  
                   return (
                     <>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -623,12 +639,10 @@ export function JobResults({ results }: JobResultsProps) {
                           <Badge variant="secondary">{job.salary || "Not specified"}</Badge>
                         </div>
                       </div>
-                      
                       <div>
                         <h3 className="font-semibold mb-2">Description</h3>
                         <p className="text-muted-foreground whitespace-pre-wrap">{job.description || job.summary || "No description available"}</p>
                       </div>
-                      
                       {job.qualifications && job.qualifications.length > 0 && (
                         <div>
                           <h3 className="font-semibold mb-2">Qualifications</h3>
@@ -639,7 +653,6 @@ export function JobResults({ results }: JobResultsProps) {
                           </ul>
                         </div>
                       )}
-                      
                       {job.responsibilities && job.responsibilities.length > 0 && (
                         <div>
                           <h3 className="font-semibold mb-2">Responsibilities</h3>
@@ -650,7 +663,6 @@ export function JobResults({ results }: JobResultsProps) {
                           </ul>
                         </div>
                       )}
-                      
                       {job.benefits && job.benefits.length > 0 && (
                         <div>
                           <h3 className="font-semibold mb-2">Benefits</h3>
@@ -661,16 +673,22 @@ export function JobResults({ results }: JobResultsProps) {
                           </ul>
                         </div>
                       )}
-                      
-                      {job.applyUrl && (
-                        <div className="pt-4 border-t">
-                          <Button asChild>
-                            <a href={job.applyUrl} target="_blank" rel="noopener noreferrer">
-                              Apply for this job
-                            </a>
-                          </Button>
+                      <div className="space-y-2 pt-4 border-t">
+                        <div>
+                          <span className="font-bold">Company Culture: </span>
+                          <span className="text-muted-foreground">{job.companyCulture ? job.companyCulture : 'N/A'}</span>
                         </div>
-                      )}
+                        <div>
+                          <span className="font-bold">Recent Company News: </span>
+                          <span className="text-muted-foreground">
+                            {(job.companyNews ?? []).length > 0
+                              ? (job.companyNews ?? []).slice(0,2).map((news, idx) => (
+                                  <span key={idx}>{news}{idx < Math.min(1, (job.companyNews ?? []).length-1) ? ' ' : ''}</span>
+                                ))
+                              : 'N/A'}
+                          </span>
+                        </div>
+                      </div>
                     </>
                   )
                 })()}

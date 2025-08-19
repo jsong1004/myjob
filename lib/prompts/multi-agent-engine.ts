@@ -27,6 +27,7 @@ import {
   SCORE_CATEGORIES,
   ENHANCED_SCORING_WEIGHTS 
 } from './types'
+import { MODELS } from './constants'
 
 /**
  * Execute a single agent with error handling, retry logic, and activity logging
@@ -85,6 +86,20 @@ async function executeAgent(
       requirements: jobData.description, // Additional parsing could be done here
     }, null, 2)
 
+    // Agent-specific token limits based on expected output size
+    const agentTokenLimits: Record<string, number> = {
+      'technicalSkills': 4000,     // Technical match lists can be extensive - increased
+      'experienceDepth': 4000,     // Experience descriptions are detailed - increased
+      'achievements': 3500,        // Needs more for detailed quantified results lists
+      'education': 3000,           // Certification lists can be moderate - increased
+      'softSkills': 3500,          // Moderate detail needed - increased
+      'careerProgression': 2500,   // Career path analysis is moderate
+      'strengths': 3000,           // Needs more for comprehensive strength analysis
+      'weaknesses': 3000           // Needs more for detailed improvement plans
+    }
+    
+    const maxTokens = agentTokenLimits[agentType] || 2500
+
     // Execute the agent prompt with extended timeout for multi-agent processing
     const response = await promptManager.executePrompt({
       promptId,
@@ -100,8 +115,8 @@ async function executeAgent(
         }
       },
       overrides: {
-        // Individual agents should be faster since they're focused
-        maxTokens: 1000 // Reduced from default for faster responses
+        // Agent-specific token limit to prevent truncation
+        maxTokens
       }
     })
 
@@ -123,7 +138,7 @@ async function executeAgent(
           tokenUsage: response.usage.totalTokens,
           timeTaken: executionTime / 1000,
           metadata: {
-            model: 'openai/gpt-4o-mini',
+            model: MODELS.GPT5_MINI,
             agent_type: agentType,
             job_title: jobData.title,
             job_company: jobData.company,
@@ -337,7 +352,7 @@ async function executeOrchestrationAgent(
       },
       overrides: {
         // Orchestration needs more tokens to process all agent results
-        maxTokens: 2000
+        maxTokens: 3000
       }
     })
 
@@ -359,7 +374,7 @@ async function executeOrchestrationAgent(
           tokenUsage: response.usage.totalTokens,
           timeTaken: executionTime / 1000,
           metadata: {
-            model: 'openai/gpt-4o-mini',
+            model: MODELS.GPT5_MINI,
             agent_type: 'orchestration',
             job_title: jobData.title,
             job_company: jobData.company,
@@ -535,12 +550,19 @@ function createFallbackOrchestrationResult(
   const finalScore = totalWeight > 0 ? (totalScore / totalWeight) : 0
   console.log(`🔧 [Fallback] Final calculated score: ${finalScore}`)
   
-  // Determine category
-  const category = Object.entries(SCORE_CATEGORIES).find(([key, cat]) => 
+  // Determine category with defensive logic
+  let category = Object.entries(SCORE_CATEGORIES).find(([key, cat]) => 
     finalScore >= cat.min && finalScore <= cat.max
   )?.[0] || 'poor'
   
+  // Defensive logic: ensure 70%+ scores don't get "Do Not Proceed"
+  if (finalScore >= 70 && category === 'poor') {
+    category = 'good' // Force to good category for 70%+ scores
+    console.log(`🔧 [Fallback] Score ${finalScore}% was categorized as 'poor', correcting to 'good'`)
+  }
+  
   const categoryDetails = SCORE_CATEGORIES[category]
+  console.log(`🔧 [Fallback] Score ${finalScore}% categorized as '${category}' with action: ${categoryDetails.action}`)
   
   // Extract strengths and weaknesses
   const keyStrengths = agentResults.analysis.strengths?.result.topStrengths || []

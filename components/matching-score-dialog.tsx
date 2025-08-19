@@ -98,8 +98,8 @@ export function MatchingScoreDialog({ job, isOpen, onClose }: MatchingScoreDialo
   const matchingBreakdown = hasEnhancedData ? {
     skills: {
       score: enhancedScoreDetails.breakdown.technicalSkills?.score || 0,
-      matched: extractStringArray(enhancedScoreDetails.keyStrengths).filter((s: string) => s.toLowerCase().includes('skill') || s.toLowerCase().includes('technical')),
-      missing: extractStringArray(enhancedScoreDetails.redFlags).filter((f: string) => f.toLowerCase().includes('skill') || f.toLowerCase().includes('technical')),
+      matched: extractStringArray(enhancedScoreDetails.keyStrengths).slice(0, 5), // Show top 5 strengths
+      missing: extractStringArray(enhancedScoreDetails.keyWeaknesses).slice(0, 5), // Show top 5 weaknesses
     },
     experience: {
       score: enhancedScoreDetails.breakdown.experienceDepth?.score || 0,
@@ -114,7 +114,7 @@ export function MatchingScoreDialog({ job, isOpen, onClose }: MatchingScoreDialo
     },
     keywords: {
       score: enhancedScoreDetails.breakdown.achievements?.score || 0,
-      matched: extractStringArray(enhancedScoreDetails.positiveIndicators),
+      matched: extractStringArray(enhancedScoreDetails.positiveIndicators).slice(0, 6), // Top 6 positive indicators
       total: extractStringArray(enhancedScoreDetails.positiveIndicators).length + extractStringArray(enhancedScoreDetails.redFlags).length,
     },
   } : scoreDetails ? {
@@ -325,27 +325,91 @@ export function MatchingScoreDialog({ job, isOpen, onClose }: MatchingScoreDialo
               </span>
             </div>
             <Progress value={matchingBreakdown.keywords.score} className="mb-3" />
-            <div>
-              <p className="text-sm text-gray-600 mb-2">
+            <div className="space-y-3">
+              <p className="text-sm text-gray-600">
                 Matched {matchingBreakdown.keywords.matched.length} of {matchingBreakdown.keywords.total} key terms:
               </p>
-              <div className="flex flex-wrap gap-1">
-                {matchingBreakdown.keywords.matched.map((keyword) => (
-                  <Badge key={keyword} variant="secondary" className="text-xs">
-                    {keyword}
-                  </Badge>
-                ))}
-              </div>
+              
+              {/* Matched Keywords */}
+              {matchingBreakdown.keywords.matched.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-green-600 mb-1">✓ Matched Terms:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {matchingBreakdown.keywords.matched.map((keyword) => (
+                      <Badge key={keyword} variant="secondary" className="text-xs bg-green-50 text-green-700 border-green-200">
+                        ✓ {keyword}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Unmatched Keywords - show red flags or missing areas */}
+              {(matchingBreakdown.skills.missing.length > 0 || 
+                (enhancedScoreDetails?.redFlags && extractStringArray(enhancedScoreDetails.redFlags).length > 0)) && (
+                <div>
+                  <p className="text-xs font-medium text-orange-600 mb-1">✗ Areas Needing Improvement:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {(hasEnhancedData 
+                      ? extractStringArray(enhancedScoreDetails.redFlags).slice(0, 5) // Top 5 red flags
+                      : matchingBreakdown.skills.missing
+                    ).map((keyword) => (
+                      <Badge key={keyword} variant="secondary" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
+                        ✗ {keyword}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Summary Section */}
-          {job.matchingSummary && (
+          {/* Match Summary Section - Actual Analysis Summary */}
+          {(job.matchingSummary || enhancedScoreDetails?.hiringRecommendation) && (
             <div className="pt-4 border-t">
-              <h3 className="text-lg font-semibold mb-3">Match Summary</h3>
-              <div className="flex items-start gap-3 bg-blue-50 p-4 rounded-lg">
-                <CheckCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-1" />
-                <p className="text-gray-800 text-sm leading-relaxed">{job.matchingSummary}</p>
+              <h3 className="text-lg font-semibold mb-3">Match Analysis Summary</h3>
+              <div className="space-y-3">
+                <div className="flex items-start gap-3 bg-blue-50 p-4 rounded-lg">
+                  <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-1" />
+                  <div className="space-y-2">
+                    <p className="text-gray-800 text-sm leading-relaxed font-medium">
+                      Hiring Recommendation:
+                    </p>
+                    <p className="text-gray-700 text-sm leading-relaxed">
+                      {(() => {
+                        const recommendation = job.matchingSummary || enhancedScoreDetails?.hiringRecommendation || ""
+                        // Fix illogical "Do Not Proceed" for good scores
+                        if (job.matchingScore >= 70 && recommendation.includes("Do Not Proceed")) {
+                          return `Standard Interview Process - Overall score: ${job.matchingScore}% (Good Match)`
+                        }
+                        return recommendation
+                      })()}
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Overall Score Category */}
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">Match Category:</span>
+                    <Badge 
+                      variant={
+                        job.matchingScore >= 90 ? 'default' :
+                        job.matchingScore >= 80 ? 'secondary' :
+                        job.matchingScore >= 70 ? 'secondary' :
+                        job.matchingScore >= 60 ? 'outline' :
+                        'destructive'
+                      }
+                      className="capitalize"
+                    >
+                      {job.matchingScore >= 90 ? 'Exceptional' :
+                       job.matchingScore >= 80 ? 'Strong' :
+                       job.matchingScore >= 70 ? 'Good' :
+                       job.matchingScore >= 60 ? 'Fair' :
+                       job.matchingScore >= 45 ? 'Weak' : 'Poor'}
+                    </Badge>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -387,24 +451,69 @@ export function MatchingScoreDialog({ job, isOpen, onClose }: MatchingScoreDialo
 
               {/* Detailed Breakdown */}
               <div>
-                <h4 className="font-medium text-gray-700 mb-2">Detailed Score Breakdown</h4>
-                <div className="space-y-2">
-                  {Object.entries(enhancedScoreDetails.breakdown || {}).map(([category, details]: [string, any]) => (
-                    <div key={category} className="bg-gray-50 p-3 rounded">
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-sm font-medium capitalize">
-                          {category.replace(/([A-Z])/g, ' $1').trim()}
-                        </span>
-                        <span className={`text-sm font-bold ${getScoreColor(details.score)}`}>
-                          {details.score}%
-                        </span>
+                <h4 className="font-medium text-gray-700 mb-3">Detailed Score Breakdown</h4>
+                <div className="space-y-3">
+                  {Object.entries(enhancedScoreDetails.breakdown || {}).map(([category, details]: [string, any]) => {
+                    const categoryName = category.replace(/([A-Z])/g, ' $1').trim()
+                    const getCategoryIcon = () => {
+                      if (category.includes('technical')) return '🛠️'
+                      if (category.includes('experience')) return '💼'
+                      if (category.includes('achievement')) return '🏆'
+                      if (category.includes('education')) return '🎓'
+                      if (category.includes('soft')) return '💬'
+                      if (category.includes('career')) return '📈'
+                      return '📊'
+                    }
+                    
+                    return (
+                      <div key={category} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">{getCategoryIcon()}</span>
+                            <span className="text-sm font-semibold capitalize">
+                              {categoryName}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className={`text-lg font-bold ${getScoreColor(details.score)}`}>
+                              {details.score}%
+                            </span>
+                            {details.weight && (
+                              <p className="text-xs text-gray-500">Weight: {(details.weight * 100).toFixed(0)}%</p>
+                            )}
+                          </div>
+                        </div>
+                        <Progress value={details.score} className="h-2 mb-3" />
+                        {details.reasoning && (
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-gray-700">Analysis:</p>
+                            <p className="text-xs text-gray-600 leading-relaxed">{details.reasoning}</p>
+                          </div>
+                        )}
+                        {/* Show sub-scores if available */}
+                        {details.breakdown && (
+                          <div className="mt-2 pt-2 border-t border-gray-200">
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              {Object.entries(details.breakdown).map(([subKey, subValue]: [string, any]) => (
+                                <div key={subKey} className="flex justify-between">
+                                  <span className="text-gray-600">{subKey}:</span>
+                                  <span className="font-medium">{subValue}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <Progress value={details.score} className="h-2 mb-2" />
-                      {details.reasoning && (
-                        <p className="text-xs text-gray-600">{details.reasoning}</p>
-                      )}
-                    </div>
-                  ))}
+                    )
+                  })}
+                </div>
+                
+                {/* Overall Score Calculation */}
+                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-blue-900">Weighted Average Score:</span>
+                    <span className="text-lg font-bold text-blue-600">{enhancedScoreDetails.overallScore}%</span>
+                  </div>
                 </div>
               </div>
 

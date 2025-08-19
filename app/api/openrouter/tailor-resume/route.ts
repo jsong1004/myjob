@@ -3,6 +3,7 @@ import { logActivity } from "@/lib/activity-logger";
 import { initFirebaseAdmin } from "@/lib/firebase-admin-init";
 import { getAuth } from "firebase-admin/auth";
 import { executeResumeTailoring, executeMultiAgentResumeTailoring } from "@/lib/prompts/api-helpers";
+import { MODELS } from "@/lib/prompts/constants";
 
 export async function POST(req: NextRequest) {
   const { 
@@ -140,7 +141,7 @@ export async function POST(req: NextRequest) {
                 tokenUsage: 600, // Enhanced scoring estimate
                 timeTaken: contextScoringTime / 1000,
                 metadata: {
-                  model: 'openai/gpt-4o-mini',
+                  model: MODELS.GPT5_MINI,
                   jobs_scored: 1,
                   scoring_type: 'enhanced',
                   triggered_by: 'resume_tailoring_context',
@@ -211,7 +212,7 @@ export async function POST(req: NextRequest) {
         tokenUsage: result.usage?.totalTokens || 0,
         timeTaken,
         metadata: { 
-          model: 'openai/gpt-4o-mini', 
+          model: MODELS.GPT5_MINI, 
           mode: mode, 
           user_prompt: message,
           prompt_system: 'centralized-legacy',

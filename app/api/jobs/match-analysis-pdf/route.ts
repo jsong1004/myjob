@@ -315,14 +315,36 @@ function generateAnalysisHTML(analysisData: any) {
         </div>
         <div style="margin-top: 10px;">
           <strong>Matched ${breakdown.keywords.matched.length} of ${breakdown.keywords.total} key terms:</strong><br>
-          ${breakdown.keywords.matched.map((keyword: string) => `<span class="skill-item">${keyword}</span>`).join(' ')}
+          ${breakdown.keywords.matched.length > 0 ? `
+            <div style="margin: 10px 0;">
+              <strong style="color: #166534;">✓ Key Strengths:</strong><br>
+              ${breakdown.keywords.matched.map((keyword: string) => `<span class="skill-item skill-matched">✓ ${keyword}</span>`).join(' ')}
+            </div>
+          ` : ''}
+          ${breakdown.skills.missing.length > 0 ? `
+            <div style="margin: 10px 0;">
+              <strong style="color: #92400e;">✗ Areas for Improvement:</strong><br>
+              ${breakdown.skills.missing.map((keyword: string) => `<span class="skill-item skill-missing">✗ ${keyword}</span>`).join(' ')}
+            </div>
+          ` : ''}
         </div>
       </div>
 
       ${job.matchingSummary ? `
         <div class="summary-section">
-          <h3 style="margin-top: 0;">Match Summary</h3>
-          <p>${job.matchingSummary}</p>
+          <h3 style="margin-top: 0;">Match Analysis Summary</h3>
+          <p><strong>Hiring Recommendation:</strong><br>
+          ${job.matchingScore >= 70 && job.matchingSummary.includes("Do Not Proceed") 
+            ? `Standard Interview Process - Overall score: ${job.matchingScore}% (Good Match)`
+            : job.matchingSummary}</p>
+          <div style="margin-top: 10px; padding: 10px; background: #f8fafc; border-radius: 6px;">
+            <strong>Match Category:</strong> 
+            ${job.matchingScore >= 90 ? 'Exceptional Match' :
+              job.matchingScore >= 80 ? 'Strong Candidate' :
+              job.matchingScore >= 70 ? 'Good Potential' :
+              job.matchingScore >= 60 ? 'Fair Match' :
+              job.matchingScore >= 45 ? 'Weak Match' : 'Poor Match'}
+          </div>
         </div>
       ` : ''}
 

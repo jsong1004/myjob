@@ -45,7 +45,7 @@ Return JSON in this exact format:
   "proficiencyGaps": ["areas where proficiency is below required level"],
   "recommendations": ["specific technical improvements needed"]
 }`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.PRECISE,
     responseFormat: {
       type: 'json',
@@ -112,7 +112,7 @@ Return JSON in this exact format:
   "experienceGaps": ["specific experience deficiencies"],
   "recommendations": ["ways to gain relevant experience"]
 }`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.PRECISE,
     responseFormat: {
       type: 'json',
@@ -160,7 +160,7 @@ SCORING GUIDELINES:
 
 BE DEMANDING: Only candidates with clear, quantified impact should score highly.
 
-Return ONLY valid JSON. No explanatory text or markdown.`,
+Return ONLY valid JSON. No explanatory text or markdown. If you output anything else, repeat the JSON once more in a fenced json code block block.`,
     userTemplate: `Evaluate the candidate's achievements against the job requirements.
 
 JOB REQUIREMENTS:
@@ -169,7 +169,7 @@ JOB REQUIREMENTS:
 CANDIDATE RESUME:
 {resume}
 
-Return JSON in this exact format:
+Return JSON in this exact format (duplicate inside a fenced json code block block):
 {
   "categoryScore": number (0-100),
   "reasoning": "detailed explanation of score",
@@ -180,7 +180,7 @@ Return JSON in this exact format:
   "achievementGaps": ["areas lacking concrete results"],
   "recommendations": ["how to build stronger achievement portfolio"]
 }`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.PRECISE,
     responseFormat: {
       type: 'json',
@@ -247,7 +247,7 @@ Return JSON in this exact format:
   "educationGaps": ["missing educational requirements"],
   "recommendations": ["educational improvements and certifications to pursue"]
 }`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.PRECISE,
     responseFormat: {
       type: 'json',
@@ -314,7 +314,7 @@ Return JSON in this exact format:
   "softSkillGaps": ["areas needing improvement"],
   "recommendations": ["soft skill development suggestions"]
 }`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.PRECISE,
     responseFormat: {
       type: 'json',
@@ -381,7 +381,7 @@ Return JSON in this exact format:
   "progressionConcerns": ["red flags in career progression"],
   "recommendations": ["career development suggestions"]
 }`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.PRECISE,
     responseFormat: {
       type: 'json',
@@ -450,7 +450,7 @@ Return JSON in this exact format:
   "differentiators": ["what makes this candidate unique"],
   "roleRelevance": "how these strengths align with job requirements"
 }`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.BALANCED,
     responseFormat: {
       type: 'json',
@@ -518,7 +518,7 @@ Return JSON in this exact format:
   "riskAssessment": "overall risk these weaknesses pose to job success",
   "prioritization": "which weaknesses should be addressed first"
 }`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.BALANCED,
     responseFormat: {
       type: 'json',
@@ -634,7 +634,7 @@ Return JSON in this exact format:
     "scoringVersion": "3.0-multi-agent"
   }
 }`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.PRECISE,
     responseFormat: {
       type: 'json',

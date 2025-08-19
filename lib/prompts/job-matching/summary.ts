@@ -17,7 +17,7 @@ Jobs to summarize:
 Please respond with a JSON array where each object contains:
 - id: job identifier
 - summary: concise 2-3 sentence summary`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.BALANCED,
     responseFormat: {
       type: 'json',
@@ -57,7 +57,7 @@ Please respond with a JSON array where each object contains:
 - id: job identifier
 - summary: detailed summary
 - keyPoints: array of main highlights`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.BALANCED,
     responseFormat: {
       type: 'json',
@@ -99,7 +99,7 @@ Please respond with a JSON array where each object contains:
 - required: array of required skills
 - preferred: array of preferred skills
 - benefits: array of benefits (if any)`,
-    model: MODELS.GPT4O_MINI,
+    model: MODELS.GPT5_MINI,
     temperature: TEMPERATURE.BALANCED,
     responseFormat: {
       type: 'json',
